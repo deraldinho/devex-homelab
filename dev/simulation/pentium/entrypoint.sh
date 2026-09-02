@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s\n' "${DEVEX_NODE_ROLE}" > /state/role
+printf '%s\n' "${DEVEX_NODE_NAME}" > /state/name
+
+exec sleep infinity
