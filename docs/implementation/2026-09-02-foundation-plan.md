@@ -87,7 +87,8 @@
 
 **Deliverable:** workflow GREEN no HEAD exato usando `core-devex-homelab`.
 
-- [ ] Criar `.github/workflows/foundation-ci.yml`.
+- [x] Criar `.github/workflows/foundation-ci.yml` bootstrap em `ubuntu-latest` (Issue #17).
+- [ ] Migrar `foundation-ci.yml` para `core-devex-homelab` após certificação do runner.
 - [ ] Criar `.github/workflows/core-devex-homelab-certification.yml`.
 - [ ] Selecionar `[self-hosted, core, homelab, container, devex-homelab]`.
 - [ ] Validar runner name, workspace, Docker, Python, Git e Compose.
