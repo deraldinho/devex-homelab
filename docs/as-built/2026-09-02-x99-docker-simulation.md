@@ -75,3 +75,10 @@ O cleanup foi validado com zero containers, zero volumes e zero redes da stack a
 Nenhum container, volume ou rede da simulação deve permanecer ativo. As imagens locais podem permanecer em cache para acelerar execuções futuras.
 
 Nenhuma alteração operacional foi aplicada em Core ou Pentium nesta slice.
+
+## Review state
+
+- PR Draft: #16 — `feat(simulation): validar topologia lógica do HomeLab na x99`;
+- base: `foundation/issue-1-devex-homelab`;
+- ancestry validada sem restack pendente no momento da abertura;
+- merge permanece proibido até gates aplicáveis estarem GREEN no HEAD exato.

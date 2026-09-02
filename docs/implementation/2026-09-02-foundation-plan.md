@@ -60,7 +60,7 @@
 - [x] Aguardar ambos ficarem healthy.
 - [x] Validar comunicação lógica `sim-pentium -> sim-core` na rede interna da simulação.
 - [x] Derrubar o ambiente com `down -v --remove-orphans` e provar ausência de containers/volumes órfãos.
-- [ ] Abrir PR Draft empilhada sobre `foundation/issue-1-devex-homelab` e registrar `/checkpoint`.
+- [x] Abrir PR Draft empilhada sobre `foundation/issue-1-devex-homelab` e registrar `/checkpoint`.
 
 ### Task 4 — Stack do runner core-devex-homelab / Issue #8
 
