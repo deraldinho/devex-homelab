@@ -38,16 +38,17 @@
 
 **Deliverable:** Issues que representam o estado já construído e as próximas slices.
 
-- [x] Criar Issue Foundation/Governance.
-- [ ] Criar Issue Inventory/Baseline.
-- [ ] Criar Issue Tailscale Management Mesh.
-- [ ] Criar Issue Pentium Control Plane.
-- [ ] Criar Issue Core Compute Node.
-- [ ] Criar Issue Container-First Model.
-- [ ] Criar Issue Runner Platform by Project.
-- [ ] Criar Issue `core-devex-homelab`.
-- [ ] Criar Issue `core-l2jtoren` migration.
-- [ ] Criar Issues Monitoring, Backup/DR, Security e Capacity.
+- [x] Criar Issue Foundation/Governance (#1).
+- [x] Criar Issue Inventory/Baseline (#2).
+- [x] Criar Issue Tailscale Management Mesh (#3).
+- [x] Criar Issue Pentium Control Plane (#4).
+- [x] Criar Issue Core Compute Node (#5).
+- [x] Criar Issue Container-First Model (#6).
+- [x] Criar Issue Runner Platform by Project (#7).
+- [x] Criar Issue `core-devex-homelab` (#8).
+- [x] Criar Issue `core-l2jtoren` migration (#9).
+- [x] Criar Issues Monitoring (#10), Backup/DR (#11), Security (#12) e Capacity (#13).
+- [x] Registrar mapa e dependências em `docs/backlog/README.md`.
 
 ### Task 3 — Ambiente de simulação na x99
 
