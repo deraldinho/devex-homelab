@@ -34,35 +34,35 @@
 - [x] Adicionar `.gitignore`, `.gitattributes`, documentação foundation, templates de Issue/PR e política de checkpoint.
 - [x] Commit: `docs(foundation): establish DevEx HomeLab governance baseline`.
 
-### Task 2 — Backlog inicial e rastreabilidade
+### Task 2 — Backlog inicial e baseline observado
 
-**Deliverable:** Issues que representam o estado já construído e as próximas slices.
+**Deliverable:** Issues iniciais criadas e estado atual dos nós reconstruído antes da simulação.
 
-- [x] Criar Issue Foundation/Governance (#1).
-- [x] Criar Issue Inventory/Baseline (#2).
-- [x] Criar Issue Tailscale Management Mesh (#3).
-- [x] Criar Issue Pentium Control Plane (#4).
-- [x] Criar Issue Core Compute Node (#5).
-- [x] Criar Issue Container-First Model (#6).
-- [x] Criar Issue Runner Platform by Project (#7).
-- [x] Criar Issue `core-devex-homelab` (#8).
-- [x] Criar Issue `core-l2jtoren` migration (#9).
-- [x] Criar Issues Monitoring (#10), Backup/DR (#11), Security (#12) e Capacity (#13).
-- [x] Criar Issue x99 Docker Simulation (#14).
-- [x] Registrar mapa e dependências em `docs/backlog/README.md`.
+- [x] Criar Issues #1–#14 com dependências explícitas.
+- [x] Ler x99 sem alteração: Windows/WSL2, Docker/Compose, Tailscale e storage.
+- [x] Ler Core sem alteração: OS/kernel, CPU/RAM/storage, Docker/Compose, Tailscale, failed units e container de runner.
+- [x] Ler Pentium sem alteração: OS/kernel, CPU/RAM/storage, Tailscale, failed units, agent/timers e toolchain administrativa.
+- [x] Consultar GitHub Actions runners dos repositórios L2jToren e DevEx HomeLab.
+- [x] Atualizar `docs/as-built/2026-09-02-baseline.md` separando observed state de desired state/drift.
+- [x] Validar working copy limpa e `git diff --check` no HEAD da certificação.
 
-### Task 3 — Ambiente de simulação na x99 (#14)
+### Task 3 — Ambiente de simulação na x99 / Issue #14
 
 **Deliverable:** Compose de desenvolvimento que valida a topologia lógica sem depender dos hosts reais.
 
+- [ ] Criar branch `devex/issue-14-docker-simulation` a partir do baseline certificado.
 - [ ] Criar `dev/simulation/compose.yaml` com `sim-core` e `sim-pentium` mínimos.
-- [ ] Criar imagens base Ubuntu 26.04 para simulação.
-- [ ] Montar o repo read-only onde apropriado e volumes temporários para estado de teste.
+- [ ] Criar imagens base Ubuntu 26.04 para os dois papéis.
+- [ ] Montar o repositório read-only e volumes nomeados separados para estado de teste.
+- [ ] Adicionar health checks que validem role, workspace read-only e state writable.
 - [ ] Validar `docker compose config`.
-- [ ] Subir o ambiente e validar health checks.
-- [ ] Derrubar o ambiente sem deixar containers órfãos.
+- [ ] Construir imagens e subir os dois containers.
+- [ ] Aguardar ambos ficarem healthy.
+- [ ] Validar comunicação lógica `sim-pentium -> sim-core` na rede interna da simulação.
+- [ ] Derrubar o ambiente com `down -v --remove-orphans` e provar ausência de containers/volumes órfãos.
+- [ ] Abrir PR Draft empilhada sobre `foundation/issue-1-devex-homelab` e registrar `/checkpoint`.
 
-### Task 4 — Stack do runner core-devex-homelab
+### Task 4 — Stack do runner core-devex-homelab / Issue #8
 
 **Deliverable:** Dockerfile/Compose versionados e validados localmente.
 
@@ -109,18 +109,18 @@
 
 **Deliverable:** foundation rastreável e pronta para review.
 
-- [ ] Abrir Draft PR vinculada à Issue #1.
-- [ ] Confirmar HEAD exato e changed files.
-- [ ] Aguardar/validar todos os checks obrigatórios no mesmo SHA.
-- [ ] Adicionar `/checkpoint` em pt-BR.
-- [ ] Atualizar `docs/as-built/` com IDs/names/volumes/imagens reais não sensíveis.
+- [x] Abrir Draft PR #15 vinculada à Issue #1.
+- [ ] Confirmar HEAD exato e changed files após as slices da foundation.
+- [ ] Aguardar/validar todos os checks obrigatórios no mesmo SHA quando a CI existir.
+- [x] Registrar checkpoints intermediários em pt-BR.
+- [ ] Atualizar `docs/as-built/` com IDs/names/volumes/imagens finais da foundation.
 - [ ] Não fazer merge automático.
 
 ### Task 9 — Slice separada core-l2jtoren
 
 **Deliverable:** backlog pronto, sem alterar o runner L2jToren nesta foundation.
 
-- [ ] Registrar relação com PR #757 do L2jToren.
-- [ ] Definir migração `core -> core-l2jtoren` como PR independente.
+- [x] Registrar Issue #9 relacionando a migração com PR #757 do L2jToren.
+- [x] Definir migração `core -> core-l2jtoren` como slice independente.
 - [ ] Preservar x99 runner até certificação completa.
 - [ ] Não reutilizar GREEN de SHA anterior.
