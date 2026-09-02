@@ -1,6 +1,6 @@
 # Implementation Design — x99 Docker Simulation
 
-Issue: #14  
+Issue: #14
 PRD: `docs/prd/PRD-0014-x99-docker-simulation.md`
 
 ## Decisão

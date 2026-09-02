@@ -1,6 +1,6 @@
 # As-Built — Simulação Docker na x99
 
-Data: 2026-09-02  
+Data: 2026-09-02
 Issue: #14 — DevEx: simular topologia lógica na x99 com Docker
 
 ## Objetivo certificado

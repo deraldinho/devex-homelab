@@ -1,6 +1,6 @@
 # PRD-0014 — Simulação Docker da Topologia DevEx HomeLab
 
-Issue: #14  
+Issue: #14
 Status: Implementado / aguardando revisão da PR
 
 ## Problema
