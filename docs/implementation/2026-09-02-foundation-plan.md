@@ -50,16 +50,16 @@
 
 **Deliverable:** Compose de desenvolvimento que valida a topologia lógica sem depender dos hosts reais.
 
-- [ ] Criar branch `devex/issue-14-docker-simulation` a partir do baseline certificado.
-- [ ] Criar `dev/simulation/compose.yaml` com `sim-core` e `sim-pentium` mínimos.
-- [ ] Criar imagens base Ubuntu 26.04 para os dois papéis.
-- [ ] Montar o repositório read-only e volumes nomeados separados para estado de teste.
-- [ ] Adicionar health checks que validem role, workspace read-only e state writable.
-- [ ] Validar `docker compose config`.
-- [ ] Construir imagens e subir os dois containers.
-- [ ] Aguardar ambos ficarem healthy.
-- [ ] Validar comunicação lógica `sim-pentium -> sim-core` na rede interna da simulação.
-- [ ] Derrubar o ambiente com `down -v --remove-orphans` e provar ausência de containers/volumes órfãos.
+- [x] Criar branch `devex/issue-14-docker-simulation` a partir do baseline certificado.
+- [x] Criar `dev/simulation/compose.yaml` com `sim-core` e `sim-pentium` mínimos.
+- [x] Criar imagens base Ubuntu 26.04 para os dois papéis.
+- [x] Montar o repositório read-only e volumes nomeados separados para estado de teste.
+- [x] Adicionar health checks que validem role, workspace read-only e state writable.
+- [x] Validar `docker compose config`.
+- [x] Construir imagens e subir os dois containers.
+- [x] Aguardar ambos ficarem healthy.
+- [x] Validar comunicação lógica `sim-pentium -> sim-core` na rede interna da simulação.
+- [x] Derrubar o ambiente com `down -v --remove-orphans` e provar ausência de containers/volumes órfãos.
 - [ ] Abrir PR Draft empilhada sobre `foundation/issue-1-devex-homelab` e registrar `/checkpoint`.
 
 ### Task 4 — Stack do runner core-devex-homelab / Issue #8
