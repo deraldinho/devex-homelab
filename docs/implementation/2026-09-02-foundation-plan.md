@@ -48,9 +48,10 @@
 - [x] Criar Issue `core-devex-homelab` (#8).
 - [x] Criar Issue `core-l2jtoren` migration (#9).
 - [x] Criar Issues Monitoring (#10), Backup/DR (#11), Security (#12) e Capacity (#13).
+- [x] Criar Issue x99 Docker Simulation (#14).
 - [x] Registrar mapa e dependências em `docs/backlog/README.md`.
 
-### Task 3 — Ambiente de simulação na x99
+### Task 3 — Ambiente de simulação na x99 (#14)
 
 **Deliverable:** Compose de desenvolvimento que valida a topologia lógica sem depender dos hosts reais.
 

@@ -17,17 +17,21 @@ Este backlog reconstrói o trabalho já realizado no homelab e separa as próxim
 | #11 | Backup / DR | backup, restore e recuperação |
 | #12 | Security | hardening, secrets e fronteiras privilegiadas |
 | #13 | Capacity | budgets e concorrência do Core |
+| #14 | x99 Docker Simulation | topologia lógica `sim-core` + `sim-pentium` |
 
 ## Dependências principais
 
 ```mermaid
 flowchart TD
     I1[#1 Foundation] --> I2[#2 Baseline]
+    I1 --> I14[#14 x99 Simulation]
+    I2 --> I14
     I2 --> I3[#3 Tailscale]
     I2 --> I5[#5 Core]
     I5 --> I6[#6 Container-first]
     I6 --> I7[#7 Runner Platform]
-    I7 --> I8[#8 core-devex-homelab]
+    I14 --> I8[#8 core-devex-homelab]
+    I7 --> I8
     I8 --> I9[#9 core-l2jtoren]
     I3 --> I4[#4 Pentium Control Plane]
     I7 --> I4
