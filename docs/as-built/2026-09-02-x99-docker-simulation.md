@@ -45,6 +45,7 @@ A simulação implementa:
 - `/workspace`: mount read-only;
 - `/state`: writable e isolado por nó;
 - comunicação Pentium → Core retorna `DEVEX_SIM_CORE_OK`;
+- oito probes concorrentes Pentium → Core completam sem falhas;
 - ambos atingem estado `healthy` antes da certificação.
 
 ## Evidência automatizada
@@ -57,6 +58,7 @@ bash dev/simulation/verify.sh
 A execução completa deve terminar com:
 
 ```text
+DEVEX_SIMULATION_CONCURRENCY_PASS
 DEVEX_SIMULATION_RUNTIME_PASS
 DEVEX_SIMULATION_CLEANUP_PASS
 DEVEX_HOMELAB_SIMULATION_PASS
@@ -69,6 +71,7 @@ O cleanup foi validado com zero containers, zero volumes e zero redes da stack a
 1. `ubuntu:26.04` já possui UID/GID 1000 no usuário `ubuntu`; a tentativa inicial de `useradd --uid 1000` falhou corretamente. A implementação reutiliza o usuário existente.
 2. Git Bash/MSYS converte caminhos `/...` ao chamar executáveis Windows. `verify.sh` define `MSYS_NO_PATHCONV=1` para preservar paths internos de containers.
 3. A validação negativa por `touch` em mount read-only gerou stderr esperado que PowerShell tratou como exceção. O contrato passou a ser validado pelo metadata `RW=false` do mount, sem depender de erro proposital.
+4. O listener `nc -l` atendia uma conexão por vez e competia com health checks/probes. Stress reproduziu 19 falhas em 20 conexões concorrentes; o Core simulado passou a usar `socat` com `fork`, e o mesmo stress fechou com 0/20 falhas.
 
 ## Estado pós-certificação
 

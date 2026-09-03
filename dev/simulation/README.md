@@ -21,6 +21,7 @@ As duas imagens usam `ubuntu:26.04` e o usuário já existente `ubuntu` (UID/GID
 - `/state` é writable e isolado por nó;
 - roles são `homelab.compute` e `homelab.control`;
 - `sim-pentium` alcança `sim-core` pela rede interna e recebe `DEVEX_SIM_CORE_OK`;
+- oito probes concorrentes Pentium → Core devem responder sem falhas;
 - teardown remove containers, volumes e rede da simulação.
 
 ## Execução na x99
@@ -34,6 +35,7 @@ bash dev/simulation/verify.sh
 O sucesso completo termina com:
 
 ```text
+DEVEX_SIMULATION_CONCURRENCY_PASS
 DEVEX_SIMULATION_RUNTIME_PASS
 DEVEX_SIMULATION_CLEANUP_PASS
 DEVEX_HOMELAB_SIMULATION_PASS

@@ -13,7 +13,7 @@ A simulação usa Docker Compose com dois serviços persistentes apenas durante 
 
 - base `ubuntu:26.04`;
 - papel `homelab.compute`;
-- listener TCP interno na porta 19090;
+- listener TCP interno na porta 8080, servido por `socat` com `fork`;
 - `/workspace` read-only;
 - `/state` em volume próprio;
 - usuário `ubuntu` UID/GID 1000.
@@ -51,13 +51,16 @@ Cada serviço só fica healthy quando:
 4. inspeção de UID, role e mount `RW=false`;
 5. prova de escrita em `/state`;
 6. probe Pentium → Core;
-7. `down -v --remove-orphans`;
-8. prova de cleanup completo.
+7. oito probes concorrentes para detectar regressão de listener single-connection;
+8. `down -v --remove-orphans`;
+9. prova de cleanup completo.
 ## Compatibilidade x99
 
 Git Bash/MSYS converte caminhos Unix antes de passá-los ao `docker.exe`. O verificador define `MSYS_NO_PATHCONV=1` para preservar argumentos como `/state/role` e `/workspace`.
 
 A imagem Ubuntu 26.04 já contém `ubuntu:x:1000:1000`; por isso o design reutiliza esse usuário em vez de criar um segundo UID 1000.
+
+O listener usa `socat TCP-LISTEN:8080,reuseaddr,fork` para que health checks e probes possam ocorrer em paralelo sem disputar um listener single-connection.
 
 ## Falhas e cleanup
 

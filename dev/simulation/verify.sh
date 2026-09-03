@@ -59,6 +59,19 @@ pentium_workspace_rw="$(docker inspect --format '{{range .Mounts}}{{if eq .Desti
 probe="$(docker compose exec -T sim-pentium sh -c 'printf probe | nc -w 2 sim-core 8080' | tr -d '\r')"
 [[ "${probe}" == "DEVEX_SIM_CORE_OK" ]]
 
+pids=()
+for _ in {1..8}; do
+  (
+    result="$(docker compose exec -T sim-pentium sh -c 'printf probe | nc -w 2 sim-core 8080' | tr -d '\r')"
+    [[ "${result}" == "DEVEX_SIM_CORE_OK" ]]
+  ) &
+  pids+=("$!")
+done
+for pid in "${pids[@]}"; do
+  wait "${pid}"
+done
+
+printf 'DEVEX_SIMULATION_CONCURRENCY_PASS\n'
 printf 'DEVEX_SIMULATION_RUNTIME_PASS\n'
 
 cleanup
