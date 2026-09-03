@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Observed-state heartbeat for the Pentium control plane."""
 
 from __future__ import annotations
@@ -77,8 +77,11 @@ def check_database(path: Path) -> dict[str, Any]:
         return {"ok": False, "required": True, "detail": "database=missing"}
     try:
         uri = f"file:{path.resolve()}?mode=ro"
-        with sqlite3.connect(uri, uri=True, timeout=2.0) as connection:
+        connection = sqlite3.connect(uri, uri=True, timeout=2.0)
+        try:
             row = connection.execute("PRAGMA quick_check").fetchone()
+        finally:
+            connection.close()
     except sqlite3.Error as exc:
         return {"ok": False, "required": True, "detail": f"sqlite={exc}"}
     value = row[0] if row else "no-result"
@@ -321,3 +324,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

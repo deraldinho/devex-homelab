@@ -1,4 +1,4 @@
-import json
+﻿import json
 import sqlite3
 import sys
 import unittest
@@ -31,8 +31,12 @@ class HeartbeatContractTests(unittest.TestCase):
     def test_sqlite_quick_check_accepts_healthy_control_database(self):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "control.db"
-            with sqlite3.connect(path) as connection:
+            connection = sqlite3.connect(path)
+            try:
                 connection.execute("create table heartbeat_probe(id integer primary key)")
+                connection.commit()
+            finally:
+                connection.close()
             result = heartbeat.check_database(path)
         self.assertTrue(result["ok"])
         self.assertEqual(result["detail"], "quick_check=ok")
@@ -103,3 +107,4 @@ class HeartbeatContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
