@@ -56,6 +56,21 @@ jobs:
             exit 1
           fi
 
+      - name: Validar contrato da rede de gerenciamento
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f infrastructure/network/tests/test_health.py ]]; then
+            python3 -m py_compile infrastructure/network/health.py
+            python3 -m unittest discover \
+              -s infrastructure/network/tests \
+              -p 'test_*.py' \
+              -v
+            echo 'DEVEX_HOMELAB_NETWORK_CONTRACT_PASS'
+          else
+            echo 'NETWORK_CONTRACT_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
       - name: Validar simulação quando disponível
         shell: bash
         run: |
