@@ -75,14 +75,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -d infrastructure/pentium/heartbeat/tests ]]; then
-            if [[ -f infrastructure/pentium/heartbeat/heartbeat.py ]]; then
-              python3 -m py_compile infrastructure/pentium/heartbeat/heartbeat.py
-            fi
+          heartbeat='infrastructure/pentium/heartbeat'
+          if [[ -d "$heartbeat/tests" ]]; then
+            python3 -m py_compile "$heartbeat/heartbeat.py"
+            python3 -m json.tool "$heartbeat/config.json" >/dev/null
             python3 -m unittest discover \
-              -s infrastructure/pentium/heartbeat/tests \
+              -s "$heartbeat/tests" \
               -p 'test_*.py' \
               -v
+            if command -v systemd-analyze >/dev/null 2>&1; then
+              systemd-analyze verify \
+                "$heartbeat/systemd/pentium-heartbeat.service" \
+                "$heartbeat/systemd/pentium-heartbeat.timer"
+            fi
             echo 'DEVEX_HOMELAB_PENTIUM_HEARTBEAT_PASS'
           else
             echo 'PENTIUM_HEARTBEAT_NOT_PRESENT_ON_THIS_STACK_LAYER'
