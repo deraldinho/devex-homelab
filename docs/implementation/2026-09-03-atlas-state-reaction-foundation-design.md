@@ -150,3 +150,20 @@ Cobertura mínima:
 2. `git diff --check`;
 3. Foundation CI GREEN no HEAD exato;
 4. somente depois, próxima slice adiciona Audio Engine e certificação física de playback no Pentium.
+
+## Certificação física — 2026-09-03
+
+A promoção física da slice foi executada no host `pentium` após Foundation CI GREEN do SHA `8d912927d5dd9ac122920495b0bded7ee7c71a8f`.
+
+Evidências observadas no host real:
+
+- installer user-level concluiu com `ATLAS_STATE_REACTION_INSTALL_PASS`;
+- instalação em `~/pentium-agent/atlas/`, sem `sudo`, systemd, rede, LLM, STT, TTS ou playback;
+- snapshot saudável retornou `state=healthy`, `intensity=0` e reação `healthy.tech.02`;
+- snapshot crítico retornou `state=critical`, `intensity=4` e reação canônica `critical.canonical`;
+- meme crítico permaneceu campo secundário (`meme.critical.01`) e não substituiu a reação canônica;
+- o smoke concluiu com `ATLAS_PHYSICAL_SMOKE_PASS`;
+- `~/pentium-agent/atlas-events.jsonl` recebeu duas linhas JSONL parseáveis, com timestamps `2026-09-03T20:49:56-03:00`;
+- razões preservadas: `pentium:pentium.ok`, `core:core.ok` e `core:core.offline`.
+
+O gate físico desta slice está satisfeito. Playback de áudio permanece fora de escopo e pertence à próxima vertical, Audio Engine.
