@@ -114,6 +114,24 @@ jobs:
             echo 'PENTIUM_AGENT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
+      - name: Validate Atlas State Reaction Foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          atlas='infrastructure/pentium/atlas'
+          if [[ -d "$atlas/tests" ]]; then
+            python3 -m py_compile "$atlas/state_model.py" "$atlas/health_engine.py" "$atlas/reaction_engine.py" "$atlas/journal.py" "$atlas/cli.py"
+            python3 -m json.tool "$atlas/config.json" >/dev/null
+            python3 -m unittest discover -s "$atlas/tests" -p 'test_*.py' -v
+            python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/healthy.json" >/tmp/atlas-healthy.json
+            python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/critical.json" >/tmp/atlas-critical.json
+            python3 -c "import json,pathlib; h=json.loads(pathlib.Path('/tmp/atlas-healthy.json').read_text()); c=json.loads(pathlib.Path('/tmp/atlas-critical.json').read_text()); assert h['assessment']['state']=='healthy'; assert c['assessment']['state']=='critical'; assert c['reaction']['reaction_id']=='critical.canonical'"
+            bash -n "$atlas/install-user.sh"
+            echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
+          else
+            echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
       - name: Validar simulação quando disponível
         shell: bash
         run: |

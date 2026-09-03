@@ -1,9 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from infrastructure.pentium.atlas.state_model import GlobalAssessment, ReactionDecision
+from .state_model import GlobalAssessment, ReactionDecision
 
 
 class JournalError(RuntimeError):

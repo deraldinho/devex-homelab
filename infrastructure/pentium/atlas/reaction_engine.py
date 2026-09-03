@@ -1,9 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
 
-from infrastructure.pentium.atlas.state_model import GlobalAssessment, ReactionDecision, TechnicalState
+from .state_model import GlobalAssessment, ReactionDecision, TechnicalState
 
 
 class ReactionEngine:

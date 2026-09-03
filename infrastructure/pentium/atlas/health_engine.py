@@ -1,6 +1,6 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from infrastructure.pentium.atlas.state_model import GlobalAssessment, Signal, TechnicalState
+from .state_model import GlobalAssessment, Signal, TechnicalState
 
 
 _SEVERITY = {

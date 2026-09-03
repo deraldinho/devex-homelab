@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
@@ -9,10 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TextIO
 
-from infrastructure.pentium.atlas.health_engine import assess
-from infrastructure.pentium.atlas.journal import JournalError, append_event
-from infrastructure.pentium.atlas.reaction_engine import ReactionEngine
-from infrastructure.pentium.atlas.state_model import Signal, TechnicalState
+from .health_engine import assess
+from .journal import JournalError, append_event
+from .reaction_engine import ReactionEngine
+from .state_model import Signal, TechnicalState
 
 
 _CONFIG_PATH = Path(__file__).with_name("config.json")
