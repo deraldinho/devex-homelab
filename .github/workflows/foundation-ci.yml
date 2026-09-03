@@ -71,6 +71,23 @@ jobs:
             echo 'NETWORK_CONTRACT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
+      - name: Validar heartbeat do Pentium quando disponível
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -d infrastructure/pentium/heartbeat/tests ]]; then
+            if [[ -f infrastructure/pentium/heartbeat/heartbeat.py ]]; then
+              python3 -m py_compile infrastructure/pentium/heartbeat/heartbeat.py
+            fi
+            python3 -m unittest discover \
+              -s infrastructure/pentium/heartbeat/tests \
+              -p 'test_*.py' \
+              -v
+            echo 'DEVEX_HOMELAB_PENTIUM_HEARTBEAT_PASS'
+          else
+            echo 'PENTIUM_HEARTBEAT_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
       - name: Validar simulação quando disponível
         shell: bash
         run: |
