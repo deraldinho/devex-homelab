@@ -93,6 +93,21 @@ jobs:
             echo 'PENTIUM_HEARTBEAT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
+      - name: Validar Pentium Agent quando disponível
+        shell: bash
+        run: |
+          set -euo pipefail
+          agent='infrastructure/pentium/agent'
+          if [[ -d "$agent/tests" ]]; then
+            python3 -m unittest discover \
+              -s "$agent/tests" \
+              -p 'test_*.py' \
+              -v
+            echo 'DEVEX_HOMELAB_PENTIUM_AGENT_PASS'
+          else
+            echo 'PENTIUM_AGENT_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
       - name: Validar simulação quando disponível
         shell: bash
         run: |
