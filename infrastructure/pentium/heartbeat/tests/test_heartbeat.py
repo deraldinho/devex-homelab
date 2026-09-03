@@ -1,4 +1,4 @@
-﻿import json
+import json
 import sqlite3
 import sys
 import unittest
@@ -107,4 +107,3 @@ class HeartbeatContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
