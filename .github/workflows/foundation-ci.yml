@@ -99,6 +99,12 @@ jobs:
           set -euo pipefail
           agent='infrastructure/pentium/agent'
           if [[ -d "$agent/tests" ]]; then
+            python3 -m py_compile \
+              "$agent/agent.py" \
+              "$agent/cli.py" \
+              "$agent/ssh_transport.py" \
+              "$agent/actions/x99_status.py"
+            python3 -m json.tool "$agent/config.json" >/dev/null
             python3 -m unittest discover \
               -s "$agent/tests" \
               -p 'test_*.py' \
