@@ -17,6 +17,21 @@ IngestResult NodeAgentRuntime::ingest_line(const std::string& line) {
   return {pushed.accepted, pushed.reason, pushed.evicted_event_id};
 }
 
+IngestResult NodeAgentRuntime::ingest_line_for_project(
+    const std::string& authenticated_project_id,
+    const std::string& line) {
+  if (!policies_.find(authenticated_project_id))
+    return {false, "unknown_authenticated_project", std::nullopt};
+  if (line.size() > max_message_bytes_)
+    return {false, "message_too_large", std::nullopt};
+  auto parsed = parse_local_event(line, policies_);
+  if (!parsed.event) return {false, parsed.error, std::nullopt};
+  if (parsed.event->project_id != authenticated_project_id)
+    return {false, "project_identity_mismatch", std::nullopt};
+  auto pushed = queue_.push(*parsed.event);
+  return {pushed.accepted, pushed.reason, pushed.evicted_event_id};
+}
+
 std::optional<LocalEvent> NodeAgentRuntime::pop_event() {
   return queue_.pop();
 }
@@ -24,6 +39,7 @@ std::optional<LocalEvent> NodeAgentRuntime::pop_event() {
 HostVitals NodeAgentRuntime::collect_vitals(std::string captured_at) {
   return vitals_.collect(std::move(captured_at));
 }
+
 std::size_t NodeAgentRuntime::queue_size() const noexcept {
   return queue_.size();
 }

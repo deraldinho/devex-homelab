@@ -69,3 +69,12 @@ if(BUILD_TESTING)
     "ATLAS/1|proj|e1|recuperacao|recovery|ok")
   set_tests_properties(atlas-node-agent-cli-validate PROPERTIES PASS_REGULAR_EXPRESSION "accepted=true")
 endif()
+
+if(BUILD_TESTING)
+  add_executable(atlas-node-agent-security-retry-tests tests/security_retry_tests.cpp)
+  target_link_libraries(atlas-node-agent-security-retry-tests PRIVATE atlas_node_agent_core)
+  add_test(NAME atlas-node-agent-security-retry-tests COMMAND atlas-node-agent-security-retry-tests)
+endif()
+
+install(TARGETS atlas-node-agent RUNTIME DESTINATION bin)
+install(FILES config/agent.conf.example DESTINATION share/atlas-node-agent)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <deque>
 #include <optional>
@@ -21,6 +22,13 @@ struct QueueMetrics {
   std::size_t dropped{};
   std::size_t deduplicated{};
 };
+
+struct RetryPolicy {
+  std::chrono::milliseconds initial_delay;
+  std::chrono::milliseconds max_delay;
+};
+
+std::chrono::milliseconds retry_delay(std::size_t failure_count, RetryPolicy policy);
 
 class BoundedPriorityQueue {
  public:

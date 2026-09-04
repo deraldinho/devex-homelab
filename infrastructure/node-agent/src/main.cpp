@@ -56,6 +56,7 @@ int validate_command(const std::string& config_path, const std::string& line) {
 }
 int listen_once_command(
     const std::string& config_path,
+    const std::string& authenticated_project_id,
     const std::string& endpoint,
     std::chrono::milliseconds timeout) {
   auto config = load_agent_config(config_path);
@@ -66,7 +67,8 @@ int listen_once_command(
     std::cout << "accepted=false reason=ipc_" << received.error << '\n';
     return EXIT_FAILURE;
   }
-  const auto result = runtime.ingest_line(*received.message);
+  const auto result = runtime.ingest_line_for_project(
+      authenticated_project_id, *received.message);
   std::cout << "accepted=" << (result.accepted ? "true" : "false")
             << " reason=" << result.reason;
   if (result.evicted_event_id) std::cout << " evicted=" << *result.evicted_event_id;
@@ -77,7 +79,7 @@ int listen_once_command(
 void usage() {
   std::cout << "atlas-node-agent --vitals <disk-path>\n"
             << "atlas-node-agent --validate <config> <message>\n"
-            << "atlas-node-agent --listen-once <config> <endpoint> <timeout-ms>\n";
+            << "atlas-node-agent --listen-once <config> <project-id> <endpoint> <timeout-ms>\n";
 }
 }  // namespace
 
@@ -89,11 +91,11 @@ int main(int argc, char** argv) {
     if (argc == 4 && std::string(argv[1]) == "--validate") {
       return validate_command(argv[2], argv[3]);
     }
-    if (argc == 5 && std::string(argv[1]) == "--listen-once") {
-      const auto timeout_ms = std::stoll(argv[4]);
+    if (argc == 6 && std::string(argv[1]) == "--listen-once") {
+      const auto timeout_ms = std::stoll(argv[5]);
       if (timeout_ms <= 0) throw std::runtime_error("timeout must be > 0");
       return listen_once_command(
-          argv[2], argv[3], std::chrono::milliseconds(timeout_ms));
+          argv[2], argv[3], argv[4], std::chrono::milliseconds(timeout_ms));
     }
     usage();
     return argc == 1 ? EXIT_SUCCESS : 2;

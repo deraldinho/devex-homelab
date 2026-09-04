@@ -22,10 +22,14 @@ class NodeAgentRuntime {
   NodeAgentRuntime(AgentConfig config, std::unique_ptr<SystemProbe> probe);
 
   IngestResult ingest_line(const std::string& line);
+  IngestResult ingest_line_for_project(
+      const std::string& authenticated_project_id,
+      const std::string& line);
   std::optional<LocalEvent> pop_event();
   HostVitals collect_vitals(std::string captured_at);
   std::size_t queue_size() const noexcept;
   std::size_t max_message_bytes() const noexcept;
+
  private:
   PolicySet policies_;
   BoundedPriorityQueue queue_;
