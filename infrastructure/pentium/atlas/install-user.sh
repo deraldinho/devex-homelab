@@ -34,11 +34,16 @@ for file in \
   correlacionador_incidentes.py \
   pipeline_percepcao_correlacao.py \
   persistencia_percepcao_correlacao.py \
+  modelo_foco.py \
+  motor_foco.py \
+  emocao_derivada.py \
+  contexto_foco_emocao.py \
+  persistencia_foco_emocao.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
 
-for config in config.json observation_config.json config_afetiva.json config_percepcao.json; do
+for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
 
@@ -68,16 +73,23 @@ python3 -m py_compile \
   "${TARGET_DIR}/correlacionador_incidentes.py" \
   "${TARGET_DIR}/pipeline_percepcao_correlacao.py" \
   "${TARGET_DIR}/persistencia_percepcao_correlacao.py" \
+  "${TARGET_DIR}/modelo_foco.py" \
+  "${TARGET_DIR}/motor_foco.py" \
+  "${TARGET_DIR}/emocao_derivada.py" \
+  "${TARGET_DIR}/contexto_foco_emocao.py" \
+  "${TARGET_DIR}/persistencia_foco_emocao.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/observation_config.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_afetiva.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_percepcao.json" >/dev/null
+python3 -m json.tool "${TARGET_DIR}/config_foco_emocao.json" >/dev/null
 
 echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A1_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A2_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A3_INSTALL_PASS"
+echo "ATLAS_AFETIVO_A4_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"

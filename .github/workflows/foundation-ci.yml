@@ -146,11 +146,17 @@ jobs:
               "$atlas/correlacionador_incidentes.py" \
               "$atlas/pipeline_percepcao_correlacao.py" \
               "$atlas/persistencia_percepcao_correlacao.py" \
+              "$atlas/modelo_foco.py" \
+              "$atlas/motor_foco.py" \
+              "$atlas/emocao_derivada.py" \
+              "$atlas/contexto_foco_emocao.py" \
+              "$atlas/persistencia_foco_emocao.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
             python3 -m json.tool "$atlas/config_afetiva.json" >/dev/null
             python3 -m json.tool "$atlas/config_percepcao.json" >/dev/null
+            python3 -m json.tool "$atlas/config_foco_emocao.json" >/dev/null
             python3 -m unittest discover -s "$atlas/tests" -p 'test_*.py' -v
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/healthy.json" >/tmp/atlas-healthy.json
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/critical.json" >/tmp/atlas-critical.json
@@ -161,6 +167,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A3_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A4_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi

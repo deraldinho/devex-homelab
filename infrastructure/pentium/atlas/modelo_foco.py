@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import math
 from dataclasses import dataclass
@@ -83,4 +83,3 @@ class FocoAtencao:
             vistos.add(item.assunto_id)
             itens.append(item)
         object.__setattr__(self, "secundarios", tuple(itens[: self.capacidade_secundarios]))
-
