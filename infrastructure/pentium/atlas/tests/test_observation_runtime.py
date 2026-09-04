@@ -125,3 +125,187 @@ class ObservationRuntimeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+from infrastructure.pentium.atlas.observation_runtime import (
+    SourceSchedule,
+    load_observation_config,
+)
+
+
+class RepeatingSource:
+    def __init__(self, name, result):
+        self.name = name
+        self.result = result
+        self.calls = 0
+
+    def poll(self):
+        self.calls += 1
+        return self.result
+
+
+class FakeStopEvent:
+    def __init__(self, stopped=False):
+        self.stopped = stopped
+
+    def is_set(self):
+        return self.stopped
+
+    def set(self):
+        self.stopped = True
+
+
+class ObservationSchedulingTests(unittest.TestCase):
+    def test_cycle_isolates_timeout_and_passes_source_timeout(self):
+        clock = FakeClock(0.0)
+        slow = RepeatingSource("slow", snapshot())
+        fast = RepeatingSource("fast", snapshot())
+        calls = []
+
+        def runner(source, timeout):
+            calls.append((source.name, timeout))
+            if source.name == "slow":
+                raise TimeoutError("bounded")
+            return source.poll()
+        runtime = ObservationRuntime(
+            sources=[slow, fast],
+            bus=StimulusBus(capacity=16),
+            journal=lambda stimulus: None,
+            clock=clock,
+            monotonic_clock=clock,
+            poll_runner=runner,
+            schedule={
+                "slow": SourceSchedule(10.0, 0.5, 40.0),
+                "fast": SourceSchedule(10.0, 0.25, 40.0),
+            },
+        )
+        next_sleep = runtime.run_scheduled_cycle()
+        self.assertEqual(calls, [("slow", 0.5), ("fast", 0.25)])
+        self.assertEqual(fast.calls, 1)
+        self.assertEqual(next_sleep, 10.0)
+
+    def test_failure_backoff_is_exponential_and_capped(self):
+        clock = FakeClock(0.0)
+        source = RepeatingSource("slow", snapshot())
+
+        def runner(source, timeout):
+            raise TimeoutError("bounded")
+
+        runtime = ObservationRuntime(
+            sources=[source],
+            bus=StimulusBus(capacity=16),
+            journal=lambda stimulus: None,
+            clock=clock,
+            monotonic_clock=clock,
+            poll_runner=runner,
+            schedule={"slow": SourceSchedule(10.0, 0.5, 25.0)},
+        )
+        self.assertEqual(runtime.run_scheduled_cycle(), 20.0)
+        clock.advance(20.0)
+        self.assertEqual(runtime.run_scheduled_cycle(), 25.0)
+        clock.advance(25.0)
+        self.assertEqual(runtime.run_scheduled_cycle(), 25.0)
+
+    def test_run_forever_sleeps_positive_delay_and_stops_cleanly(self):
+        clock = FakeClock(0.0)
+        source = RepeatingSource("core", snapshot())
+        stop = FakeStopEvent()
+        sleeps = []
+
+        def sleeper(seconds):
+            sleeps.append(seconds)
+            stop.set()
+
+        runtime = ObservationRuntime(
+            sources=[source],
+            bus=StimulusBus(capacity=16),
+            journal=lambda stimulus: None,
+            clock=clock,
+            monotonic_clock=clock,
+            sleeper=sleeper,
+            poll_runner=lambda source, timeout: source.poll(),
+            schedule={"core": SourceSchedule(5.0, 0.5, 20.0)},
+        )
+        runtime.run_forever(stop)
+        self.assertEqual(source.calls, 1)
+        self.assertEqual(sleeps, [5.0])
+
+    def test_run_forever_does_nothing_when_already_stopped(self):
+        source = RepeatingSource("core", snapshot())
+        runtime = ObservationRuntime(
+            sources=[source],
+            bus=StimulusBus(capacity=16),
+            journal=lambda stimulus: None,
+            schedule={"core": SourceSchedule(5.0, 0.5, 20.0)},
+        )
+        runtime.run_forever(FakeStopEvent(stopped=True))
+        self.assertEqual(source.calls, 0)
+
+    def test_load_observation_config_validates_schedule_contract(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        payload = {
+            "schema_version": 1,
+            "sources": {
+                "core": {
+                    "interval_seconds": 10,
+                    "timeout_seconds": 2,
+                    "max_backoff_seconds": 40,
+                    "jitter_seconds": 0,
+                }
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "observation.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            loaded = load_observation_config(path)
+        self.assertEqual(loaded["core"], SourceSchedule(10.0, 2.0, 40.0, 0.0))
+
+        payload["sources"]["core"]["interval_seconds"] = 0
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "observation.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                load_observation_config(path)
+
+    def test_repository_observation_config_covers_initial_sources(self):
+        from pathlib import Path
+
+        config_path = Path(__file__).resolve().parents[1] / "observation_config.json"
+        schedules = load_observation_config(config_path)
+        self.assertEqual(set(schedules), {"pentium.self", "core", "x99"})
+        self.assertLessEqual(schedules["pentium.self"].timeout_seconds, 5.0)
+        self.assertLessEqual(schedules["core"].timeout_seconds, 8.0)
+        self.assertLessEqual(schedules["x99"].timeout_seconds, 8.0)
+
+    def test_timeout_does_not_start_overlapping_poll_for_same_source(self):
+        import threading
+
+        release = threading.Event()
+
+        class BlockingSource:
+            name = "core"
+
+            def __init__(self):
+                self.calls = 0
+
+            def poll(self):
+                self.calls += 1
+                release.wait(1.0)
+                return snapshot()
+
+        source = BlockingSource()
+        runtime = ObservationRuntime(
+            sources=[source],
+            bus=StimulusBus(capacity=16),
+            journal=lambda stimulus: None,
+            schedule={"core": SourceSchedule(1.0, 0.01, 4.0)},
+        )
+        try:
+            runtime.run_once("core")
+            runtime.run_once("core")
+            self.assertEqual(source.calls, 1)
+        finally:
+            release.set()

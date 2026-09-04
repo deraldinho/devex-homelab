@@ -1,14 +1,85 @@
 from __future__ import annotations
 
+import json
+import random
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable
+from pathlib import Path
+from typing import Callable, Mapping
 
 from .stimulus_bus import StimulusBus
 from .stimulus_model import Stimulus, StimulusSeverity, compute_novelty, stable_fingerprint
 from .stimulus_sources import SourceSnapshot, StimulusSource
+
+
+@dataclass(frozen=True)
+class SourceSchedule:
+    interval_seconds: float
+    timeout_seconds: float
+    max_backoff_seconds: float
+    jitter_seconds: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.interval_seconds <= 0 or self.timeout_seconds <= 0:
+            raise ValueError("interval_seconds and timeout_seconds must be > 0")
+        if self.max_backoff_seconds < self.interval_seconds:
+            raise ValueError("max_backoff_seconds must be >= interval_seconds")
+        if self.jitter_seconds < 0:
+            raise ValueError("jitter_seconds must be >= 0")
+
+
+def load_observation_config(path: Path) -> dict[str, SourceSchedule]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != 1:
+        raise ValueError("observation config schema_version must be 1")
+    sources = payload.get("sources")
+    if not isinstance(sources, dict) or not sources:
+        raise ValueError("observation config must contain sources")
+    schedules: dict[str, SourceSchedule] = {}
+    for name, item in sources.items():
+        if not isinstance(item, dict):
+            raise ValueError(f"source {name!r} schedule must be an object")
+        try:
+            schedules[str(name)] = SourceSchedule(
+                float(item["interval_seconds"]),
+                float(item["timeout_seconds"]),
+                float(item["max_backoff_seconds"]),
+                float(item.get("jitter_seconds", 0.0)),
+            )
+        except KeyError as exc:
+            raise ValueError(f"source {name!r} schedule missing {exc.args[0]}") from exc
+    return schedules
+
+
+class _BoundedPollSupervisor:
+    def __init__(self, source_names):
+        self._executors = {
+            name: ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"atlas-{name}")
+            for name in source_names
+        }
+        self._active = {}
+
+    def poll(self, source: StimulusSource, timeout: float) -> SourceSnapshot:
+        future = self._active.get(source.name)
+        if future is not None and not future.done():
+            raise TimeoutError(f"source {source.name} poll already in flight")
+        if future is None:
+            future = self._executors[source.name].submit(source.poll)
+            self._active[source.name] = future
+        try:
+            return future.result(timeout=timeout)
+        except FutureTimeoutError as exc:
+            raise TimeoutError(f"source {source.name} poll timed out") from exc
+        finally:
+            if future.done():
+                self._active.pop(source.name, None)
+
+    def close(self) -> None:
+        for executor in self._executors.values():
+            executor.shutdown(wait=False, cancel_futures=True)
 
 
 @dataclass
@@ -31,6 +102,11 @@ class ObservationRuntime:
         clock: Callable[[], float] = time.time,
         id_factory: Callable[[], str] = lambda: str(uuid.uuid4()),
         failure_cooldown_seconds: float = 60.0,
+        schedule: Mapping[str, SourceSchedule] | None = None,
+        monotonic_clock: Callable[[], float] = time.monotonic,
+        sleeper: Callable[[float], None] = time.sleep,
+        poll_runner: Callable[[StimulusSource, float], SourceSnapshot] | None = None,
+        jitter_fn: Callable[[float], float] = lambda maximum: random.uniform(0.0, maximum),
     ):
         self._sources = {source.name: source for source in sources}
         if len(self._sources) != len(sources):
@@ -40,6 +116,21 @@ class ObservationRuntime:
         self._clock = clock
         self._id_factory = id_factory
         self._failure_cooldown_seconds = failure_cooldown_seconds
+        default_schedule = SourceSchedule(30.0, 5.0, 300.0, 0.0)
+        self._schedule = dict(schedule or {name: default_schedule for name in self._sources})
+        if set(self._schedule) != set(self._sources):
+            raise ValueError("schedule sources must exactly match runtime sources")
+        self._monotonic_clock = monotonic_clock
+        self._sleeper = sleeper
+        self._poll_supervisor = None
+        if poll_runner is None:
+            self._poll_supervisor = _BoundedPollSupervisor(self._sources)
+            self._poll_runner = self._poll_supervisor.poll
+        else:
+            self._poll_runner = poll_runner
+        self._jitter_fn = jitter_fn
+        self._next_due = {name: 0.0 for name in self._sources}
+        self._consecutive_failures = {name: 0 for name in self._sources}
         self._state = {name: _SourceState() for name in self._sources}
         self._errors: list[str] = []
 
@@ -191,7 +282,51 @@ class ObservationRuntime:
         source = self._sources[source_name]
         now = self._clock()
         try:
-            snapshot = source.poll()
+            snapshot = self._poll_runner(
+                source, self._schedule[source_name].timeout_seconds
+            )
         except Exception as exc:
             return self._handle_failure(source_name, exc, now)
         return self._handle_snapshot(source_name, snapshot, now)
+
+    def run_scheduled_cycle(self) -> float:
+        now = self._monotonic_clock()
+        due_names = [
+            name for name in self._sources if self._next_due[name] <= now
+        ]
+        for name in due_names:
+            self.run_once(name)
+            schedule = self._schedule[name]
+            failed = self._state[name].status == "error"
+            if failed:
+                self._consecutive_failures[name] += 1
+                delay = min(
+                    schedule.interval_seconds * (2 ** self._consecutive_failures[name]),
+                    schedule.max_backoff_seconds,
+                )
+            else:
+                self._consecutive_failures[name] = 0
+                delay = schedule.interval_seconds
+            jitter = (
+                self._jitter_fn(schedule.jitter_seconds)
+                if schedule.jitter_seconds > 0
+                else 0.0
+            )
+            self._next_due[name] = self._monotonic_clock() + delay + jitter
+
+        current = self._monotonic_clock()
+        return min(max(0.0, due - current) for due in self._next_due.values())
+
+    def close(self) -> None:
+        if self._poll_supervisor is not None:
+            self._poll_supervisor.close()
+
+    def run_forever(self, stop_event) -> None:
+        try:
+            while not stop_event.is_set():
+                delay = self.run_scheduled_cycle()
+                if stop_event.is_set():
+                    break
+                self._sleeper(max(0.001, delay))
+        finally:
+            self.close()
