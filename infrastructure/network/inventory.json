@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "nodes": {
+    "pentium": {
+      "role": "homelab.control",
+      "tailscale_name": "pentium",
+      "tailscale_ipv4": "100.107.230.78",
+      "ssh_port": 22,
+      "required": true
+    },
+    "core": {
+      "role": "homelab.compute",
+      "tailscale_name": "core",
+      "tailscale_ipv4": "100.97.105.116",
+      "ssh_port": 22,
+      "required": true
+    },
+    "x99": {
+      "role": "workstation",
+      "tailscale_name": "x99",
+      "tailscale_ipv4": "100.101.23.111",
+      "ssh_port": 22,
+      "required": false
+    }
+  }
+}
