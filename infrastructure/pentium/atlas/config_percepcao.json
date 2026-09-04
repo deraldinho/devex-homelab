@@ -1,0 +1,37 @@
+{
+  "versao_esquema": 1,
+  "politica": {
+    "min_fontes_indisponiveis": 2,
+    "confianca_conclusiva": 0.95,
+    "max_evidencias": 8
+  },
+  "capacidades": {
+    "evidencias_por_entidade": 8,
+    "incidentes": 32,
+    "entidades_por_incidente": 16,
+    "arestas_grafo": 64
+  },
+  "fontes": {
+    "pentium.self": {
+      "entidade_id": "pentium",
+      "campos_alcance": [],
+      "confianca": 0.90
+    },
+    "core": {
+      "entidade_id": "core",
+      "campos_alcance": ["tailscale_online", "ssh_reachable"],
+      "confianca": 0.85
+    },
+    "x99": {
+      "entidade_id": "x99",
+      "campos_alcance": [],
+      "confianca": 0.80
+    }
+  },
+  "dependencias": [
+    ["modem", "internet"],
+    ["firewall", "modem"],
+    ["core", "firewall"],
+    ["x99", "firewall"]
+  ]
+}
