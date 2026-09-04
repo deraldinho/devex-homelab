@@ -63,4 +63,3 @@ int main() {
   std::cout << "ATLAS_NODE_AGENT_VITALS_PASS\n";
   return EXIT_SUCCESS;
 }
-
