@@ -78,3 +78,14 @@ endif()
 
 install(TARGETS atlas-node-agent RUNTIME DESTINATION bin)
 install(FILES config/agent.conf.example DESTINATION share/atlas-node-agent)
+
+if(BUILD_TESTING)
+  add_executable(atlas-node-agent-remote-contract-tests tests/remote_contract_tests.cpp)
+  target_link_libraries(atlas-node-agent-remote-contract-tests PRIVATE atlas_node_agent_core)
+  add_test(NAME atlas-node-agent-remote-contract-tests COMMAND atlas-node-agent-remote-contract-tests)
+endif()
+
+target_sources(atlas_node_agent_core PRIVATE
+  src/remote_envelope.cpp
+  src/session_guard.cpp
+)
