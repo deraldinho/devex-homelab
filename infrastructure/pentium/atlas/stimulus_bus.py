@@ -16,6 +16,7 @@ class PublishResult:
 @dataclass(frozen=True)
 class BusMetrics:
     published: int
+    deduplicated: int
     dropped: int
     critical_preserved: int
 
@@ -27,6 +28,7 @@ class StimulusBus:
         self._capacity = capacity
         self._queue: deque[Stimulus] = deque()
         self._published = 0
+        self._deduplicated = 0
         self._dropped = 0
         self._critical_preserved = 0
 
@@ -61,6 +63,9 @@ class StimulusBus:
         self._dropped += 1
         return PublishResult(True, dropped.stimulus_id, "overflow")
 
+    def record_deduplicated(self) -> None:
+        self._deduplicated += 1
+
     def poll(self) -> Stimulus | None:
         if not self._queue:
             return None
@@ -69,6 +74,7 @@ class StimulusBus:
     def metrics(self) -> BusMetrics:
         return BusMetrics(
             published=self._published,
+            deduplicated=self._deduplicated,
             dropped=self._dropped,
             critical_preserved=self._critical_preserved,
         )

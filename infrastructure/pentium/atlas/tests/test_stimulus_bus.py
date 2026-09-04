@@ -72,3 +72,12 @@ class StimulusBusTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# Spec ratchet: ObservationRuntime records unchanged snapshots here.
+def _test_deduplicated_metric_can_be_recorded(self):
+    bus = StimulusBus(capacity=1)
+    bus.record_deduplicated()
+    bus.record_deduplicated()
+    self.assertEqual(bus.metrics().deduplicated, 2)
+
+StimulusBusTests.test_deduplicated_metric_can_be_recorded = _test_deduplicated_metric_can_be_recorded
