@@ -1,0 +1,76 @@
+name: Foundation CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-foundation:
+    name: Validate Foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout do HEAD exato
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Validar SHA e diff
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_REF: ${{ github.base_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          if [[ -n "$BASE_REF" ]]; then
+            git diff --check "origin/${BASE_REF}...HEAD"
+          else
+            git diff --check HEAD^ HEAD || git diff --check
+          fi
+
+      - name: Validar scripts e conteúdo sensível
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r script; do
+            bash -n "$script"
+          done < <(git ls-files '*.sh')
+          workflow='.github/workflows/foundation-ci.yml'
+          if git grep -n -E 'github_pat_|ghp_|tskey-|BEGIN (OPENSSH )?PRIVATE KEY' -- . ":(exclude)$workflow"; then
+            echo 'Padrão de secret encontrado em arquivo versionado.' >&2
+            exit 1
+          fi
+          if git grep -n -E 'TODO|TBD' -- . ":(exclude)$workflow"; then
+            echo 'Placeholder TODO/TBD encontrado.' >&2
+            exit 1
+          fi
+
+      - name: Validar simulação quando disponível
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f dev/simulation/compose.yaml ]]; then
+            docker compose -f dev/simulation/compose.yaml config >/dev/null
+            bash dev/simulation/verify.sh
+          else
+            echo 'SIMULATION_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
+      - name: Registrar evidência
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'DEVEX_HOMELAB_FOUNDATION_CI_PASS'
+          echo "head=$(git rev-parse HEAD)"
+          echo "runner=${RUNNER_NAME}"
