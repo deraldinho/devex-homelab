@@ -66,3 +66,17 @@
 - [ ] Escrever `test_persistencia_contexto_afetivo.py` cobrindo round-trip, ausência, corrupção, esquema incompatível e respeito ao limite do histórico.
 - [ ] Confirmar RED.
 - [ ] Implementar persistência sem alterar o snapshot A1 de `EstadoAfetivo`.
+- [ ] Confirmar GREEN isolado + suíte completa.
+- [ ] Commit: `feat(atlas): persistir contexto afetivo A2`.
+
+### Tarefa 5: Empacotamento e gate A2
+
+- [ ] Escrever `test_a2_empacotamento.py` primeiro, exigindo novos módulos no installer e marker `DEVEX_HOMELAB_ATLAS_AFETIVO_A2_PASS` no CI.
+- [ ] Confirmar RED.
+- [ ] Atualizar `install-user.sh` e `foundation-ci.yml`, incluindo `py_compile` dos módulos A2.
+- [ ] Confirmar GREEN da suíte completa, `py_compile`, `bash -n` e `git diff --check`.
+- [ ] Commit: `ci(atlas): certificar contexto afetivo A2`.
+
+## Gate de conclusão
+
+A2 só será considerada concluída quando o HEAD exato possuir suíte Atlas completa GREEN, checks locais de sintaxe/empacotamento GREEN e GitHub Foundation CI GREEN. A PR deve permanecer Draft e empilhada sobre A1; A3 só começa depois desse gate.
