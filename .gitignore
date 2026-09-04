@@ -1,0 +1,40 @@
+# Secrets e credenciais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.token
+.credentials
+.runner
+credentials/
+secrets/
+
+# Estado local/runtime
+state/
+logs/
+tmp/
+*.log
+*.pid
+
+# Worktrees e IDE
+.worktrees/
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# SO
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Compose local override
+compose.override.yaml
+docker-compose.override.yml

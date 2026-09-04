@@ -1,0 +1,14 @@
+[Unit]
+Description=DevEx HomeLab Pentium control-plane heartbeat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/pentium-agent/health/heartbeat.py --config %h/pentium-agent/health/config.json --write-state
+SuccessExitStatus=1
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
