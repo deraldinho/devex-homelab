@@ -135,6 +135,9 @@ jobs:
               "$atlas/decaimento_afetivo.py" \
               "$atlas/motor_afetivo.py" \
               "$atlas/persistencia_afetiva.py" \
+              "$atlas/modelo_contexto_afetivo.py" \
+              "$atlas/contexto_afetivo.py" \
+              "$atlas/persistencia_contexto_afetivo.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
@@ -147,6 +150,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A2_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi

@@ -23,6 +23,9 @@ for file in \
   decaimento_afetivo.py \
   motor_afetivo.py \
   persistencia_afetiva.py \
+  modelo_contexto_afetivo.py \
+  contexto_afetivo.py \
+  persistencia_contexto_afetivo.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
@@ -46,6 +49,9 @@ python3 -m py_compile \
   "${TARGET_DIR}/decaimento_afetivo.py" \
   "${TARGET_DIR}/motor_afetivo.py" \
   "${TARGET_DIR}/persistencia_afetiva.py" \
+  "${TARGET_DIR}/modelo_contexto_afetivo.py" \
+  "${TARGET_DIR}/contexto_afetivo.py" \
+  "${TARGET_DIR}/persistencia_contexto_afetivo.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
@@ -55,4 +61,5 @@ python3 -m json.tool "${TARGET_DIR}/config_afetiva.json" >/dev/null
 echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A1_INSTALL_PASS"
+echo "ATLAS_AFETIVO_A2_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"
