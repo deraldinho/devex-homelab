@@ -48,7 +48,7 @@ PriorityQueue (bounded)
       v
 AudioEngine
       |
-      +--> AudioBackend(aplay/ALSA default device)
+      +--> AudioBackend(ffplay default device; aplay WAV fallback)
       |
       `--> playback journal
 ```
@@ -92,7 +92,7 @@ Cada família deve possuir múltiplas variantes quando houver mídia licenciada 
 
 ## Backend de áudio
 
-O backend inicial é ALSA via `aplay`, encapsulado por uma interface testável. O domínio não conhece argumentos de `aplay`, hardware ALSA ou índice de dispositivo.
+O backend primário é `ffplay` (pacote FFmpeg), encapsulado por uma interface testável. Ele é usado somente para decode/playback local, sem transcoding. `aplay` pode ser usado como fallback para WAV. O domínio não conhece argumentos dos players, hardware ALSA/PipeWire/PulseAudio ou índice de dispositivo.
 
 Regras:
 
@@ -132,3 +132,18 @@ TDD obrigatório para resolver assets, validar licenças, SHA-256, fila bounded,
 CI usa backend fake e não depende de placa de som. Após HEAD exato GREEN, a certificação física no Pentium deve comprovar `healthy`, `busy`, `critical` preemptando áudio normal e `recovered`, sempre pelo dispositivo padrão.
 
 A slice só é considerada concluída após teste físico audível, evidência no as-built, CI GREEN do HEAD final e `/checkpoint` da PR correspondente.
+## Modelo de execução
+
+O `AudioEngine` mantém um worker em processo com fila bounded e ownership exclusivo do processo de playback atual. Esta slice não cria novo daemon nem unidade systemd. O lifecycle será integrado ao processo Atlas quando houver um runtime contínuo; testes e certificação podem alimentar múltiplas decisões no mesmo processo para comprovar fila e preempção.
+
+A interface de submissão recebe somente estruturas internas já validadas (`ReactionDecision` + asset resolvido). Nenhuma entrada externa escolhe executável, dispositivo ou URL.
+
+## Formatos de mídia da primeira promoção
+
+O domínio do Atlas é agnóstico ao codec. A primeira promoção suporta explicitamente `wav`, `mp3`, `ogg`/Vorbis e `flac`, declarados no manifesto por asset. Novos formatos podem ser adicionados depois sem alterar `ReactionEngine` ou o contrato de `ReactionDecision`.
+
+O backend principal `ffplay` deve reproduzir esses formatos diretamente no dispositivo de áudio padrão do Pentium. `aplay` pode existir como fallback específico para WAV. Não haverá transcoding no hot path: o asset baixado e validado é reproduzido no formato original suportado.
+
+## Evidência de licença
+
+Além de `source_url`, cada entrada mantém `source_page_url` quando a página de origem for distinta do arquivo e deve permitir auditoria da licença Creative Commons declarada. A curadoria só promove assets cuja licença possa ser verificada na fonte; ausência ou ambiguidade de licença bloqueia o asset.
