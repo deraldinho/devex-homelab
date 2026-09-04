@@ -136,6 +136,3 @@ Create: `audio_model.py`, `audio_library.py`, `audio_resolver.py`, `audio_backen
 - Interfaces: model -> library -> resolver -> backend/engine -> journal; sync remains outside runtime hot path.
 - Scope: no LLM, STT, TTS, microphone, new daemon/systemd, arbitrary shell or audio output from x99/Core/MikroTik.
 - Execution invariant: every production component begins with focused RED test and ends with GREEN + commit.
-## Definition of Done
-
-A slice só termina quando todos os testes TDD passam; o manifesto contém apenas assets CC0/CC-BY/CC-BY-SA verificáveis; WAV/MP3/OGG/FLAC são suportados pelo contrato certificado; a mídia permanece fora do Git e é validada por SHA-256; `critical` preempta playback normal; toda saída física ocorre exclusivamente pelo dispositivo padrão do Pentium; o journal registra resultados; o HEAD final com documentação possui Foundation CI GREEN; o smoke físico audível passa; e o `/checkpoint` usa exatamente essas evidências.
