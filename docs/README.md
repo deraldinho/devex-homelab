@@ -13,6 +13,14 @@ A documentação é organizada por responsabilidade e funciona como parte da fon
 7. [Políticas de governança](governance/policies.md) — branches, PRs, checkpoints, segurança e emergência.
 8. [As-built baseline](as-built/2026-09-02-baseline.md) — estado observado que iniciou o projeto.
 
+
+## Slice #5 — Core Compute
+
+- [PRD-0005](prd/PRD-0005-core-compute.md) — requisitos do nó compute;
+- [Implementation Design](implementation/2026-09-02-core-compute-design.md) — contratos host/container;
+- [UML do Core](uml/core-compute.md) — deployment e ownership;
+- [As-built do Core](as-built/2026-09-02-core-compute.md) — estado físico certificado.
+
 ## Regra de manutenção
 
 Documentação de design descreve o estado desejado. Documentação `as-built` registra o estado efetivamente comprovado nos equipamentos. Quando divergem, a divergência é tratada como trabalho de reconciliação e não deve ser ocultada.

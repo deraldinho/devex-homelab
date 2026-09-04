@@ -1,0 +1,5 @@
+services:
+  smoke:
+    image: alpine:3.22
+    command: ["sh", "-c", "echo CORE_CONTAINER_SMOKE_OK; uname -a"]
+    restart: "no"

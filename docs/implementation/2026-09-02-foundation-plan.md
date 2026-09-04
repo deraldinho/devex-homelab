@@ -62,6 +62,28 @@
 - [ ] Derrubar o ambiente com `down -v --remove-orphans` e provar ausência de containers/volumes órfãos.
 - [ ] Abrir PR Draft empilhada sobre `foundation/issue-1-devex-homelab` e registrar `/checkpoint`.
 
+### Dependency gate — Core / Container-First / Runner Platform
+
+A Task 4 (#8) só pode iniciar após #5 → #6 → #7.
+
+#### Issue #5 — Core Compute
+
+- [x] Versionar bootstrap, policy, smoke e verificador físico do Core.
+- [x] Validar policy local com `CORE_REPO_POLICY_PASS`.
+- [x] Executar verificador versionado no Core real com `CORE_COMPUTE_CERTIFICATION_PASS`.
+- [x] Confirmar ausência de drift físico no escopo #5.
+- [ ] Abrir PR Draft, obter CI GREEN no HEAD exato e registrar checkpoint.
+
+#### Issue #6 — Container-First
+
+- [ ] Formalizar contratos verificáveis de toolchain/workspace em container.
+- [ ] Adicionar ratchets de CI contra regressão no host.
+
+#### Issue #7 — Runner Platform
+
+- [ ] Versionar factory/padrão `core-<projectname>` e isolamento de `_work`.
+- [ ] Validar lifecycle, labels e registro temporário.
+
 ### Task 4 — Stack do runner core-devex-homelab / Issue #8
 
 **Deliverable:** Dockerfile/Compose versionados e validados localmente.

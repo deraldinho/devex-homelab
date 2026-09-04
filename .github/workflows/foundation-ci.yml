@@ -67,6 +67,16 @@ jobs:
             echo 'SIMULATION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
+      - name: Validar infraestrutura Core quando disponível
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f infrastructure/core/tests/validate-repo.sh ]]; then
+            bash infrastructure/core/tests/validate-repo.sh
+          else
+            echo 'CORE_INFRA_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
       - name: Registrar evidência
         shell: bash
         run: |
