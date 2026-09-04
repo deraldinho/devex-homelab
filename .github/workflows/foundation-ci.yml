@@ -130,9 +130,15 @@ jobs:
               "$atlas/stimulus_journal.py" \
               "$atlas/stimulus_sources.py" \
               "$atlas/observation_runtime.py" \
+              "$atlas/modelo_afetivo.py" \
+              "$atlas/configuracao_afetiva.py" \
+              "$atlas/decaimento_afetivo.py" \
+              "$atlas/motor_afetivo.py" \
+              "$atlas/persistencia_afetiva.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
+            python3 -m json.tool "$atlas/config_afetiva.json" >/dev/null
             python3 -m unittest discover -s "$atlas/tests" -p 'test_*.py' -v
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/healthy.json" >/tmp/atlas-healthy.json
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/critical.json" >/tmp/atlas-critical.json
@@ -140,6 +146,7 @@ jobs:
             bash -n "$atlas/install-user.sh"
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi

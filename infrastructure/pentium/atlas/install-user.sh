@@ -18,11 +18,16 @@ for file in \
   stimulus_journal.py \
   stimulus_sources.py \
   observation_runtime.py \
+  modelo_afetivo.py \
+  configuracao_afetiva.py \
+  decaimento_afetivo.py \
+  motor_afetivo.py \
+  persistencia_afetiva.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
 
-for config in config.json observation_config.json; do
+for config in config.json observation_config.json config_afetiva.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
 
@@ -36,11 +41,18 @@ python3 -m py_compile \
   "${TARGET_DIR}/stimulus_journal.py" \
   "${TARGET_DIR}/stimulus_sources.py" \
   "${TARGET_DIR}/observation_runtime.py" \
+  "${TARGET_DIR}/modelo_afetivo.py" \
+  "${TARGET_DIR}/configuracao_afetiva.py" \
+  "${TARGET_DIR}/decaimento_afetivo.py" \
+  "${TARGET_DIR}/motor_afetivo.py" \
+  "${TARGET_DIR}/persistencia_afetiva.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/observation_config.json" >/dev/null
+python3 -m json.tool "${TARGET_DIR}/config_afetiva.json" >/dev/null
 
 echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
+echo "ATLAS_AFETIVO_A1_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"
