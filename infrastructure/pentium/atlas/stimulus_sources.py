@@ -12,6 +12,7 @@ class SourceSnapshot:
     status: str
     severity: StimulusSeverity
     payload: Mapping[str, Any]
+    observed_at: str | None = None
 
 
 class StimulusSource(Protocol):
@@ -21,12 +22,25 @@ class StimulusSource(Protocol):
         ...
 
 
-def _severity(status: str) -> StimulusSeverity:
-    return StimulusSeverity.INFO if status == "healthy" else StimulusSeverity.WARNING
+def _severity(status: str, *, required: bool) -> StimulusSeverity:
+    normalized = status.strip().lower()
+    if normalized == "healthy":
+        return StimulusSeverity.INFO
+    if normalized == "critical":
+        return StimulusSeverity.CRITICAL
+    if required and normalized in {"unavailable", "offline", "error"}:
+        return StimulusSeverity.CRITICAL
+    return StimulusSeverity.WARNING
+
+
+def _observed_at(observed: Mapping[str, Any]) -> str | None:
+    value = observed.get("observed_at") or observed.get("checked_at")
+    return value if isinstance(value, str) and value else None
 
 
 class PentiumSelfSource:
     name = "pentium.self"
+    required = True
 
     def __init__(self, collector: Callable[[], dict[str, Any]]):
         self._collector = collector
@@ -49,11 +63,13 @@ class PentiumSelfSource:
                 if key in metrics
             },
         }
-        return SourceSnapshot(self.name, status, _severity(status), payload)
-
+        return SourceSnapshot(
+            self.name, status, _severity(status, required=self.required), payload, _observed_at(observed)
+        )
 
 class CoreHealthSource:
     name = "core"
+    required = True
 
     def __init__(self, collector: Callable[[], dict[str, Any]]):
         self._collector = collector
@@ -76,11 +92,13 @@ class CoreHealthSource:
             if key in node
         }
         payload.setdefault("status", status)
-        return SourceSnapshot(self.name, status, _severity(status), payload)
-
+        return SourceSnapshot(
+            self.name, status, _severity(status, required=self.required), payload, _observed_at(observed)
+        )
 
 class X99StatusSource:
     name = "x99"
+    required = False
 
     def __init__(self, collector: Callable[[], dict[str, Any]]):
         self._collector = collector
@@ -91,4 +109,6 @@ class X99StatusSource:
         allowed = ("status", "hostname", "uptime_seconds", "last_boot", "error")
         payload = {key: observed[key] for key in allowed if key in observed}
         payload.setdefault("status", status)
-        return SourceSnapshot(self.name, status, _severity(status), payload)
+        return SourceSnapshot(
+            self.name, status, _severity(status, required=self.required), payload, _observed_at(observed)
+        )

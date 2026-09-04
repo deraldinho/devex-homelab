@@ -6,6 +6,7 @@ from infrastructure.pentium.atlas.stimulus_model import (
     Stimulus,
     StimulusSeverity,
     compute_novelty,
+    novelty_score,
     stable_fingerprint,
 )
 
@@ -42,7 +43,9 @@ class StimulusModelTests(unittest.TestCase):
         self.assertEqual(stable_fingerprint(left), stable_fingerprint(right))
         self.assertNotEqual(
             stable_fingerprint(left),
-            stable_fingerprint({"status": "degraded", "metrics": {"cpu": 12, "ram": 40}}),
+            stable_fingerprint(
+                {"status": "degraded", "metrics": {"cpu": 12, "ram": 40}}
+            ),
         )
 
     def test_novelty_decays_deterministically_to_floor(self):
@@ -53,6 +56,14 @@ class StimulusModelTests(unittest.TestCase):
     def test_novelty_rejects_negative_seen_count(self):
         with self.assertRaises(ValueError):
             compute_novelty(-1)
+
+    def test_planned_novelty_score_contract_is_stable(self):
+        self.assertEqual(novelty_score(None, "aaa", 0), 1.0)
+        self.assertEqual(novelty_score("aaa", "bbb", 0), 1.0)
+        self.assertEqual(novelty_score("bbb", "aaa", 1), 0.5)
+        self.assertEqual(novelty_score("aaa", "aaa", 99), 0.1)
+        with self.assertRaises(ValueError):
+            novelty_score("aaa", "aaa", -1)
 
 
 if __name__ == "__main__":

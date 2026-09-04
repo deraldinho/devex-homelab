@@ -76,6 +76,22 @@ class ObservationRuntimeTests(unittest.TestCase):
         self.assertEqual(degraded.correlation_id, recovered.correlation_id)
         self.assertEqual(recovered.severity, StimulusSeverity.NOTICE)
 
+    def test_snapshot_observed_at_becomes_stimulus_timestamp(self):
+        observed_at = "2026-09-04T03:20:00+00:00"
+        source = SequenceSource(
+            "core",
+            [SourceSnapshot(
+                "core",
+                "healthy",
+                StimulusSeverity.INFO,
+                {"status": "healthy"},
+                observed_at,
+            )],
+        )
+        runtime, _ = runtime_for(source, clock=FakeClock(1000.0))
+        stimulus = runtime.run_once("core")
+        self.assertEqual(stimulus.timestamp, observed_at)
+
     def test_novelty_decays_when_known_fingerprint_returns(self):
         source = SequenceSource(
             "core",
@@ -106,6 +122,19 @@ class ObservationRuntimeTests(unittest.TestCase):
         self.assertEqual(bus.metrics().deduplicated, 1)
         self.assertNotIn("secret", repr(first.payload))
 
+    def test_required_source_poll_failure_is_critical(self):
+        class RequiredFailingSource:
+            name = "core"
+            required = True
+
+            def poll(self):
+                raise TimeoutError("unavailable")
+
+        runtime, _ = runtime_for(RequiredFailingSource())
+        stimulus = runtime.run_once("core")
+        self.assertEqual(stimulus.kind, "source_error")
+        self.assertEqual(stimulus.severity, StimulusSeverity.CRITICAL)
+
     def test_journal_failure_does_not_block_bus_or_advance_twice(self):
         source = SequenceSource("core", [snapshot(), snapshot()])
         calls = []
@@ -128,8 +157,10 @@ if __name__ == "__main__":
 
 
 from infrastructure.pentium.atlas.observation_runtime import (
+    SourcePolicy,
     SourceSchedule,
     load_observation_config,
+    load_observation_policies,
 )
 
 
@@ -156,6 +187,38 @@ class FakeStopEvent:
 
 
 class ObservationSchedulingTests(unittest.TestCase):
+    def test_source_policy_contract_matches_plan(self):
+        policy = SourcePolicy(10.0, 0.5, 40.0, 15.0)
+        self.assertEqual(policy.interval_s, 10.0)
+        self.assertEqual(policy.timeout_s, 0.5)
+        self.assertEqual(policy.max_backoff_s, 40.0)
+        self.assertEqual(policy.cooldown_s, 15.0)
+
+    def test_source_policy_applies_per_source_failure_cooldown(self):
+        clock = FakeClock(1000.0)
+        source = SequenceSource(
+            "core",
+            [TimeoutError("one"), TimeoutError("two"), TimeoutError("three")],
+        )
+        bus = StimulusBus(capacity=16)
+        runtime = ObservationRuntime(
+            sources=[source],
+            bus=bus,
+            journal=lambda stimulus: None,
+            clock=clock,
+            poll_runner=lambda item, timeout: item.poll(),
+            policies={"core": SourcePolicy(10.0, 0.5, 40.0, 5.0)},
+        )
+        first = runtime.run_once("core")
+        clock.advance(4.0)
+        second = runtime.run_once("core")
+        clock.advance(2.0)
+        third = runtime.run_once("core")
+        self.assertEqual(first.kind, "source_error")
+        self.assertIsNone(second)
+        self.assertEqual(third.kind, "source_error")
+        self.assertEqual(bus.metrics().deduplicated, 1)
+
     def test_cycle_isolates_timeout_and_passes_source_timeout(self):
         clock = FakeClock(0.0)
         slow = RepeatingSource("slow", snapshot())
@@ -269,6 +332,16 @@ class ObservationSchedulingTests(unittest.TestCase):
             path.write_text(json.dumps(payload), encoding="utf-8")
             with self.assertRaises(ValueError):
                 load_observation_config(path)
+
+    def test_repository_config_exposes_per_source_policies(self):
+        from pathlib import Path
+
+        config_path = Path(__file__).resolve().parents[1] / "observation_config.json"
+        policies = load_observation_policies(config_path)
+        self.assertEqual(set(policies), {"pentium.self", "core", "x99"})
+        self.assertEqual(policies["pentium.self"].cooldown_s, 60.0)
+        self.assertEqual(policies["core"].cooldown_s, 60.0)
+        self.assertEqual(policies["x99"].cooldown_s, 60.0)
 
     def test_repository_observation_config_covers_initial_sources(self):
         from pathlib import Path

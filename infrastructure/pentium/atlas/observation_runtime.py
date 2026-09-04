@@ -11,8 +11,24 @@ from pathlib import Path
 from typing import Callable, Mapping
 
 from .stimulus_bus import StimulusBus
-from .stimulus_model import Stimulus, StimulusSeverity, compute_novelty, stable_fingerprint
+from .stimulus_model import Stimulus, StimulusSeverity, novelty_score, stable_fingerprint
 from .stimulus_sources import SourceSnapshot, StimulusSource
+
+
+@dataclass(frozen=True)
+class SourcePolicy:
+    interval_s: float
+    timeout_s: float
+    max_backoff_s: float
+    cooldown_s: float
+
+    def __post_init__(self) -> None:
+        if self.interval_s <= 0 or self.timeout_s <= 0:
+            raise ValueError("interval_s and timeout_s must be > 0")
+        if self.max_backoff_s < self.interval_s:
+            raise ValueError("max_backoff_s must be >= interval_s")
+        if self.cooldown_s < 0:
+            raise ValueError("cooldown_s must be >= 0")
 
 
 @dataclass(frozen=True)
@@ -52,6 +68,31 @@ def load_observation_config(path: Path) -> dict[str, SourceSchedule]:
         except KeyError as exc:
             raise ValueError(f"source {name!r} schedule missing {exc.args[0]}") from exc
     return schedules
+
+
+def load_observation_policies(path: Path) -> dict[str, SourcePolicy]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != 1:
+        raise ValueError("observation config schema_version must be 1")
+    sources = payload.get("sources")
+    if not isinstance(sources, dict) or not sources:
+        raise ValueError("observation config must contain sources")
+    policies: dict[str, SourcePolicy] = {}
+    for name, item in sources.items():
+        if not isinstance(item, dict):
+            raise ValueError(f"source {name!r} policy must be an object")
+        try:
+            policies[str(name)] = SourcePolicy(
+                float(item["interval_seconds"]),
+                float(item["timeout_seconds"]),
+                float(item["max_backoff_seconds"]),
+                float(item["cooldown_seconds"]),
+            )
+        except KeyError as exc:
+            raise ValueError(
+                f"source {name!r} policy missing {exc.args[0]}"
+            ) from exc
+    return policies
 
 
 class _BoundedPollSupervisor:
@@ -102,6 +143,7 @@ class ObservationRuntime:
         clock: Callable[[], float] = time.time,
         id_factory: Callable[[], str] = lambda: str(uuid.uuid4()),
         failure_cooldown_seconds: float = 60.0,
+        policies: Mapping[str, SourcePolicy] | None = None,
         schedule: Mapping[str, SourceSchedule] | None = None,
         monotonic_clock: Callable[[], float] = time.monotonic,
         sleeper: Callable[[float], None] = time.sleep,
@@ -115,11 +157,30 @@ class ObservationRuntime:
         self._journal = journal
         self._clock = clock
         self._id_factory = id_factory
-        self._failure_cooldown_seconds = failure_cooldown_seconds
+        if policies is not None and schedule is not None:
+            raise ValueError("policies and schedule are mutually exclusive")
         default_schedule = SourceSchedule(30.0, 5.0, 300.0, 0.0)
-        self._schedule = dict(schedule or {name: default_schedule for name in self._sources})
-        if set(self._schedule) != set(self._sources):
-            raise ValueError("schedule sources must exactly match runtime sources")
+        if policies is not None:
+            if set(policies) != set(self._sources):
+                raise ValueError("policy sources must exactly match runtime sources")
+            self._schedule = {
+                name: SourceSchedule(
+                    policy.interval_s, policy.timeout_s, policy.max_backoff_s, 0.0
+                )
+                for name, policy in policies.items()
+            }
+            self._failure_cooldown_by_source = {
+                name: policy.cooldown_s for name, policy in policies.items()
+            }
+        else:
+            self._schedule = dict(
+                schedule or {name: default_schedule for name in self._sources}
+            )
+            if set(self._schedule) != set(self._sources):
+                raise ValueError("schedule sources must exactly match runtime sources")
+            self._failure_cooldown_by_source = {
+                name: failure_cooldown_seconds for name in self._sources
+            }
         self._monotonic_clock = monotonic_clock
         self._sleeper = sleeper
         self._poll_supervisor = None
@@ -161,13 +222,14 @@ class ObservationRuntime:
         previous_fingerprint: str | None,
         current_fingerprint: str,
         now: float,
+        observed_at: str | None = None,
     ) -> Stimulus:
         return Stimulus(
             stimulus_id=self._id_factory(),
             source=source,
             kind=kind,
             severity=severity,
-            timestamp=self._timestamp(now),
+            timestamp=observed_at or self._timestamp(now),
             payload=payload,
             novelty=novelty,
             correlation_id=correlation_id,
@@ -193,7 +255,7 @@ class ObservationRuntime:
         previous_fingerprint = state.fingerprint
         previous_status = state.status
         seen_count = state.seen_counts.get(fingerprint, 0)
-        novelty = compute_novelty(seen_count)
+        novelty = novelty_score(previous_fingerprint, fingerprint, seen_count)
 
         if previous_fingerprint is None:
             kind = "baseline_observed"
@@ -227,6 +289,7 @@ class ObservationRuntime:
             previous_fingerprint=previous_fingerprint,
             current_fingerprint=fingerprint,
             now=now,
+            observed_at=snapshot.observed_at,
         )
 
         state.fingerprint = fingerprint
@@ -251,7 +314,7 @@ class ObservationRuntime:
         if (
             state.last_failure_fingerprint == fingerprint
             and state.last_failure_emitted_at is not None
-            and now - state.last_failure_emitted_at < self._failure_cooldown_seconds
+            and now - state.last_failure_emitted_at < self._failure_cooldown_by_source[source_name]
         ):
             self._bus.record_deduplicated()
             return None
@@ -259,12 +322,17 @@ class ObservationRuntime:
         if state.active_correlation is None:
             state.active_correlation = self._id_factory()
         seen_count = state.seen_counts.get(fingerprint, 0)
+        failure_severity = (
+            StimulusSeverity.CRITICAL
+            if bool(getattr(self._sources[source_name], "required", False))
+            else StimulusSeverity.WARNING
+        )
         stimulus = self._make_stimulus(
             source=source_name,
             kind="source_error",
-            severity=StimulusSeverity.WARNING,
+            severity=failure_severity,
             payload=payload,
-            novelty=compute_novelty(seen_count),
+            novelty=novelty_score(state.fingerprint, fingerprint, seen_count),
             correlation_id=state.active_correlation,
             previous_fingerprint=state.fingerprint,
             current_fingerprint=fingerprint,

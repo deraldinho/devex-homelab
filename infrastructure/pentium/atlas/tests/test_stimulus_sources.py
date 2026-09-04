@@ -24,6 +24,17 @@ class StimulusSourceTests(unittest.TestCase):
         self.assertEqual(snapshot.payload["checks"], {"agent": True})
         self.assertNotIn("detail", repr(snapshot.payload))
 
+    def test_pentium_source_propagates_observed_timestamp(self):
+        source = PentiumSelfSource(lambda: {
+            "status": "healthy",
+            "checks": {},
+            "metrics": {},
+            "checked_at": "2026-09-04T03:10:00+00:00",
+        })
+        snapshot = source.poll()
+        self.assertEqual(snapshot.observed_at, "2026-09-04T03:10:00+00:00")
+        self.assertNotIn("checked_at", snapshot.payload)
+
     def test_core_source_reduces_network_contract(self):
         source = CoreHealthSource(lambda: {
             "status": "degraded",
@@ -40,6 +51,15 @@ class StimulusSourceTests(unittest.TestCase):
         self.assertEqual(snapshot.severity, StimulusSeverity.WARNING)
         self.assertEqual(snapshot.payload["status"], "degraded")
         self.assertNotIn("expected_ipv4", snapshot.payload)
+
+    def test_required_unavailable_source_is_critical(self):
+        core = CoreHealthSource(lambda: {
+            "status": "unavailable",
+            "nodes": [{"name": "core", "status": "unavailable"}],
+        })
+        x99 = X99StatusSource(lambda: {"status": "unavailable"})
+        self.assertEqual(core.poll().severity, StimulusSeverity.CRITICAL)
+        self.assertEqual(x99.poll().severity, StimulusSeverity.WARNING)
 
     def test_x99_source_keeps_only_stable_status_fields(self):
         source = X99StatusSource(lambda: {
@@ -62,6 +82,16 @@ class StimulusSourceTests(unittest.TestCase):
         with self.assertRaises(dataclasses.FrozenInstanceError):
             snapshot.status = "degraded"
 
+
+    def test_source_snapshot_exposes_observed_at(self):
+        snapshot = SourceSnapshot(
+            source="core",
+            status="healthy",
+            severity=StimulusSeverity.INFO,
+            payload={"status": "healthy"},
+            observed_at="2026-09-04T03:00:00+00:00",
+        )
+        self.assertEqual(snapshot.observed_at, "2026-09-04T03:00:00+00:00")
 
 if __name__ == "__main__":
     unittest.main()

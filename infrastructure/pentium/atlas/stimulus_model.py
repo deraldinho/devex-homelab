@@ -30,6 +30,18 @@ def compute_novelty(previous_seen_count: int) -> float:
     return max(0.1, 1.0 / (previous_seen_count + 1))
 
 
+def novelty_score(
+    previous_fingerprint: str | None,
+    current_fingerprint: str,
+    repeat_count: int,
+) -> float:
+    if not current_fingerprint:
+        raise ValueError("current_fingerprint must not be empty")
+    if previous_fingerprint is None:
+        return 1.0
+    return compute_novelty(repeat_count)
+
+
 @dataclass(frozen=True)
 class Stimulus:
     stimulus_id: str
