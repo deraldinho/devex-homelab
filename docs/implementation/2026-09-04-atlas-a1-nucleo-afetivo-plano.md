@@ -1,6 +1,6 @@
 # Plano de Implementação — Atlas A1 Núcleo Afetivo
 
-> **Para agentes de implementação:** SUB-SKILL OBRIGATÓRIA: usar `superpowers:subagent-driven-development` (recomendado) ou `superpowers:executing-plans` para executar este plano tarefa por tarefa. Os passos usam caixas `- [ ]` para acompanhamento.
+> **Para agentes de implementação:** SUB-SKILL OBRIGATÓRIA: usar `superpowers:subagent-driven-development` (recomendado) ou `superpowers:executing-plans` para executar este plano tarefa por tarefa. Os passos usam `- [ ]` para acompanhamento.
 
 **Objetivo:** implementar o núcleo afetivo determinístico e persistente do Atlas, com personalidade-base, seis dimensões afetivas, impulsos limitados, decaimento temporal e retomada segura após reinício, sem LLM, rede nova ou controle remoto.
 
@@ -21,7 +21,7 @@
 - Zero shell arbitrário e zero ação CONTROL/DESTRUCTIVE.
 - Nenhum novo serviço persistente será instalado ou ativado fisicamente nesta slice.
 - Todos os valores afetivos permanecem bounded.
-- Relógio de testes é explícito/injetável; nenhum teste depende de `sleep()`.
+- Relógio de testes é explícito; nenhum teste usa `sleep()`.
 - TDD obrigatório: RED observável antes de cada implementação de produção.
 - Cada tarefa termina em commit pequeno e revisável.
 
@@ -29,43 +29,71 @@
 
 ### Criar
 
-- `infrastructure/pentium/atlas/modelo_afetivo.py` — contratos `EstadoAfetivo`, `PersonalidadeBase`, `PoliticaDecaimento`, `ImpulsoAfetivo` e `EstadoConsciencia`.
-- `infrastructure/pentium/atlas/configuracao_afetiva.py` — loader estrito da configuração afetiva schema v1.
-- `infrastructure/pentium/atlas/config_afetiva.json` — personalidade-base inicial e meias-vidas calibráveis.
-- `infrastructure/pentium/atlas/motor_afetivo.py` — aplicação de impulso, decaimento online e atenuação offline limitada.
-- `infrastructure/pentium/atlas/persistencia_afetiva.py` — snapshot JSON atômico, carga estrita e restauração segura.
-- `infrastructure/pentium/atlas/tests/test_modelo_afetivo.py` — invariantes, bounds, freeze e serialização.
-- `infrastructure/pentium/atlas/tests/test_configuracao_afetiva.py` — schema, valores iniciais e rejeições.
-- `infrastructure/pentium/atlas/tests/test_motor_afetivo.py` — impulso, meia-vida, timestamp e atenuação offline.
-- `infrastructure/pentium/atlas/tests/test_persistencia_afetiva.py` — escrita atômica, reload, corrupção e fallback.
-- `infrastructure/pentium/atlas/tests/test_nucleo_afetivo_empacotamento.py` — installer e CI incluem A1 sem habilitar serviço persistente.
+- `infrastructure/pentium/atlas/modelo_afetivo.py` — contratos, bounds e serialização.
+- `infrastructure/pentium/atlas/configuracao_afetiva.py` — loader estrito do schema v1.
+- `infrastructure/pentium/atlas/config_afetiva.json` — personalidade-base e política de decaimento.
+- `infrastructure/pentium/atlas/motor_afetivo.py` — criação, impulso, decaimento e atenuação offline.
+- `infrastructure/pentium/atlas/persistencia_afetiva.py` — snapshot atômico e restauração segura.
+- `infrastructure/pentium/atlas/tests/test_modelo_afetivo.py`.
+- `infrastructure/pentium/atlas/tests/test_configuracao_afetiva.py`.
+- `infrastructure/pentium/atlas/tests/test_motor_afetivo.py`.
+- `infrastructure/pentium/atlas/tests/test_persistencia_afetiva.py`.
+- `infrastructure/pentium/atlas/tests/test_nucleo_afetivo_empacotamento.py`.
 
 ### Modificar
 
-- `infrastructure/pentium/atlas/install-user.sh` — empacotar/compilar A1 e validar `config_afetiva.json`, sem `systemctl enable/start`.
-- `.github/workflows/foundation-ci.yml` — adicionar módulos A1 ao `py_compile`, validar JSON e emitir marker A1.
-- `docs/as-built/2026-09-02-baseline.md` — registrar somente evidência realmente obtida no HEAD final da A1.
+- `infrastructure/pentium/atlas/install-user.sh` — incluir A1 sem ativar serviço.
+- `.github/workflows/foundation-ci.yml` — compilar/validar A1 e emitir marker.
+- `docs/as-built/2026-09-02-baseline.md` — registrar apenas evidência observada no HEAD final.
 
 ---
 
-### Tarefa 1: Contratos e invariantes do modelo afetivo
+## Tarefa 1 — Contratos e invariantes do modelo afetivo
 
 **Arquivos:**
 - Criar: `infrastructure/pentium/atlas/modelo_afetivo.py`
 - Criar: `infrastructure/pentium/atlas/tests/test_modelo_afetivo.py`
 
-**Interfaces:**
-- Consome: nenhum contrato novo; apenas biblioteca padrão.
-- Produz:
-  - `EstadoConsciencia(str, Enum)` com valores `ativo`, `degradado`, `isolado`, `retomando`;
-  - `PersonalidadeBase(valencia, ativacao, estresse, confianca, engajamento, curiosidade)`;
-  - `PoliticaDecaimento(meia_vida_valencia_s, meia_vida_ativacao_s, meia_vida_estresse_s, meia_vida_confianca_s, meia_vida_engajamento_s, meia_vida_curiosidade_s, limite_atenuacao_offline_s)`;
-  - `EstadoAfetivo(valencia, ativacao, estresse, confianca, engajamento, curiosidade, foco_atencao, estado_consciencia, atualizado_em)`;
-  - `ImpulsoAfetivo(tipo, motivo, delta_valencia, delta_ativacao, delta_estresse, delta_confianca, delta_engajamento, delta_curiosidade)`.
+**Interfaces produzidas:**
 
-- [ ] **Passo 1: escrever teste RED para enum, bounds, freeze e serialização**
+```python
+EstadoConsciencia(str, Enum)
+PersonalidadeBase(valencia, ativacao, estresse, confianca, engajamento, curiosidade)
+PoliticaDecaimento(
+    meia_vida_valencia_s,
+    meia_vida_ativacao_s,
+    meia_vida_estresse_s,
+    meia_vida_confianca_s,
+    meia_vida_engajamento_s,
+    meia_vida_curiosidade_s,
+    limite_atenuacao_offline_s,
+)
+EstadoAfetivo(
+    valencia,
+    ativacao,
+    estresse,
+    confianca,
+    engajamento,
+    curiosidade,
+    foco_atencao,
+    estado_consciencia,
+    atualizado_em,
+)
+ImpulsoAfetivo(
+    tipo,
+    motivo,
+    delta_valencia,
+    delta_ativacao,
+    delta_estresse,
+    delta_confianca,
+    delta_engajamento,
+    delta_curiosidade,
+)
+```
 
-Criar `test_modelo_afetivo.py` com testes equivalentes a:
+- [ ] **Passo 1: escrever o teste RED**
+
+Criar `test_modelo_afetivo.py`:
 
 ```python
 import dataclasses
@@ -89,17 +117,12 @@ class ModeloAfetivoTests(unittest.TestCase):
         )
 
     def test_estado_e_personalidade_limitam_dimensoes(self):
-        personalidade = PersonalidadeBase(2.0, -1.0, 2.0, -1.0, 2.0, -1.0)
+        personalidade = PersonalidadeBase(2, -1, 2, -1, 2, -1)
         estado = EstadoAfetivo(
-            valencia=-2.0,
-            ativacao=2.0,
-            estresse=-1.0,
-            confianca=2.0,
-            engajamento=-1.0,
-            curiosidade=2.0,
-            foco_atencao=None,
-            estado_consciencia=EstadoConsciencia.RETOMANDO,
-            atualizado_em="2026-09-04T15:00:00+00:00",
+            -2, 2, -1, 2, -1, 2,
+            None,
+            EstadoConsciencia.RETOMANDO,
+            "2026-09-04T15:00:00+00:00",
         )
         self.assertEqual(personalidade.valencia, 1.0)
         self.assertEqual(personalidade.ativacao, 0.0)
@@ -108,26 +131,42 @@ class ModeloAfetivoTests(unittest.TestCase):
         self.assertEqual(estado.estresse, 0.0)
         self.assertEqual(estado.confianca, 1.0)
 
-    def test_impulso_limita_deltas_em_menos_um_mais_um(self):
+    def test_impulso_limita_deltas(self):
         impulso = ImpulsoAfetivo("teste", "teste", -4, 4, -4, 4, -4, 4)
         self.assertEqual(impulso.delta_valencia, -1.0)
         self.assertEqual(impulso.delta_ativacao, 1.0)
+        self.assertEqual(impulso.delta_estresse, -1.0)
+        self.assertEqual(impulso.delta_confianca, 1.0)
 
-    def test_contratos_sao_imutaveis_e_serializaveis(self):
+    def test_politica_rejeita_meia_vida_invalida(self):
+        with self.assertRaises(ValueError):
+            PoliticaDecaimento(0, 1200, 1800, 14400, 7200, 10800, 1800)
+
+    def test_timestamp_precisa_ser_aware(self):
+        with self.assertRaises(ValueError):
+            EstadoAfetivo(
+                0.2, 0.25, 0.1, 0.7, 0.5, 0.75,
+                None, EstadoConsciencia.RETOMANDO,
+                "2026-09-04T15:00:00",
+            )
+
+    def test_contratos_sao_frozen_e_json_serializaveis(self):
         estado = EstadoAfetivo(
-            0.2, 0.3, 0.1, 0.7, 0.5, 0.75,
+            0.2, 0.25, 0.1, 0.7, 0.5, 0.75,
             None, EstadoConsciencia.RETOMANDO,
             "2026-09-04T15:00:00+00:00",
         )
         with self.assertRaises(dataclasses.FrozenInstanceError):
             estado.estresse = 0.8
-        serializado = json.dumps(estado.to_dict(), ensure_ascii=False, sort_keys=True)
-        self.assertIn('"estado_consciencia": "retomando"', serializado)
+        encoded = json.dumps(estado.to_dict(), ensure_ascii=False, sort_keys=True)
+        self.assertIn('"estado_consciencia": "retomando"', encoded)
+
+
+if __name__ == "__main__":
+    unittest.main()
 ```
 
-- [ ] **Passo 2: executar apenas o novo teste e confirmar RED**
-
-Executar:
+- [ ] **Passo 2: executar e observar RED**
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_modelo_afetivo -v
@@ -135,14 +174,13 @@ python3 -m unittest infrastructure.pentium.atlas.tests.test_modelo_afetivo -v
 
 Esperado: FAIL por `ModuleNotFoundError` para `modelo_afetivo`.
 
-- [ ] **Passo 3: implementar o modelo mínimo**
-
-Em `modelo_afetivo.py`:
+- [ ] **Passo 3: implementar `modelo_afetivo.py` exatamente com estes invariantes**
 
 ```python
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -159,32 +197,148 @@ def _limitar_delta(valor: float) -> float:
     return max(-1.0, min(1.0, float(valor)))
 
 
+def _validar_timestamp_aware(valor: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(valor)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("timestamp afetivo deve ser ISO-8601 válido") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("timestamp afetivo deve possuir timezone")
+    return valor
+
+
 class EstadoConsciencia(str, Enum):
     ATIVO = "ativo"
     DEGRADADO = "degradado"
     ISOLADO = "isolado"
     RETOMANDO = "retomando"
+
+
+@dataclass(frozen=True)
+class PersonalidadeBase:
+    valencia: float
+    ativacao: float
+    estresse: float
+    confianca: float
+    engajamento: float
+    curiosidade: float
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "valencia", _limitar_valencia(self.valencia))
+        for nome in ("ativacao", "estresse", "confianca", "engajamento", "curiosidade"):
+            object.__setattr__(self, nome, _limitar_01(getattr(self, nome)))
+
+
+@dataclass(frozen=True)
+class PoliticaDecaimento:
+    meia_vida_valencia_s: float
+    meia_vida_ativacao_s: float
+    meia_vida_estresse_s: float
+    meia_vida_confianca_s: float
+    meia_vida_engajamento_s: float
+    meia_vida_curiosidade_s: float
+    limite_atenuacao_offline_s: float
+
+    def __post_init__(self) -> None:
+        for nome in (
+            "meia_vida_valencia_s",
+            "meia_vida_ativacao_s",
+            "meia_vida_estresse_s",
+            "meia_vida_confianca_s",
+            "meia_vida_engajamento_s",
+            "meia_vida_curiosidade_s",
+        ):
+            valor = float(getattr(self, nome))
+            if valor <= 0:
+                raise ValueError(f"{nome} deve ser > 0")
+            object.__setattr__(self, nome, valor)
+        limite = float(self.limite_atenuacao_offline_s)
+        if limite < 0:
+            raise ValueError("limite_atenuacao_offline_s deve ser >= 0")
+        object.__setattr__(self, "limite_atenuacao_offline_s", limite)
+
+
+@dataclass(frozen=True)
+class EstadoAfetivo:
+    valencia: float
+    ativacao: float
+    estresse: float
+    confianca: float
+    engajamento: float
+    curiosidade: float
+    foco_atencao: str | None
+    estado_consciencia: EstadoConsciencia
+    atualizado_em: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "valencia", _limitar_valencia(self.valencia))
+        for nome in ("ativacao", "estresse", "confianca", "engajamento", "curiosidade"):
+            object.__setattr__(self, nome, _limitar_01(getattr(self, nome)))
+        if self.foco_atencao is not None and not self.foco_atencao.strip():
+            raise ValueError("foco_atencao não pode ser vazio")
+        object.__setattr__(self, "atualizado_em", _validar_timestamp_aware(self.atualizado_em))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "valencia": self.valencia,
+            "ativacao": self.ativacao,
+            "estresse": self.estresse,
+            "confianca": self.confianca,
+            "engajamento": self.engajamento,
+            "curiosidade": self.curiosidade,
+            "foco_atencao": self.foco_atencao,
+            "estado_consciencia": self.estado_consciencia.value,
+            "atualizado_em": self.atualizado_em,
+        }
+
+
+@dataclass(frozen=True)
+class ImpulsoAfetivo:
+    tipo: str
+    motivo: str
+    delta_valencia: float
+    delta_ativacao: float
+    delta_estresse: float
+    delta_confianca: float
+    delta_engajamento: float
+    delta_curiosidade: float
+
+    def __post_init__(self) -> None:
+        if not self.tipo.strip():
+            raise ValueError("tipo do impulso não pode ser vazio")
+        for nome in (
+            "delta_valencia",
+            "delta_ativacao",
+            "delta_estresse",
+            "delta_confianca",
+            "delta_engajamento",
+            "delta_curiosidade",
+        ):
+            object.__setattr__(self, nome, _limitar_delta(getattr(self, nome)))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "tipo": self.tipo,
+            "motivo": self.motivo,
+            "delta_valencia": self.delta_valencia,
+            "delta_ativacao": self.delta_ativacao,
+            "delta_estresse": self.delta_estresse,
+            "delta_confianca": self.delta_confianca,
+            "delta_engajamento": self.delta_engajamento,
+            "delta_curiosidade": self.delta_curiosidade,
+        }
 ```
 
-Completar as quatro `@dataclass(frozen=True)` aplicando clamps em `__post_init__`. `PoliticaDecaimento` deve rejeitar qualquer meia-vida `<= 0` e `limite_atenuacao_offline_s < 0` com `ValueError`. `EstadoAfetivo.to_dict()` e `ImpulsoAfetivo.to_dict()` devem usar nomes pt-BR e tipos JSON simples.
-
-- [ ] **Passo 4: executar o teste do modelo até GREEN**
+- [ ] **Passo 4: executar teste do modelo e regressão Atlas**
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_modelo_afetivo -v
-```
-
-Esperado: PASS.
-
-- [ ] **Passo 5: executar regressão Atlas existente**
-
-```bash
 python3 -m unittest discover -s infrastructure/pentium/atlas/tests -p 'test_*.py' -v
 ```
 
-Esperado: 60 testes legados + novos testes A1, todos GREEN.
+Esperado: novo teste GREEN e os 60 testes Atlas anteriores continuam GREEN.
 
-- [ ] **Passo 6: commit**
+- [ ] **Passo 5: commit**
 
 ```bash
 git add infrastructure/pentium/atlas/modelo_afetivo.py infrastructure/pentium/atlas/tests/test_modelo_afetivo.py
@@ -193,18 +347,20 @@ git commit -m "feat(atlas): adicionar contratos do estado afetivo"
 
 ---
 
-### Tarefa 2: Configuração da personalidade-base e política de decaimento
+## Tarefa 2 — Configuração da personalidade-base e decaimento
 
 **Arquivos:**
 - Criar: `infrastructure/pentium/atlas/configuracao_afetiva.py`
 - Criar: `infrastructure/pentium/atlas/config_afetiva.json`
 - Criar: `infrastructure/pentium/atlas/tests/test_configuracao_afetiva.py`
 
-**Interfaces:**
-- Consome: `PersonalidadeBase`, `PoliticaDecaimento`.
-- Produz: `carregar_configuracao_afetiva(path: Path) -> tuple[PersonalidadeBase, PoliticaDecaimento]`.
+**Interface produzida:**
 
-**Valores iniciais calibráveis aprovados para iniciar a A1:**
+```python
+carregar_configuracao_afetiva(path: Path) -> tuple[PersonalidadeBase, PoliticaDecaimento]
+```
+
+**Valores iniciais propostos por este plano, ainda calibráveis antes da execução:**
 
 ```json
 {
@@ -231,9 +387,11 @@ git commit -m "feat(atlas): adicionar contratos do estado afetivo"
 }
 ```
 
-Esses números são configuração, não constante de domínio. Mantêm a relação aprovada: ativação/estresse recuperam mais rápido, valência em ritmo intermediário, confiança/engajamento/curiosidade mais lentamente.
+Esses valores materializam somente as tendências aprovadas: valência levemente positiva, ativação baixa, estresse baixo, confiança alta, engajamento moderado, curiosidade alta; ativação/estresse recuperam mais rápido, valência em ritmo intermediário, demais dimensões mais lentamente.
 
-- [ ] **Passo 1: escrever teste RED do loader e do arquivo real**
+- [ ] **Passo 1: escrever teste RED do loader**
+
+Criar `test_configuracao_afetiva.py`:
 
 ```python
 import json
@@ -262,11 +420,32 @@ class ConfiguracaoAfetivaTests(unittest.TestCase):
             path.write_text(json.dumps({"versao_schema": 99}), encoding="utf-8")
             with self.assertRaises(ValueError):
                 carregar_configuracao_afetiva(path)
+
+    def test_rejeita_campo_obrigatorio_ausente(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "config.json"
+            path.write_text(
+                json.dumps({"versao_schema": 1, "personalidade_base": {}, "decaimento": {}}),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                carregar_configuracao_afetiva(path)
+
+    def test_rejeita_meia_vida_invalida(self):
+        payload = json.loads(CONFIG.read_text(encoding="utf-8"))
+        payload["decaimento"]["meia_vida_segundos"]["estresse"] = 0
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "config.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                carregar_configuracao_afetiva(path)
+
+
+if __name__ == "__main__":
+    unittest.main()
 ```
 
-Adicionar casos RED para campo obrigatório ausente e meia-vida inválida.
-
-- [ ] **Passo 2: executar e confirmar RED**
+- [ ] **Passo 2: executar e observar RED**
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_configuracao_afetiva -v
@@ -274,9 +453,9 @@ python3 -m unittest infrastructure.pentium.atlas.tests.test_configuracao_afetiva
 
 Esperado: FAIL por módulo/configuração ausente.
 
-- [ ] **Passo 3: criar `config_afetiva.json` exatamente com o schema acima**
+- [ ] **Passo 3: criar `config_afetiva.json` com o JSON exato acima**
 
-Validar manualmente:
+Validar:
 
 ```bash
 python3 -m json.tool infrastructure/pentium/atlas/config_afetiva.json >/dev/null
@@ -284,22 +463,68 @@ python3 -m json.tool infrastructure/pentium/atlas/config_afetiva.json >/dev/null
 
 Esperado: exit 0.
 
-- [ ] **Passo 4: implementar loader estrito**
-
-`configuracao_afetiva.py` deve:
+- [ ] **Passo 4: implementar `configuracao_afetiva.py`**
 
 ```python
-def carregar_configuracao_afetiva(path: Path) -> tuple[PersonalidadeBase, PoliticaDecaimento]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from .modelo_afetivo import PersonalidadeBase, PoliticaDecaimento
+
+
+def _objeto(payload: dict[str, Any], chave: str) -> dict[str, Any]:
+    valor = payload.get(chave)
+    if not isinstance(valor, dict):
+        raise ValueError(f"{chave} deve ser objeto")
+    return valor
+
+
+def _obrigatorio(payload: dict[str, Any], chave: str) -> Any:
+    if chave not in payload:
+        raise ValueError(f"campo obrigatório ausente: {chave}")
+    return payload[chave]
+
+
+def carregar_configuracao_afetiva(
+    path: Path,
+) -> tuple[PersonalidadeBase, PoliticaDecaimento]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("configuração afetiva inválida") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("configuração afetiva deve ser objeto")
     if payload.get("versao_schema") != 1:
         raise ValueError("configuração afetiva versao_schema deve ser 1")
-    # ler chaves obrigatórias explicitamente; KeyError vira ValueError com nome do campo
-    # construir PersonalidadeBase e PoliticaDecaimento
+
+    base = _objeto(payload, "personalidade_base")
+    decaimento = _objeto(payload, "decaimento")
+    meias = _objeto(decaimento, "meia_vida_segundos")
+
+    personalidade = PersonalidadeBase(
+        _obrigatorio(base, "valencia"),
+        _obrigatorio(base, "ativacao"),
+        _obrigatorio(base, "estresse"),
+        _obrigatorio(base, "confianca"),
+        _obrigatorio(base, "engajamento"),
+        _obrigatorio(base, "curiosidade"),
+    )
+    politica = PoliticaDecaimento(
+        _obrigatorio(meias, "valencia"),
+        _obrigatorio(meias, "ativacao"),
+        _obrigatorio(meias, "estresse"),
+        _obrigatorio(meias, "confianca"),
+        _obrigatorio(meias, "engajamento"),
+        _obrigatorio(meias, "curiosidade"),
+        _obrigatorio(decaimento, "limite_atenuacao_offline_segundos"),
+    )
+    return personalidade, politica
 ```
 
-Não aceitar defaults silenciosos para campos obrigatórios da A1.
-
-- [ ] **Passo 5: executar testes A1 e regressão Atlas**
+- [ ] **Passo 5: executar testes e regressão**
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_configuracao_afetiva -v
@@ -317,29 +542,30 @@ git commit -m "feat(atlas): configurar personalidade e decaimento afetivo"
 
 ---
 
-### Tarefa 3: Motor puro de impulso e decaimento temporal
+## Tarefa 3 — Motor puro de impulso e decaimento
 
 **Arquivos:**
 - Criar: `infrastructure/pentium/atlas/motor_afetivo.py`
 - Criar: `infrastructure/pentium/atlas/tests/test_motor_afetivo.py`
 
-**Interfaces:**
-- Consome: `EstadoAfetivo`, `EstadoConsciencia`, `ImpulsoAfetivo`, `PersonalidadeBase`, `PoliticaDecaimento`.
-- Produz:
-  - `criar_estado_inicial(personalidade: PersonalidadeBase, atualizado_em: str) -> EstadoAfetivo`;
-  - `aplicar_impulso(estado: EstadoAfetivo, impulso: ImpulsoAfetivo, atualizado_em: str) -> EstadoAfetivo`;
-  - `decair_estado(estado: EstadoAfetivo, personalidade: PersonalidadeBase, politica: PoliticaDecaimento, atualizado_em: str) -> EstadoAfetivo`;
-  - `atenuar_estado_offline(estado: EstadoAfetivo, personalidade: PersonalidadeBase, politica: PoliticaDecaimento, retomado_em: str) -> EstadoAfetivo`.
+**Interfaces produzidas:**
 
-**Regra matemática:** para cada dimensão, retorno exponencial à linha de base:
-
-```text
-novo = base + (atual - base) * 0.5 ** (tempo_decorrido / meia_vida)
+```python
+criar_estado_inicial(personalidade, atualizado_em) -> EstadoAfetivo
+aplicar_impulso(estado, impulso, atualizado_em) -> EstadoAfetivo
+decair_estado(estado, personalidade, politica, atualizado_em) -> EstadoAfetivo
+atenuar_estado_offline(estado, personalidade, politica, retomado_em) -> EstadoAfetivo
 ```
 
-A função online usa todo o tempo decorrido. A função offline usa `min(tempo_decorrido, limite_atenuacao_offline_s)` e grava `atualizado_em=retomado_em`, impedindo que 12 horas desligado sejam tratadas como 12 horas conscientes.
+**Fórmula:**
 
-- [ ] **Passo 1: escrever testes RED do estado inicial e aplicação de impulso**
+```text
+novo = base + (atual - base) * 0.5 ** (segundos / meia_vida)
+```
+
+- [ ] **Passo 1: escrever teste RED**
+
+Criar `test_motor_afetivo.py`:
 
 ```python
 import unittest
@@ -351,12 +577,18 @@ from infrastructure.pentium.atlas.modelo_afetivo import (
     PersonalidadeBase,
     PoliticaDecaimento,
 )
-from infrastructure.pentium.atlas.motor_afetivo import aplicar_impulso, criar_estado_inicial
+from infrastructure.pentium.atlas.motor_afetivo import (
+    aplicar_impulso,
+    atenuar_estado_offline,
+    criar_estado_inicial,
+    decair_estado,
+)
 
 
 class MotorAfetivoTests(unittest.TestCase):
     def setUp(self):
         self.personalidade = PersonalidadeBase(0.2, 0.25, 0.1, 0.7, 0.5, 0.75)
+        self.politica = PoliticaDecaimento(3600, 1200, 1800, 14400, 7200, 10800, 1800)
 
     def test_estado_inicial_nasce_no_baseline_e_retomando(self):
         estado = criar_estado_inicial(self.personalidade, "2026-09-04T15:00:00+00:00")
@@ -364,17 +596,67 @@ class MotorAfetivoTests(unittest.TestCase):
         self.assertEqual(estado.estresse, 0.1)
         self.assertEqual(estado.estado_consciencia, EstadoConsciencia.RETOMANDO)
 
-    def test_impulso_soma_e_limita_sem_alterar_foco(self):
-        estado = criar_estado_inicial(self.personalidade, "2026-09-04T15:00:00+00:00")
+    def test_impulso_soma_limita_e_preserva_foco(self):
+        estado = EstadoAfetivo(
+            0.2, 0.25, 0.1, 0.7, 0.5, 0.75,
+            "x99", EstadoConsciencia.ATIVO,
+            "2026-09-04T15:00:00+00:00",
+        )
         impulso = ImpulsoAfetivo("perda", "teste", -0.8, 0.9, 1.0, -0.8, 0.4, 0.1)
         novo = aplicar_impulso(estado, impulso, "2026-09-04T15:00:01+00:00")
         self.assertAlmostEqual(novo.valencia, -0.6)
         self.assertEqual(novo.ativacao, 1.0)
         self.assertEqual(novo.estresse, 1.0)
-        self.assertEqual(novo.foco_atencao, estado.foco_atencao)
+        self.assertEqual(novo.foco_atencao, "x99")
+        self.assertEqual(novo.estado_consciencia, EstadoConsciencia.ATIVO)
+
+    def test_decaimento_respeita_meia_vida(self):
+        estado = EstadoAfetivo(
+            1.0, 0.25, 0.9, 0.7, 0.5, 0.75,
+            None, EstadoConsciencia.ATIVO,
+            "2026-09-04T15:00:00+00:00",
+        )
+        novo = decair_estado(
+            estado,
+            self.personalidade,
+            self.politica,
+            "2026-09-04T16:00:00+00:00",
+        )
+        self.assertAlmostEqual(novo.valencia, 0.6, places=6)
+
+    def test_rejeita_tempo_regressivo(self):
+        estado = criar_estado_inicial(self.personalidade, "2026-09-04T15:00:00+00:00")
+        with self.assertRaises(ValueError):
+            decair_estado(
+                estado,
+                self.personalidade,
+                self.politica,
+                "2026-09-04T14:59:59+00:00",
+            )
+
+    def test_atenuacao_offline_limita_tempo_e_entra_retomando(self):
+        estado = EstadoAfetivo(
+            0.2, 0.25, 0.9, 0.7, 0.5, 0.75,
+            "x99", EstadoConsciencia.DEGRADADO,
+            "2026-09-04T00:00:00+00:00",
+        )
+        novo = atenuar_estado_offline(
+            estado,
+            self.personalidade,
+            self.politica,
+            "2026-09-04T12:00:00+00:00",
+        )
+        self.assertAlmostEqual(novo.estresse, 0.5, places=6)
+        self.assertEqual(novo.estado_consciencia, EstadoConsciencia.RETOMANDO)
+        self.assertEqual(novo.foco_atencao, "x99")
+        self.assertEqual(novo.atualizado_em, "2026-09-04T12:00:00+00:00")
+
+
+if __name__ == "__main__":
+    unittest.main()
 ```
 
-- [ ] **Passo 2: executar e confirmar RED**
+- [ ] **Passo 2: executar e observar RED**
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_motor_afetivo -v
@@ -382,130 +664,163 @@ python3 -m unittest infrastructure.pentium.atlas.tests.test_motor_afetivo -v
 
 Esperado: FAIL por `motor_afetivo` ausente.
 
-- [ ] **Passo 3: implementar criação inicial e aplicação mínima**
+- [ ] **Passo 3: implementar `motor_afetivo.py`**
 
-`criar_estado_inicial` copia as seis dimensões da personalidade, define `foco_atencao=None`, `estado_consciencia=RETOMANDO` e usa o timestamp recebido.
+```python
+from __future__ import annotations
 
-`aplicar_impulso` soma cada delta à dimensão correspondente; os clamps do `EstadoAfetivo` são a última barreira. Deve preservar `foco_atencao` e `estado_consciencia`, pois A1 ainda não decide foco nem consciência operacional.
+from datetime import datetime
 
-- [ ] **Passo 4: executar os testes e confirmar GREEN parcial**
+from .modelo_afetivo import (
+    EstadoAfetivo,
+    EstadoConsciencia,
+    ImpulsoAfetivo,
+    PersonalidadeBase,
+    PoliticaDecaimento,
+)
+
+
+def _parse_timestamp(valor: str) -> datetime:
+    parsed = datetime.fromisoformat(valor)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("timestamp afetivo deve possuir timezone")
+    return parsed
+
+
+def _segundos_entre(inicio: str, fim: str) -> float:
+    segundos = (_parse_timestamp(fim) - _parse_timestamp(inicio)).total_seconds()
+    if segundos < 0:
+        raise ValueError("tempo afetivo não pode regredir")
+    return segundos
+
+
+def _decair(valor: float, base: float, segundos: float, meia_vida: float) -> float:
+    return base + (valor - base) * (0.5 ** (segundos / meia_vida))
+
+
+def criar_estado_inicial(
+    personalidade: PersonalidadeBase,
+    atualizado_em: str,
+) -> EstadoAfetivo:
+    return EstadoAfetivo(
+        personalidade.valencia,
+        personalidade.ativacao,
+        personalidade.estresse,
+        personalidade.confianca,
+        personalidade.engajamento,
+        personalidade.curiosidade,
+        None,
+        EstadoConsciencia.RETOMANDO,
+        atualizado_em,
+    )
+
+
+def aplicar_impulso(
+    estado: EstadoAfetivo,
+    impulso: ImpulsoAfetivo,
+    atualizado_em: str,
+) -> EstadoAfetivo:
+    _segundos_entre(estado.atualizado_em, atualizado_em)
+    return EstadoAfetivo(
+        estado.valencia + impulso.delta_valencia,
+        estado.ativacao + impulso.delta_ativacao,
+        estado.estresse + impulso.delta_estresse,
+        estado.confianca + impulso.delta_confianca,
+        estado.engajamento + impulso.delta_engajamento,
+        estado.curiosidade + impulso.delta_curiosidade,
+        estado.foco_atencao,
+        estado.estado_consciencia,
+        atualizado_em,
+    )
+
+
+def _valores_decaidos(
+    estado: EstadoAfetivo,
+    personalidade: PersonalidadeBase,
+    politica: PoliticaDecaimento,
+    segundos: float,
+) -> tuple[float, float, float, float, float, float]:
+    return (
+        _decair(estado.valencia, personalidade.valencia, segundos, politica.meia_vida_valencia_s),
+        _decair(estado.ativacao, personalidade.ativacao, segundos, politica.meia_vida_ativacao_s),
+        _decair(estado.estresse, personalidade.estresse, segundos, politica.meia_vida_estresse_s),
+        _decair(estado.confianca, personalidade.confianca, segundos, politica.meia_vida_confianca_s),
+        _decair(estado.engajamento, personalidade.engajamento, segundos, politica.meia_vida_engajamento_s),
+        _decair(estado.curiosidade, personalidade.curiosidade, segundos, politica.meia_vida_curiosidade_s),
+    )
+
+
+def decair_estado(
+    estado: EstadoAfetivo,
+    personalidade: PersonalidadeBase,
+    politica: PoliticaDecaimento,
+    atualizado_em: str,
+) -> EstadoAfetivo:
+    segundos = _segundos_entre(estado.atualizado_em, atualizado_em)
+    valores = _valores_decaidos(estado, personalidade, politica, segundos)
+    return EstadoAfetivo(
+        *valores,
+        estado.foco_atencao,
+        estado.estado_consciencia,
+        atualizado_em,
+    )
+
+
+def atenuar_estado_offline(
+    estado: EstadoAfetivo,
+    personalidade: PersonalidadeBase,
+    politica: PoliticaDecaimento,
+    retomado_em: str,
+) -> EstadoAfetivo:
+    total = _segundos_entre(estado.atualizado_em, retomado_em)
+    efetivo = min(total, politica.limite_atenuacao_offline_s)
+    valores = _valores_decaidos(estado, personalidade, politica, efetivo)
+    return EstadoAfetivo(
+        *valores,
+        estado.foco_atencao,
+        EstadoConsciencia.RETOMANDO,
+        retomado_em,
+    )
+```
+
+- [ ] **Passo 4: executar teste do motor e regressão Atlas**
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_motor_afetivo -v
-```
-
-Esperado: testes de criação/impulso PASS.
-
-- [ ] **Passo 5: acrescentar testes RED para meia-vida e timestamp regressivo**
-
-Adicionar:
-
-```python
-def test_decaimento_respeita_meia_vida_por_dimensao(self):
-    politica = PoliticaDecaimento(3600, 1200, 1800, 14400, 7200, 10800, 1800)
-    estado = EstadoAfetivo(
-        1.0, 0.25, 0.9, 0.7, 0.5, 0.75,
-        None, EstadoConsciencia.ATIVO,
-        "2026-09-04T15:00:00+00:00",
-    )
-    novo = decair_estado(
-        estado, self.personalidade, politica,
-        "2026-09-04T16:00:00+00:00",
-    )
-    self.assertAlmostEqual(novo.valencia, 0.6, places=6)
-
-
-def test_rejeita_tempo_regressivo(self):
-    politica = PoliticaDecaimento(3600, 1200, 1800, 14400, 7200, 10800, 1800)
-    estado = criar_estado_inicial(self.personalidade, "2026-09-04T15:00:00+00:00")
-    with self.assertRaises(ValueError):
-        decair_estado(estado, self.personalidade, politica, "2026-09-04T14:59:59+00:00")
-```
-
-- [ ] **Passo 6: executar e confirmar RED da função de decaimento**
-
-```bash
-python3 -m unittest infrastructure.pentium.atlas.tests.test_motor_afetivo -v
-```
-
-Esperado: FAIL por `decair_estado` ausente ou comportamento ainda não implementado.
-
-- [ ] **Passo 7: implementar parsing de ISO-8601 aware e decaimento exponencial**
-
-Usar `datetime.fromisoformat()`. Rejeitar timestamps sem `tzinfo`/offset e rejeitar tempo regressivo. Não usar `time.time()` dentro do motor.
-
-- [ ] **Passo 8: acrescentar teste RED da atenuação offline limitada**
-
-```python
-def test_atenuacao_offline_aplica_no_maximo_limite_e_entra_retomando(self):
-    politica = PoliticaDecaimento(3600, 1200, 1800, 14400, 7200, 10800, 1800)
-    estado = EstadoAfetivo(
-        0.2, 0.25, 0.9, 0.7, 0.5, 0.75,
-        "x99", EstadoConsciencia.DEGRADADO,
-        "2026-09-04T00:00:00+00:00",
-    )
-    novo = atenuar_estado_offline(
-        estado, self.personalidade, politica,
-        "2026-09-04T12:00:00+00:00",
-    )
-    self.assertAlmostEqual(novo.estresse, 0.5, places=6)
-    self.assertEqual(novo.estado_consciencia, EstadoConsciencia.RETOMANDO)
-    self.assertEqual(novo.foco_atencao, "x99")
-    self.assertEqual(novo.atualizado_em, "2026-09-04T12:00:00+00:00")
-```
-
-- [ ] **Passo 9: implementar `atenuar_estado_offline` e tornar todos os testes GREEN**
-
-A função deve calcular o decaimento com o tempo efetivo limitado e, depois, gravar o timestamp real de retomada e `EstadoConsciencia.RETOMANDO`.
-
-- [ ] **Passo 10: regressão Atlas e commit**
-
-```bash
 python3 -m unittest discover -s infrastructure/pentium/atlas/tests -p 'test_*.py' -v
+```
+
+Esperado: GREEN.
+
+- [ ] **Passo 5: commit**
+
+```bash
 git add infrastructure/pentium/atlas/motor_afetivo.py infrastructure/pentium/atlas/tests/test_motor_afetivo.py
 git commit -m "feat(atlas): implementar motor afetivo determinístico"
 ```
 
-Esperado: todos GREEN.
-
 ---
 
-### Tarefa 4: Persistência atômica e restauração segura
+## Tarefa 4 — Persistência atômica e restauração segura
 
 **Arquivos:**
 - Criar: `infrastructure/pentium/atlas/persistencia_afetiva.py`
 - Criar: `infrastructure/pentium/atlas/tests/test_persistencia_afetiva.py`
 
-**Interfaces:**
-- Consome: `EstadoAfetivo`, `PersonalidadeBase`, `PoliticaDecaimento`, `criar_estado_inicial`, `atenuar_estado_offline`.
-- Produz:
-  - `VERSAO_SNAPSHOT_AFETIVO = 1`;
-  - `PersistenciaAfetivaError(RuntimeError)`;
-  - `ResultadoRestauracao(estado: EstadoAfetivo, origem: str, erro: str | None)` frozen;
-  - `salvar_estado_afetivo(path: Path, estado: EstadoAfetivo) -> None`;
-  - `carregar_estado_afetivo(path: Path) -> EstadoAfetivo`;
-  - `restaurar_estado_afetivo(path: Path, personalidade: PersonalidadeBase, politica: PoliticaDecaimento, retomado_em: str) -> ResultadoRestauracao`.
+**Interfaces produzidas:**
 
-**Formato do snapshot:**
-
-```json
-{
-  "versao": 1,
-  "estado": {
-    "valencia": 0.2,
-    "ativacao": 0.25,
-    "estresse": 0.1,
-    "confianca": 0.7,
-    "engajamento": 0.5,
-    "curiosidade": 0.75,
-    "foco_atencao": null,
-    "estado_consciencia": "retomando",
-    "atualizado_em": "2026-09-04T15:00:00+00:00"
-  }
-}
+```python
+VERSAO_SNAPSHOT_AFETIVO = 1
+PersistenciaAfetivaError(RuntimeError)
+ResultadoRestauracao(estado: EstadoAfetivo, origem: str, erro: str | None)
+salvar_estado_afetivo(path, estado) -> None
+carregar_estado_afetivo(path) -> EstadoAfetivo
+restaurar_estado_afetivo(path, personalidade, politica, retomado_em) -> ResultadoRestauracao
 ```
 
-- [ ] **Passo 1: escrever teste RED de round-trip e escrita atômica**
+- [ ] **Passo 1: escrever teste RED**
+
+Criar `test_persistencia_afetiva.py`:
 
 ```python
 import json
@@ -513,95 +828,200 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from infrastructure.pentium.atlas.modelo_afetivo import EstadoConsciencia, PersonalidadeBase, PoliticaDecaimento
+from infrastructure.pentium.atlas.modelo_afetivo import (
+    EstadoAfetivo,
+    EstadoConsciencia,
+    PersonalidadeBase,
+    PoliticaDecaimento,
+)
 from infrastructure.pentium.atlas.motor_afetivo import criar_estado_inicial
-from infrastructure.pentium.atlas.persistencia_afetiva import carregar_estado_afetivo, salvar_estado_afetivo
+from infrastructure.pentium.atlas.persistencia_afetiva import (
+    carregar_estado_afetivo,
+    restaurar_estado_afetivo,
+    salvar_estado_afetivo,
+)
 
 
 class PersistenciaAfetivaTests(unittest.TestCase):
-    def test_salva_e_carrega_snapshot_sem_deixar_temporario(self):
+    def setUp(self):
+        self.personalidade = PersonalidadeBase(0.2, 0.25, 0.1, 0.7, 0.5, 0.75)
+        self.politica = PoliticaDecaimento(3600, 1200, 1800, 14400, 7200, 10800, 1800)
+
+    def test_round_trip_atomico_nao_deixa_temporario(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "estado-afetivo.json"
-            personalidade = PersonalidadeBase(0.2, 0.25, 0.1, 0.7, 0.5, 0.75)
-            estado = criar_estado_inicial(personalidade, "2026-09-04T15:00:00+00:00")
+            estado = criar_estado_inicial(self.personalidade, "2026-09-04T15:00:00+00:00")
             salvar_estado_afetivo(path, estado)
-            carregado = carregar_estado_afetivo(path)
-            self.assertEqual(carregado, estado)
+            self.assertEqual(carregar_estado_afetivo(path), estado)
             self.assertFalse((Path(temp) / "estado-afetivo.json.tmp").exists())
             self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["versao"], 1)
+
+    def test_snapshot_ausente_retorna_baseline_retomando(self):
+        with tempfile.TemporaryDirectory() as temp:
+            resultado = restaurar_estado_afetivo(
+                Path(temp) / "ausente.json",
+                self.personalidade,
+                self.politica,
+                "2026-09-04T15:00:00+00:00",
+            )
+            self.assertEqual(resultado.origem, "baseline")
+            self.assertEqual(resultado.erro, "snapshot_ausente")
+            self.assertEqual(resultado.estado.estado_consciencia, EstadoConsciencia.RETOMANDO)
+
+    def test_snapshot_corrompido_nao_bloqueia_retomada(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "estado.json"
+            path.write_text("{invalido", encoding="utf-8")
+            resultado = restaurar_estado_afetivo(
+                path,
+                self.personalidade,
+                self.politica,
+                "2026-09-04T15:00:00+00:00",
+            )
+            self.assertEqual(resultado.origem, "baseline")
+            self.assertEqual(resultado.erro, "snapshot_invalido")
+
+    def test_snapshot_valido_aplica_atenuacao_offline_limitada(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "estado.json"
+            estado = EstadoAfetivo(
+                0.2, 0.25, 0.9, 0.7, 0.5, 0.75,
+                "x99", EstadoConsciencia.DEGRADADO,
+                "2026-09-04T00:00:00+00:00",
+            )
+            salvar_estado_afetivo(path, estado)
+            resultado = restaurar_estado_afetivo(
+                path,
+                self.personalidade,
+                self.politica,
+                "2026-09-04T12:00:00+00:00",
+            )
+            self.assertEqual(resultado.origem, "snapshot")
+            self.assertIsNone(resultado.erro)
+            self.assertAlmostEqual(resultado.estado.estresse, 0.5, places=6)
+            self.assertEqual(resultado.estado.estado_consciencia, EstadoConsciencia.RETOMANDO)
+
+
+if __name__ == "__main__":
+    unittest.main()
 ```
 
-- [ ] **Passo 2: executar e confirmar RED**
+- [ ] **Passo 2: executar e observar RED**
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_persistencia_afetiva -v
 ```
 
-Esperado: FAIL por módulo ausente.
+Esperado: FAIL por `persistencia_afetiva` ausente.
 
-- [ ] **Passo 3: implementar escrita atômica e loader estrito**
-
-`salvar_estado_afetivo` deve:
+- [ ] **Passo 3: implementar `persistencia_afetiva.py`**
 
 ```python
-path.parent.mkdir(parents=True, exist_ok=True)
-temporario = path.with_name(path.name + ".tmp")
-with temporario.open("w", encoding="utf-8", newline="\n") as handle:
-    json.dump(payload, handle, ensure_ascii=False, sort_keys=True)
-    handle.write("\n")
-    handle.flush()
-    os.fsync(handle.fileno())
-os.replace(temporario, path)
-```
+from __future__ import annotations
 
-Em qualquer `OSError`, remover o temporário quando possível e levantar `PersistenciaAfetivaError`. `carregar_estado_afetivo` rejeita versão diferente de 1, JSON inválido, campos ausentes, estado de consciência desconhecido e estrutura não objeto, convertendo falhas em `PersistenciaAfetivaError`.
+import json
+import os
+from dataclasses import dataclass
+from pathlib import Path
 
-- [ ] **Passo 4: executar o round-trip até GREEN**
+from .modelo_afetivo import (
+    EstadoAfetivo,
+    EstadoConsciencia,
+    PersonalidadeBase,
+    PoliticaDecaimento,
+)
+from .motor_afetivo import atenuar_estado_offline, criar_estado_inicial
 
-```bash
-python3 -m unittest infrastructure.pentium.atlas.tests.test_persistencia_afetiva -v
-```
-
-- [ ] **Passo 5: escrever testes RED de snapshot ausente/corrompido e restauração válida**
-
-Adicionar casos:
-
-```python
-def test_snapshot_ausente_retorna_baseline_retomando(self):
-    resultado = restaurar_estado_afetivo(
-        Path("arquivo-que-nao-existe.json"),
-        self.personalidade,
-        self.politica,
-        "2026-09-04T15:00:00+00:00",
-    )
-    self.assertEqual(resultado.origem, "baseline")
-    self.assertEqual(resultado.erro, "snapshot_ausente")
-    self.assertEqual(resultado.estado.estado_consciencia, EstadoConsciencia.RETOMANDO)
+VERSAO_SNAPSHOT_AFETIVO = 1
 
 
-def test_snapshot_corrompido_nao_bloqueia_retomada(self):
-    with tempfile.TemporaryDirectory() as temp:
-        path = Path(temp) / "estado.json"
-        path.write_text("{invalido", encoding="utf-8")
-        resultado = restaurar_estado_afetivo(
-            path, self.personalidade, self.politica,
-            "2026-09-04T15:00:00+00:00",
+class PersistenciaAfetivaError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class ResultadoRestauracao:
+    estado: EstadoAfetivo
+    origem: str
+    erro: str | None = None
+
+
+def salvar_estado_afetivo(path: Path, estado: EstadoAfetivo) -> None:
+    payload = {"versao": VERSAO_SNAPSHOT_AFETIVO, "estado": estado.to_dict()}
+    temporario = path.with_name(path.name + ".tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with temporario.open("w", encoding="utf-8", newline="\n") as handle:
+            json.dump(payload, handle, ensure_ascii=False, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporario, path)
+    except OSError as exc:
+        try:
+            temporario.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise PersistenciaAfetivaError(str(exc)) from exc
+
+
+def carregar_estado_afetivo(path: Path) -> EstadoAfetivo:
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise
+    except OSError as exc:
+        raise PersistenciaAfetivaError(str(exc)) from exc
+    try:
+        payload = json.loads(raw)
+        if not isinstance(payload, dict) or payload.get("versao") != VERSAO_SNAPSHOT_AFETIVO:
+            raise ValueError("versão de snapshot inválida")
+        estado = payload["estado"]
+        if not isinstance(estado, dict):
+            raise ValueError("estado deve ser objeto")
+        return EstadoAfetivo(
+            estado["valencia"],
+            estado["ativacao"],
+            estado["estresse"],
+            estado["confianca"],
+            estado["engajamento"],
+            estado["curiosidade"],
+            estado.get("foco_atencao"),
+            EstadoConsciencia(estado["estado_consciencia"]),
+            estado["atualizado_em"],
         )
-        self.assertEqual(resultado.origem, "baseline")
-        self.assertEqual(resultado.erro, "snapshot_invalido")
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        raise PersistenciaAfetivaError("snapshot afetivo inválido") from exc
 
 
-def test_snapshot_valido_aplica_atenuacao_offline_limitada(self):
-    # salvar estado com estresse 0.9 às 00:00 e restaurar às 12:00
-    # com meia-vida de estresse=1800 e limite offline=1800
-    # esperado: estresse 0.5, origem snapshot, consciência retomando
+def restaurar_estado_afetivo(
+    path: Path,
+    personalidade: PersonalidadeBase,
+    politica: PoliticaDecaimento,
+    retomado_em: str,
+) -> ResultadoRestauracao:
+    try:
+        estado = carregar_estado_afetivo(path)
+    except FileNotFoundError:
+        return ResultadoRestauracao(
+            criar_estado_inicial(personalidade, retomado_em),
+            "baseline",
+            "snapshot_ausente",
+        )
+    except PersistenciaAfetivaError:
+        return ResultadoRestauracao(
+            criar_estado_inicial(personalidade, retomado_em),
+            "baseline",
+            "snapshot_invalido",
+        )
+    return ResultadoRestauracao(
+        atenuar_estado_offline(estado, personalidade, politica, retomado_em),
+        "snapshot",
+        None,
+    )
 ```
 
-- [ ] **Passo 6: confirmar RED e implementar `ResultadoRestauracao` + `restaurar_estado_afetivo`**
-
-A restauração nunca engole silenciosamente falha: retorna `erro` explícito ao chamador. A1 não escolhe logger/journal; o consumidor futuro é responsável por registrar `erro`.
-
-- [ ] **Passo 7: executar testes A1 + regressão Atlas**
+- [ ] **Passo 4: executar testes e regressão Atlas**
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_persistencia_afetiva -v
@@ -610,7 +1030,7 @@ python3 -m unittest discover -s infrastructure/pentium/atlas/tests -p 'test_*.py
 
 Esperado: GREEN.
 
-- [ ] **Passo 8: commit**
+- [ ] **Passo 5: commit**
 
 ```bash
 git add infrastructure/pentium/atlas/persistencia_afetiva.py infrastructure/pentium/atlas/tests/test_persistencia_afetiva.py
@@ -619,18 +1039,19 @@ git commit -m "feat(atlas): persistir e restaurar estado afetivo"
 
 ---
 
-### Tarefa 5: Empacotamento e gate de CI da A1
+## Tarefa 5 — Empacotamento e gate de CI
 
 **Arquivos:**
 - Criar: `infrastructure/pentium/atlas/tests/test_nucleo_afetivo_empacotamento.py`
 - Modificar: `infrastructure/pentium/atlas/install-user.sh`
 - Modificar: `.github/workflows/foundation-ci.yml`
 
-**Interfaces:**
-- Consome: todos os módulos A1.
-- Produz markers:
-  - installer: `ATLAS_NUCLEO_AFETIVO_INSTALL_PASS`;
-  - CI: `DEVEX_HOMELAB_ATLAS_NUCLEO_AFETIVO_PASS`.
+**Markers produzidos:**
+
+```text
+ATLAS_NUCLEO_AFETIVO_INSTALL_PASS
+DEVEX_HOMELAB_ATLAS_NUCLEO_AFETIVO_PASS
+```
 
 - [ ] **Passo 1: escrever teste RED do empacotamento**
 
@@ -644,7 +1065,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "foundation-ci.yml"
 
 
 class NucleoAfetivoEmpacotamentoTests(unittest.TestCase):
-    def test_installer_inclui_nucleo_afetivo_sem_ativar_servico(self):
+    def test_installer_inclui_a1_sem_ativar_servico(self):
         text = (ATLAS / "install-user.sh").read_text(encoding="utf-8")
         for nome in (
             "modelo_afetivo.py",
@@ -661,47 +1082,88 @@ class NucleoAfetivoEmpacotamentoTests(unittest.TestCase):
 
     def test_foundation_ci_compila_e_valida_a1(self):
         text = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("modelo_afetivo.py", text)
-        self.assertIn("config_afetiva.json", text)
+        for nome in (
+            "modelo_afetivo.py",
+            "configuracao_afetiva.py",
+            "motor_afetivo.py",
+            "persistencia_afetiva.py",
+            "config_afetiva.json",
+        ):
+            self.assertIn(nome, text)
         self.assertIn("DEVEX_HOMELAB_ATLAS_NUCLEO_AFETIVO_PASS", text)
+
+
+if __name__ == "__main__":
+    unittest.main()
 ```
 
-- [ ] **Passo 2: executar e confirmar RED**
+- [ ] **Passo 2: executar e observar RED**
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_nucleo_afetivo_empacotamento -v
 ```
 
-Esperado: FAIL porque installer/CI ainda não conhecem A1.
+Esperado: FAIL porque installer/CI ainda não incluem A1.
 
 - [ ] **Passo 3: modificar `install-user.sh`**
 
-Adicionar ao loop de módulos:
+No primeiro loop `for file in`, inserir antes de `cli.py`:
 
 ```text
-modelo_afetivo.py
-configuracao_afetiva.py
-motor_afetivo.py
-persistencia_afetiva.py
+  modelo_afetivo.py \
+  configuracao_afetiva.py \
+  motor_afetivo.py \
+  persistencia_afetiva.py \
 ```
 
-Adicionar `config_afetiva.json` ao loop de configs; incluir os quatro módulos no `py_compile`; validar JSON com `python3 -m json.tool`; emitir ao final:
+Trocar:
+
+```bash
+for config in config.json observation_config.json; do
+```
+
+por:
+
+```bash
+for config in config.json observation_config.json config_afetiva.json; do
+```
+
+Adicionar os quatro módulos ao bloco `python3 -m py_compile` e, após validação de `observation_config.json`, adicionar:
+
+```bash
+python3 -m json.tool "${TARGET_DIR}/config_afetiva.json" >/dev/null
+```
+
+Antes da linha `run=...`, adicionar:
 
 ```bash
 echo "ATLAS_NUCLEO_AFETIVO_INSTALL_PASS"
 ```
 
-Não alterar comportamento persistente do sistema.
-
 - [ ] **Passo 4: modificar `.github/workflows/foundation-ci.yml`**
 
-No gate Atlas existente, acrescentar os quatro módulos ao `py_compile`, validar `config_afetiva.json` e, depois dos testes, emitir:
+No gate Atlas, acrescentar ao `py_compile`:
+
+```text
+"$atlas/modelo_afetivo.py"
+"$atlas/configuracao_afetiva.py"
+"$atlas/motor_afetivo.py"
+"$atlas/persistencia_afetiva.py"
+```
+
+Após `observation_config.json`, adicionar:
+
+```bash
+python3 -m json.tool "$atlas/config_afetiva.json" >/dev/null
+```
+
+Após `DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS`, adicionar:
 
 ```bash
 echo 'DEVEX_HOMELAB_ATLAS_NUCLEO_AFETIVO_PASS'
 ```
 
-- [ ] **Passo 5: executar gates locais de sintaxe/configuração**
+- [ ] **Passo 5: executar gates locais**
 
 ```bash
 python3 -m py_compile \
@@ -716,7 +1178,7 @@ python3 -m unittest infrastructure.pentium.atlas.tests.test_nucleo_afetivo_empac
 
 Esperado: PASS.
 
-- [ ] **Passo 6: executar suíte completa do repositório usada no baseline**
+- [ ] **Passo 6: executar regressão completa usada no baseline**
 
 ```bash
 python3 -m unittest discover -s infrastructure/network/tests -p 'test_*.py' -v
@@ -726,7 +1188,7 @@ python3 -m unittest discover -s infrastructure/pentium/atlas/tests -p 'test_*.py
 git diff --check
 ```
 
-Esperado: Network 6, Heartbeat 7, Pentium Agent 10 e todos os Atlas legados + A1 GREEN; `git diff --check` sem saída.
+Esperado: Network 6, Heartbeat 7, Pentium Agent 10 e todos os testes Atlas legados + A1 GREEN; `git diff --check` sem saída.
 
 - [ ] **Passo 7: commit**
 
@@ -737,32 +1199,28 @@ git commit -m "ci(atlas): certificar núcleo afetivo A1"
 
 ---
 
-### Tarefa 6: Revisão de escopo, documentação final e PR Draft da A1
+## Tarefa 6 — Gate final, as-built e PR Draft
 
-**Arquivos:**
+**Arquivo:**
 - Modificar: `docs/as-built/2026-09-02-baseline.md`
-- Não alterar: especificação aprovada, salvo correção factual comprovada.
 
-**Interfaces:**
-- Consome: resultados reais das Tarefas 1–5.
-- Produz: evidência as-built e PR Draft stacked sobre `atlas/issue-20-observation-runtime`.
-
-- [ ] **Passo 1: verificar que A1 não vazou responsabilidades de A2–A8**
-
-Executar buscas:
+- [ ] **Passo 1: verificar isolamento de escopo**
 
 ```bash
 git diff 1a28a54a051d152d83cf919a7f570e1bacccdf2e...HEAD -- infrastructure/pentium/atlas
-grep -RniE 'grpc|https|socket|named pipe|traceroute|ssh|llm|tts|stt' infrastructure/pentium/atlas/modelo_afetivo.py infrastructure/pentium/atlas/configuracao_afetiva.py infrastructure/pentium/atlas/motor_afetivo.py infrastructure/pentium/atlas/persistencia_afetiva.py || true
+grep -RniE 'grpc|https|socket|named pipe|traceroute|ssh|llm|tts|stt' \
+  infrastructure/pentium/atlas/modelo_afetivo.py \
+  infrastructure/pentium/atlas/configuracao_afetiva.py \
+  infrastructure/pentium/atlas/motor_afetivo.py \
+  infrastructure/pentium/atlas/persistencia_afetiva.py || true
 ```
 
 Esperado: nenhuma implementação de transporte, diagnóstico ativo ou LLM em A1.
 
-- [ ] **Passo 2: executar gate local final do HEAD exato**
+- [ ] **Passo 2: executar gate do HEAD de código**
 
 ```bash
-HEAD_EXATO=$(git rev-parse HEAD)
-echo "HEAD_EXATO=${HEAD_EXATO}"
+echo "HEAD_CODIGO=$(git rev-parse HEAD)"
 python3 -m unittest discover -s infrastructure/network/tests -p 'test_*.py' -v
 python3 -m unittest discover -s infrastructure/pentium/heartbeat/tests -p 'test_*.py' -v
 python3 -m unittest discover -s infrastructure/pentium/agent/tests -p 'test_*.py' -v
@@ -774,86 +1232,93 @@ bash -n infrastructure/pentium/atlas/install-user.sh
 git diff --check
 ```
 
-Registrar contagens reais; não antecipar número final de testes Atlas no documento.
+Registrar SHA e contagens exibidas pelos comandos. Resultado de SHA anterior não vale.
 
-- [ ] **Passo 3: atualizar as-built somente com fatos observados**
+- [ ] **Passo 3: registrar as-built factual**
 
-Adicionar seção `Atlas A1 — Núcleo Afetivo` contendo:
+Adicionar ao final de `docs/as-built/2026-09-02-baseline.md` uma seção `## Atlas A1 — Núcleo Afetivo — 2026-09-04` contendo somente:
 
-- SHA exato local certificado;
-- contagens reais de Network/Heartbeat/Pentium Agent/Atlas;
-- markers e validações executadas;
-- módulos implementados;
-- confirmação de zero LLM e zero mudança de rede/serviço persistente;
-- declarar explicitamente se ainda não houve certificação física/soak.
+```text
+- SHA exato certificado localmente;
+- contagens reais Network/Heartbeat/Pentium Agent/Atlas;
+- módulos A1 implementados;
+- validações JSON/bash/diff realizadas;
+- zero chamada de LLM;
+- zero alteração de rede/SSH/Tailscale/firewall/modem;
+- nenhum serviço persistente A1 instalado/ativado;
+- certificação física/soak: não executada, se continuar não executada.
+```
 
-Não registrar CI antes de ela existir.
-
-- [ ] **Passo 4: commit da documentação**
+- [ ] **Passo 4: commit documental e novo gate no novo HEAD**
 
 ```bash
 git add docs/as-built/2026-09-02-baseline.md
 git commit -m "docs(atlas): registrar implementação A1 do núcleo afetivo"
+echo "HEAD_FINAL=$(git rev-parse HEAD)"
+python3 -m unittest discover -s infrastructure/network/tests -p 'test_*.py' -v
+python3 -m unittest discover -s infrastructure/pentium/heartbeat/tests -p 'test_*.py' -v
+python3 -m unittest discover -s infrastructure/pentium/agent/tests -p 'test_*.py' -v
+python3 -m unittest discover -s infrastructure/pentium/atlas/tests -p 'test_*.py' -v
+git diff --check
 ```
 
-- [ ] **Passo 5: repetir gate após o commit documental**
+Esperado: GREEN no novo HEAD final.
 
-Executar novamente a suíte completa e `git diff --check`, pois o HEAD mudou.
+- [ ] **Passo 5: push e PR Draft**
 
-- [ ] **Passo 6: push e criação/atualização da PR Draft**
-
-Push da branch `atlas/issue-20-motor-estado-afetivo`. Criar PR Draft com base `atlas/issue-20-observation-runtime` e título em pt-BR, por exemplo:
+Fazer push de `atlas/issue-20-motor-estado-afetivo` e criar PR Draft com:
 
 ```text
-feat(atlas): adicionar A1 núcleo afetivo determinístico
+base: atlas/issue-20-observation-runtime
+head: atlas/issue-20-motor-estado-afetivo
+título: feat(atlas): adicionar A1 núcleo afetivo determinístico
 ```
 
-A PR deve permanecer Draft até gates e revisão explícita; não marcar Ready e não mergear automaticamente.
+Não marcar Ready e não mergear.
 
-- [ ] **Passo 7: aguardar Foundation CI do HEAD exato e validar o mesmo SHA**
+- [ ] **Passo 6: verificar Foundation CI no HEAD final**
 
-Somente aceitar GREEN se o workflow estiver `completed/success` no SHA exato da PR. Resultado de SHA anterior não vale.
+Aguardar o workflow e aceitar o gate somente se `completed/success` corresponder exatamente ao `HEAD_FINAL` obtido no Passo 4.
 
-- [ ] **Passo 8: checkpoint pt-BR da PR**
+- [ ] **Passo 7: publicar `/checkpoint` pt-BR**
 
-Publicar `/checkpoint` contendo:
+O comentário deve conter:
 
-- HEAD exato;
-- o que A1 implementou;
-- evidência RED→GREEN resumida;
-- contagens locais reais;
-- CI do mesmo SHA, se concluída;
-- blockers/gates pendentes;
-- nenhuma alegação de certificação física se não executada;
-- próximo passo seguro: A2 — Entidades, vínculos e expectativas, somente após A1 permanecer GREEN.
+```text
+/checkpoint — Atlas A1 Núcleo Afetivo
+- HEAD exato final
+- contratos e módulos implementados
+- evidência RED→GREEN por tarefa
+- contagens locais reais
+- Foundation CI do mesmo SHA
+- limites: sem LLM, sem rede nova, sem serviço persistente, sem certificação física se não realizada
+- blockers/gates ainda existentes
+- próximo passo seguro: A2 — Entidades, vínculos e expectativas
+```
 
 ---
 
 ## Auto-revisão do plano
 
-### Cobertura da especificação para A1
+### Cobertura
 
-A1 cobre deliberadamente apenas:
+A1 cobre exatamente: `EstadoAfetivo`, `PersonalidadeBase`, `ImpulsoAfetivo`, `EstadoConsciencia` necessário à retomada, bounds, decaimento temporal por dimensão, atenuação offline limitada, persistência atômica e fallback seguro.
 
-- `EstadoAfetivo` com seis dimensões e bounds;
-- `PersonalidadeBase` persistente como linha de retorno;
-- `ImpulsoAfetivo` limitado;
-- `EstadoConsciencia` necessário à retomada;
-- decaimento temporal diferente por dimensão;
-- atenuação offline limitada;
-- persistência atômica e fallback de snapshot inválido;
-- gate/empacotamento sem serviço persistente.
+A1 não implementa responsabilidades das próximas slices: vínculo/entidades/expectativas (A2), percepção/correlação (A3), seleção de foco e emoções derivadas (A4), Agente de Nó C++ (A5), transportes (A6), diagnóstico ativo (A7) e integração/certificação ampla (A8).
 
-Ficam explicitamente para slices posteriores, sem lacuna de A1: vínculo/entidades/expectativas (A2), percepção/correlação (A3), seleção de foco e emoções derivadas (A4), Agente de Nó C++ (A5), transportes (A6), diagnóstico ativo (A7) e integração/certificação ampla (A8).
+### Consistência
 
-### Consistência de tipos
+- `EstadoAfetivo.atualizado_em` é ISO-8601 aware.
+- `foco_atencao` é persistido, mas A1 não decide qual foco vence.
+- `EstadoConsciencia` existe para bootstrap/restauração; transições operacionais completas não entram em A1.
+- Decaimento nunca consulta relógio oculto.
+- Snapshot A1 schema v1 não antecipa incidentes/expectativas ainda inexistentes; evolução futura exige migração explícita.
+- Estado técnico não é importado nem modificado pelo Motor Afetivo.
 
-- `EstadoAfetivo.atualizado_em` é sempre ISO-8601 aware em string.
-- `foco_atencao` existe e persiste em A1, mas A1 não seleciona nem preempta foco.
-- `EstadoConsciencia` existe em A1 para bootstrap/restauração; transições operacionais completas virão com integração posterior.
-- Decaimento e restauração recebem tempo explicitamente; não consultam relógio global oculto.
-- Snapshot v1 contém apenas estado necessário à A1; incidentes/expectativas serão adicionados por migração de schema quando A2/A3 existirem, não por campos vazios antecipados.
+### Decisões numéricas novas deste plano
 
-### Ausência de placeholders
+Os seis valores da personalidade-base e as meias-vidas são propostas concretas necessárias para tornar a A1 executável. Elas não foram aprovadas numericamente durante o design; a execução do plano só deve começar depois de o usuário aceitar esses números ou solicitar ajuste.
 
-O plano não contém `TBD`/`TODO`; valores iniciais, assinaturas, fórmula de decaimento, schema, comandos de teste e markers estão definidos. Metas de CPU/RAM continuam fora de A1 porque a especificação exige medi-las antes de fixar números de certificação.
+### Verificação de placeholders
+
+Não há `TBD`, `TODO`, função sem assinatura, teste sem comportamento esperado nem passo de implementação dependente de código não definido neste plano.
