@@ -90,3 +90,6 @@ class CorrelacionadorIncidentes:
             cobertos.add(entidade)
             cobertos.update(set(self._grafo.dependentes_transitivos(entidade)) & inacessiveis)
         return tuple(roots)
+
+    def incidentes_ativos(self) -> tuple[IncidenteTecnico, ...]:
+        return tuple(self._ativos[chave] for chave in sorted(self._ativos))
