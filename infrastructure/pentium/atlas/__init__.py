@@ -1,1 +1,0 @@
-﻿"""Atlas local intelligence state and reaction foundation."""

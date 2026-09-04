@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "profileId": "interlude-746-l2jtoren",
+  "status": "baseline-pending",
+  "chronicle": "Interlude",
+  "clientRevision": {
+    "gameProtocol": 746,
+    "loginInitProtocol": "0x0000C621",
+    "xdatSchema": "ct0"
+  },
+  "tooling": {
+    "xdatEditor": {
+      "repository": "nascimentolh/XDAT_NEW",
+      "commit": "d97869bc8910aada0907662aa0293564d1339894",
+      "license": "MIT",
+      "minimumJavaVersion": 21,
+      "buildCommand": "ant -f build-all.xml"
+    }
+  },
+  "baseline": {
+    "engineDll": {
+      "fileName": "Engine.dll",
+      "sha256": "8ec6a9138db2c91884c7f9e7936d3f3ee61c08024cc22d45b477a86997151d78",
+      "evidence": "PR #69 binary profile"
+    },
+    "coreDll": {
+      "fileName": "Core.dll",
+      "sha256": "d83449b1cdf0ac717a98be9289caab03cb507324a696ef449e31369e28416639",
+      "evidence": "PR #69 binary profile"
+    },
+    "interfaceXdat": {
+      "fileName": "Interface.xdat",
+      "sha256": null,
+      "evidence": "pending local baseline manifest"
+    },
+    "interfaceU": {
+      "fileName": "Interface.u",
+      "sha256": null,
+      "evidence": "pending local baseline manifest"
+    }
+  },
+  "trackedSystemFiles": [
+    "Interface.xdat",
+    "Interface.u",
+    "Interface.int",
+    "Interface.dll",
+    "NWindow.dll",
+    "Engine.dll",
+    "Core.dll",
+    "Fire.dll",
+    "dsetup.dll",
+    "L2.exe",
+    "l2.ini"
+  ],
+  "policy": {
+    "commitClientBinaries": false,
+    "commitEditedXdat": false,
+    "requireSha256Manifest": true,
+    "requireBaselineBackup": true,
+    "requireDisposableTestSystem": true
+  },
+  "validation": {
+    "runtimeValidated": false,
+    "baselineManifestCaptured": false,
+    "xdatRoundTripValidated": false,
+    "clientLaunchValidated": false,
+    "requiredEvidence": [
+      "baseline manifest JSON",
+      "edited manifest JSON",
+      "XDAT_NEW commit and ct0 schema",
+      "round-trip open/save result",
+      "client launch log or screenshot",
+      "rollback verification"
+    ]
+  }
+}
