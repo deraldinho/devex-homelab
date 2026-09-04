@@ -108,3 +108,5 @@ int main() {
   std::cout << "ATLAS_NODE_AGENT_MODEL_QUEUE_PASS\n";
   return EXIT_SUCCESS;
 }
+
+// Vitals tests are appended after the model/queue suite.
