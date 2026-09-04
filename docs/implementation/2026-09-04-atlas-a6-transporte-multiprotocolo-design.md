@@ -45,3 +45,6 @@ Mensagens com versão desconhecida, nó não autorizado, projeto não autorizado
 ## Certificação
 
 A6.1 certifica contratos, sessão, replay e roteamento sem rede. A6.2 certifica TCP/mTLS real. A6.3 certifica gRPC streaming/mTLS real. A6.4 certifica HTTPS/mTLS real. A6.5 executa integração Windows/Linux, reconnect, duplicação cross-channel, bounds e CI no HEAD exato.
+## Dependência TLS A6.2
+
+O canal vital usa Mbed TLS 3.6.7 LTS, obtido exclusivamente do release oficial e fixado por SHA-256 `a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6` via CMake FetchContent. Certificados de teste são gerados de forma efêmera no diretório de build; nenhuma chave privada ou certificado operacional é versionado.
