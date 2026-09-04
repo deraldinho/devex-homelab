@@ -57,3 +57,15 @@ if(BUILD_TESTING)
   target_link_libraries(atlas-node-agent-runtime-tests PRIVATE atlas_node_agent_core)
   add_test(NAME atlas-node-agent-runtime-tests COMMAND atlas-node-agent-runtime-tests)
 endif()
+
+add_executable(atlas-node-agent src/main.cpp)
+target_link_libraries(atlas-node-agent PRIVATE atlas_node_agent_core)
+
+if(BUILD_TESTING)
+  add_test(NAME atlas-node-agent-cli-vitals COMMAND atlas-node-agent --vitals .)
+  set_tests_properties(atlas-node-agent-cli-vitals PROPERTIES PASS_REGULAR_EXPRESSION "ATLAS_NODE_AGENT_VITALS")
+  add_test(NAME atlas-node-agent-cli-validate COMMAND atlas-node-agent --validate
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/agent.conf"
+    "ATLAS/1|proj|e1|recuperacao|recovery|ok")
+  set_tests_properties(atlas-node-agent-cli-validate PROPERTIES PASS_REGULAR_EXPRESSION "accepted=true")
+endif()
