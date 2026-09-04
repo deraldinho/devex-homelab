@@ -1,0 +1,20 @@
+{
+  "versao_esquema": 1,
+  "personalidade_base": {
+    "valencia": 0.20,
+    "ativacao": 0.25,
+    "estresse": 0.10,
+    "confianca": 0.70,
+    "engajamento": 0.55,
+    "curiosidade": 0.75
+  },
+  "decaimento": {
+    "meia_vida_valencia_s": 3600,
+    "meia_vida_ativacao_s": 900,
+    "meia_vida_estresse_s": 1800,
+    "meia_vida_confianca_s": 21600,
+    "meia_vida_engajamento_s": 7200,
+    "meia_vida_curiosidade_s": 10800,
+    "atenuacao_offline_maxima_s": 3600
+  }
+}

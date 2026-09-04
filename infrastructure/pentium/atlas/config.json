@@ -1,0 +1,28 @@
+{
+  "mode": "normal",
+  "anti_repeat_window": 4,
+  "memes_enabled": true,
+  "cooldowns": {
+    "healthy": 300,
+    "active": 120,
+    "busy": 60,
+    "degraded": 45,
+    "stressed": 30,
+    "critical": 0,
+    "recovered": 15
+  },
+  "reaction_pools": {
+    "healthy": [{"id": "healthy.tech.01", "weight": 3}, {"id": "healthy.tech.02", "weight": 1}],
+    "active": [{"id": "active.tech.01", "weight": 1}],
+    "busy": [{"id": "busy.tech.01", "weight": 1}],
+    "degraded": [{"id": "degraded.tech.01", "weight": 1}],
+    "stressed": [{"id": "stressed.tech.01", "weight": 1}],
+    "critical": [],
+    "recovered": [{"id": "recovered.tech.01", "weight": 1}]
+  },
+  "meme_pools": {
+    "healthy": [{"id": "meme.happy.01", "weight": 1}],
+    "recovered": [{"id": "meme.relief.01", "weight": 1}],
+    "critical": [{"id": "meme.critical.01", "weight": 1}]
+  }
+}

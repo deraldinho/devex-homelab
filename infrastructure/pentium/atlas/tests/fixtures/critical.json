@@ -1,0 +1,8 @@
+{
+  "previous_state": "stressed",
+  "signals": [
+    {"source": "pentium", "state": "healthy", "intensity": 0, "required": true, "reason": "pentium.ok"},
+    {"source": "core", "state": "critical", "intensity": 4, "required": true, "reason": "core.offline"},
+    {"source": "x99", "state": "degraded", "intensity": 2, "required": false, "reason": "x99.unreachable"}
+  ]
+}
