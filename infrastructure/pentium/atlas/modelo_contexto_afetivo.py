@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -88,3 +89,82 @@ class VinculoAfetivo:
             familiaridade=_limitar_01(self.familiaridade + df, "familiaridade"),
             confianca_operacional=_limitar_01(self.confianca_operacional + dc, "confianca_operacional"),
         )
+
+
+def _normalizar_instante_utc(valor: str, nome: str) -> str:
+    texto = _texto_obrigatorio(valor, nome)
+    instante = datetime.fromisoformat(texto)
+    if instante.tzinfo is None or instante.utcoffset() is None:
+        raise ValueError(f"{nome} deve possuir timezone")
+    return instante.astimezone(timezone.utc).isoformat()
+
+
+def _instante(valor: str, nome: str) -> datetime:
+    return datetime.fromisoformat(_normalizar_instante_utc(valor, nome))
+
+
+class TipoExpectativa(str, Enum):
+    MANUTENCAO_PLANEJADA = "manutencao_planejada"
+    RETORNO_ESPERADO = "retorno_esperado"
+
+
+class EstadoExpectativa(str, Enum):
+    EM_CURSO = "em_curso"
+    ATRASADA = "atrasada"
+    CUMPRIDA = "cumprida"
+    CANCELADA = "cancelada"
+
+
+class TipoExperienciaOperacional(str, Enum):
+    INCIDENTE = "incidente"
+    RECUPERACAO = "recuperacao"
+    INTERACAO_SUCESSO = "interacao_sucesso"
+
+
+@dataclass(frozen=True)
+class Expectativa:
+    expectativa_id: str
+    entidade_id: str
+    tipo: TipoExpectativa
+    criada_em: str
+    inicio_previsto_em: str
+    limite_em: str
+    encerrada_com: EstadoExpectativa | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "expectativa_id", _texto_obrigatorio(self.expectativa_id, "expectativa_id"))
+        object.__setattr__(self, "entidade_id", _texto_obrigatorio(self.entidade_id, "entidade_id"))
+        if not isinstance(self.tipo, TipoExpectativa):
+            object.__setattr__(self, "tipo", TipoExpectativa(self.tipo))
+        for nome in ("criada_em", "inicio_previsto_em", "limite_em"):
+            object.__setattr__(self, nome, _normalizar_instante_utc(getattr(self, nome), nome))
+        if _instante(self.inicio_previsto_em, "inicio_previsto_em") > _instante(self.limite_em, "limite_em"):
+            raise ValueError("inicio_previsto_em nao pode ser posterior a limite_em")
+        if self.encerrada_com not in (None, EstadoExpectativa.CUMPRIDA, EstadoExpectativa.CANCELADA):
+            raise ValueError("encerrada_com deve ser CUMPRIDA, CANCELADA ou None")
+
+    def estado_em(self, agora: str) -> EstadoExpectativa:
+        if self.encerrada_com is not None:
+            return self.encerrada_com
+        return EstadoExpectativa.ATRASADA if _instante(agora, "agora") > _instante(self.limite_em, "limite_em") else EstadoExpectativa.EM_CURSO
+
+    def concluir(self) -> "Expectativa":
+        return replace(self, encerrada_com=EstadoExpectativa.CUMPRIDA)
+
+    def cancelar(self) -> "Expectativa":
+        return replace(self, encerrada_com=EstadoExpectativa.CANCELADA)
+
+
+@dataclass(frozen=True)
+class ExperienciaOperacional:
+    experiencia_id: str
+    entidade_id: str
+    tipo: TipoExperienciaOperacional
+    ocorrido_em: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "experiencia_id", _texto_obrigatorio(self.experiencia_id, "experiencia_id"))
+        object.__setattr__(self, "entidade_id", _texto_obrigatorio(self.entidade_id, "entidade_id"))
+        if not isinstance(self.tipo, TipoExperienciaOperacional):
+            object.__setattr__(self, "tipo", TipoExperienciaOperacional(self.tipo))
+        object.__setattr__(self, "ocorrido_em", _normalizar_instante_utc(self.ocorrido_em, "ocorrido_em"))
