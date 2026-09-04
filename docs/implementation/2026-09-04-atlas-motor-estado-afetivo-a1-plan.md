@@ -1,10 +1,10 @@
 # A1 — Núcleo Afetivo — Plano de Implementação
 
-> **Para execução agentic:** SUB-SKILL OBRIGATÓRIA: usar `superpowers:subagent-driven-development` (recomendado) ou `superpowers:executing-plans` para executar este plano tarefa por tarefa. Os passos usam caixas `- [ ]` para acompanhamento.
+> **Para execução com agentes:** SUB-SKILL OBRIGATÓRIA: usar `superpowers:subagent-driven-development` (recomendado) ou `superpowers:executing-plans` para executar este plano tarefa por tarefa. Os passos usam caixas `- [ ]` para acompanhamento.
 
 **Objetivo:** implementar o núcleo afetivo determinístico do Atlas com estado de seis dimensões, personalidade-base, impulsos limitados, decaimento temporal por meia-vida, persistência atômica e retomada com atenuação offline limitada.
 
-**Arquitetura:** a A1 é uma camada pura e independente do `ObservationRuntime`: recebe `ImpulsoAfetivo` já contextualizado, aplica decaimento e atualização bounded sobre `EstadoAfetivo`, e persiste snapshots locais. Não implementa vínculos, correlação, foco dinâmico, agentes C++, transporte, diagnóstico ativo, LLM, áudio ou ações de controle.
+**Arquitetura:** a A1 é uma camada pura e independente do `ObservationRuntime`: recebe `ImpulsoAfetivo` já contextualizado, aplica decaimento e atualização limitada sobre `EstadoAfetivo` e persiste estados locais. Não implementa vínculos, correlação, decisão de foco, agentes C++, transporte, diagnóstico ativo, LLM, áudio ou ações de controle.
 
 **Stack técnica:** Python 3.14 compatível com a base atual, `dataclasses`, `datetime`, `json`, `math`, `os`, `pathlib`, `unittest`; sem dependência Python externa.
 
@@ -17,30 +17,82 @@
 - O estado técnico continua autoritativo; A1 não lê nem reclassifica saúde técnica.
 - A LLM não participa da A1 e o número de chamadas de LLM deve permanecer zero.
 - Nenhuma alteração de rede, SSH, Tailscale, firewall, modem, rota, DNS, systemd ou serviço persistente é permitida.
-- Todas as dimensões são bounded: `valencia` em `-1.0..+1.0`; demais dimensões em `0.0..1.0`.
-- Decaimento usa tempo absoluto UTC e fórmula exponencial por meia-vida, independente da quantidade de ciclos.
+- Todas as dimensões são limitadas: `valencia` em `-1.0..+1.0`; demais dimensões em `0.0..1.0`.
+- Instantes são normalizados para UTC e armazenados como ISO-8601 com timezone.
+- Decaimento usa fórmula exponencial por meia-vida e depende do tempo decorrido, não da quantidade de ciclos.
 - Durante período offline, o decaimento efetivo é limitado a no máximo `3600` segundos, mesmo que o Pentium permaneça desligado por mais tempo.
 - A configuração inicial da personalidade é explícita e versionada em JSON; nenhum valor é inferido pela LLM.
 - TDD é obrigatório: cada tarefa de código começa com teste RED, segue com implementação mínima GREEN e termina com commit próprio.
 - A branch permanece empilhada sobre `atlas/issue-20-observation-runtime`; não marcar Ready nem realizar merge durante A1 sem decisão explícita.
+
+## Configuração inicial aprovada pelo plano
+
+A primeira configuração versionada usa:
+
+- `valencia=0.20`;
+- `ativacao=0.25`;
+- `estresse=0.10`;
+- `confianca=0.70`;
+- `engajamento=0.55`;
+- `curiosidade=0.75`;
+- meia-vida de valência: `3600 s`;
+- meia-vida de ativação: `900 s`;
+- meia-vida de estresse: `1800 s`;
+- meia-vida de confiança: `21600 s`;
+- meia-vida de engajamento: `7200 s`;
+- meia-vida de curiosidade: `10800 s`;
+- atenuação offline máxima: `3600 s`.
+
+Esses valores ficam em `config_afetiva.json`; o motor não os contém como constantes de negócio.
 
 ## Estrutura de arquivos da A1
 
 - `infrastructure/pentium/atlas/modelo_afetivo.py`: contratos puros `EstadoAfetivo`, `PersonalidadeBase`, `ImpulsoAfetivo` e `PoliticaDecaimento`.
 - `infrastructure/pentium/atlas/configuracao_afetiva.py`: carregamento e validação do JSON de personalidade/decaimento.
 - `infrastructure/pentium/atlas/config_afetiva.json`: valores iniciais versionados da personalidade e das meias-vidas.
-- `infrastructure/pentium/atlas/decaimento_afetivo.py`: função pura de aproximação exponencial ao baseline, incluindo modo offline limitado.
+- `infrastructure/pentium/atlas/decaimento_afetivo.py`: função pura de aproximação exponencial à personalidade-base, incluindo modo offline limitado.
 - `infrastructure/pentium/atlas/motor_afetivo.py`: estado em memória e aplicação determinística de impulsos.
-- `infrastructure/pentium/atlas/persistencia_afetiva.py`: snapshot JSON atômico, restauração e fallback explícito.
+- `infrastructure/pentium/atlas/persistencia_afetiva.py`: estado salvo em JSON atômico, restauração e retorno seguro à personalidade-base.
 - `infrastructure/pentium/atlas/tests/test_modelo_afetivo.py`: invariantes e limites do modelo.
 - `infrastructure/pentium/atlas/tests/test_configuracao_afetiva.py`: contrato do JSON e valores canônicos iniciais.
 - `infrastructure/pentium/atlas/tests/test_decaimento_afetivo.py`: meia-vida, relógio e limite offline.
 - `infrastructure/pentium/atlas/tests/test_motor_afetivo.py`: aplicação de impulsos e ordenação temporal.
-- `infrastructure/pentium/atlas/tests/test_persistencia_afetiva.py`: round-trip, corrupção, ausência e retomada offline.
+- `infrastructure/pentium/atlas/tests/test_persistencia_afetiva.py`: ida/volta, corrupção, ausência, tempo inválido e retomada offline.
 - `infrastructure/pentium/atlas/tests/test_a1_empacotamento.py`: instalador e gate de CI.
 - `infrastructure/pentium/atlas/install-user.sh`: incluir os novos módulos/configuração sem ativar serviço.
 - `.github/workflows/foundation-ci.yml`: compilar os novos módulos, validar o JSON e publicar marcador A1.
 - `docs/as-built/2026-09-02-baseline.md`: registrar somente evidência efetivamente obtida após GREEN no SHA exato.
+
+## Preparação da execução no x99
+
+A worktree já existe em `C:\Users\deral\DevEx-HomeLab\.worktrees\issue-20-atlas-affective`; não criar outra. Como o x99 desconectou após a criação local e a branch remota recebeu o design e este plano diretamente pelo GitHub, sincronizar antes da Tarefa 1 sem perder arquivo local não rastreado:
+
+```powershell
+Set-Location 'C:\Users\deral\DevEx-HomeLab\.worktrees\issue-20-atlas-affective'
+git status --short
+git fetch origin atlas/issue-20-motor-estado-afetivo
+```
+
+Se `docs/implementation/2026-09-04-atlas-motor-estado-afetivo-design.md` aparecer como não rastreado, comparar com o blob remoto:
+
+```powershell
+$LocalHash = (Get-FileHash 'docs\implementation\2026-09-04-atlas-motor-estado-afetivo-design.md' -Algorithm SHA256).Hash
+$Temp = Join-Path $env:TEMP 'atlas-design-remoto.md'
+git show origin/atlas/issue-20-motor-estado-afetivo:docs/implementation/2026-09-04-atlas-motor-estado-afetivo-design.md | Set-Content -Encoding utf8NoBOM $Temp
+$RemoteHash = (Get-FileHash $Temp -Algorithm SHA256).Hash
+Write-Output "LOCAL=$LocalHash"
+Write-Output "REMOTE=$RemoteHash"
+```
+
+Se os hashes forem iguais, remover apenas esse arquivo não rastreado e fazer fast-forward. Se forem diferentes, mover o arquivo local para `$env:TEMP\atlas-design-local-backup.md` antes do fast-forward. Em seguida:
+
+```powershell
+git merge --ff-only origin/atlas/issue-20-motor-estado-afetivo
+git rev-parse HEAD
+git status --short
+```
+
+O HEAD deve conter os commits remotos de design/plano e a worktree deve ficar limpa antes do primeiro teste RED.
 
 ---
 
@@ -60,7 +112,7 @@
 
 - [ ] **Passo 1: escrever o teste RED do modelo**
 
-Criar `test_modelo_afetivo.py` com:
+Criar `test_modelo_afetivo.py`:
 
 ```python
 import unittest
@@ -94,25 +146,22 @@ class ModeloAfetivoTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ImpulsoAfetivo(motivo="teste", delta_estresse=1.01)
 
-    def test_personalidade_cria_estado_exatamente_no_baseline(self):
-        personalidade = PersonalidadeBase(
-            valencia=0.20,
-            ativacao=0.25,
-            estresse=0.10,
-            confianca=0.70,
-            engajamento=0.55,
-            curiosidade=0.75,
-        )
+    def test_personalidade_cria_estado_exatamente_na_base(self):
+        personalidade = PersonalidadeBase(0.20, 0.25, 0.10, 0.70, 0.55, 0.75)
         estado = personalidade.criar_estado("2026-09-04T12:00:00+00:00")
         self.assertEqual(0.20, estado.valencia)
         self.assertEqual(0.10, estado.estresse)
         self.assertEqual(0.75, estado.curiosidade)
         self.assertIsNone(estado.foco_atencao)
+
+    def test_instante_com_offset_e_normalizado_para_utc(self):
+        estado = PersonalidadeBase(0.20, 0.25, 0.10, 0.70, 0.55, 0.75).criar_estado(
+            "2026-09-04T09:00:00-03:00"
+        )
+        self.assertEqual("2026-09-04T12:00:00+00:00", estado.atualizado_em)
 ```
 
 - [ ] **Passo 2: executar o teste e confirmar RED**
-
-Executar:
 
 ```bash
 python3 -m unittest infrastructure.pentium.atlas.tests.test_modelo_afetivo -v
@@ -122,14 +171,14 @@ Resultado esperado: falha de importação porque `modelo_afetivo.py` ainda não 
 
 - [ ] **Passo 3: implementar o modelo mínimo**
 
-Criar `modelo_afetivo.py` com a seguinte estrutura e invariantes:
+Criar `modelo_afetivo.py`:
 
 ```python
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def _finito(valor: float, nome: str) -> float:
@@ -151,11 +200,11 @@ def _validar_intervalo(valor: float, minimo: float, maximo: float, nome: str) ->
     return numero
 
 
-def _validar_instante(valor: str) -> str:
+def _normalizar_instante_utc(valor: str) -> str:
     instante = datetime.fromisoformat(valor)
     if instante.tzinfo is None or instante.utcoffset() is None:
         raise ValueError("atualizado_em deve possuir timezone")
-    return valor
+    return instante.astimezone(timezone.utc).isoformat()
 
 
 @dataclass(frozen=True)
@@ -173,7 +222,7 @@ class EstadoAfetivo:
         object.__setattr__(self, "valencia", _limitar(self.valencia, -1.0, 1.0, "valencia"))
         for nome in ("ativacao", "estresse", "confianca", "engajamento", "curiosidade"):
             object.__setattr__(self, nome, _limitar(getattr(self, nome), 0.0, 1.0, nome))
-        object.__setattr__(self, "atualizado_em", _validar_instante(self.atualizado_em))
+        object.__setattr__(self, "atualizado_em", _normalizar_instante_utc(self.atualizado_em))
 
 
 @dataclass(frozen=True)
@@ -213,11 +262,15 @@ class ImpulsoAfetivo:
     delta_curiosidade: float = 0.0
 
     def __post_init__(self) -> None:
-        if not self.motivo.strip():
+        if not isinstance(self.motivo, str) or not self.motivo.strip():
             raise ValueError("motivo não pode ser vazio")
         for nome in (
-            "delta_valencia", "delta_ativacao", "delta_estresse",
-            "delta_confianca", "delta_engajamento", "delta_curiosidade",
+            "delta_valencia",
+            "delta_ativacao",
+            "delta_estresse",
+            "delta_confianca",
+            "delta_engajamento",
+            "delta_curiosidade",
         ):
             object.__setattr__(self, nome, _validar_intervalo(getattr(self, nome), -1.0, 1.0, nome))
 
@@ -234,13 +287,21 @@ class PoliticaDecaimento:
 
     def __post_init__(self) -> None:
         for nome in (
-            "meia_vida_valencia_s", "meia_vida_ativacao_s", "meia_vida_estresse_s",
-            "meia_vida_confianca_s", "meia_vida_engajamento_s", "meia_vida_curiosidade_s",
+            "meia_vida_valencia_s",
+            "meia_vida_ativacao_s",
+            "meia_vida_estresse_s",
+            "meia_vida_confianca_s",
+            "meia_vida_engajamento_s",
+            "meia_vida_curiosidade_s",
         ):
-            if _finito(getattr(self, nome), nome) <= 0:
+            numero = _finito(getattr(self, nome), nome)
+            if numero <= 0:
                 raise ValueError(f"{nome} deve ser > 0")
-        if _finito(self.atenuacao_offline_maxima_s, "atenuacao_offline_maxima_s") < 0:
+            object.__setattr__(self, nome, numero)
+        offline = _finito(self.atenuacao_offline_maxima_s, "atenuacao_offline_maxima_s")
+        if offline < 0:
             raise ValueError("atenuacao_offline_maxima_s deve ser >= 0")
+        object.__setattr__(self, "atenuacao_offline_maxima_s", offline)
 ```
 
 - [ ] **Passo 4: executar o teste e confirmar GREEN**
@@ -249,7 +310,7 @@ class PoliticaDecaimento:
 python3 -m unittest infrastructure.pentium.atlas.tests.test_modelo_afetivo -v
 ```
 
-Resultado esperado: `Ran 3 tests ... OK`.
+Resultado esperado: `Ran 4 tests ... OK`.
 
 - [ ] **Passo 5: executar regressão Atlas e commit**
 
@@ -290,7 +351,7 @@ CONFIG = ROOT / "infrastructure" / "pentium" / "atlas" / "config_afetiva.json"
 
 
 class ConfiguracaoAfetivaTests(unittest.TestCase):
-    def test_configuracao_do_repositorio_carrega_baseline_e_meias_vidas(self):
+    def test_configuracao_do_repositorio_carrega_base_e_meias_vidas(self):
         cfg = carregar_configuracao_afetiva(CONFIG)
         self.assertEqual(0.20, cfg.personalidade.valencia)
         self.assertEqual(0.10, cfg.personalidade.estresse)
@@ -298,10 +359,10 @@ class ConfiguracaoAfetivaTests(unittest.TestCase):
         self.assertEqual(900.0, cfg.decaimento.meia_vida_ativacao_s)
         self.assertEqual(3600.0, cfg.decaimento.atenuacao_offline_maxima_s)
 
-    def test_schema_version_diferente_de_um_e_rejeitado(self):
+    def test_versao_de_esquema_diferente_de_um_e_rejeitada(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "config.json"
-            path.write_text(json.dumps({"schema_version": 2}), encoding="utf-8")
+            path.write_text(json.dumps({"versao_esquema": 2}), encoding="utf-8")
             with self.assertRaises(ValueError):
                 carregar_configuracao_afetiva(path)
 
@@ -329,7 +390,7 @@ Criar `config_afetiva.json` exatamente com:
 
 ```json
 {
-  "schema_version": 1,
+  "versao_esquema": 1,
   "personalidade_base": {
     "valencia": 0.20,
     "ativacao": 0.25,
@@ -350,9 +411,7 @@ Criar `config_afetiva.json` exatamente com:
 }
 ```
 
-Esses valores são configuração inicial explícita, não regra hardcoded do motor.
-
-- [ ] **Passo 4: implementar o loader mínimo**
+- [ ] **Passo 4: implementar o carregador mínimo**
 
 Criar `configuracao_afetiva.py`:
 
@@ -374,8 +433,8 @@ class ConfiguracaoAfetiva:
 
 def carregar_configuracao_afetiva(path: Path) -> ConfiguracaoAfetiva:
     payload = json.loads(path.read_text(encoding="utf-8"))
-    if payload.get("schema_version") != 1:
-        raise ValueError("config afetiva schema_version deve ser 1")
+    if payload.get("versao_esquema") != 1:
+        raise ValueError("config afetiva versao_esquema deve ser 1")
     try:
         personalidade = PersonalidadeBase(**payload["personalidade_base"])
         decaimento = PoliticaDecaimento(**payload["decaimento"])
@@ -408,10 +467,10 @@ Resultado esperado do teste específico: `Ran 3 tests ... OK`.
 - Consome: `EstadoAfetivo`, `PersonalidadeBase`, `PoliticaDecaimento`.
 - Produz: `decair_estado(estado, personalidade, politica, agora, modo_offline=False) -> EstadoAfetivo`.
 
-A fórmula canônica por dimensão é:
+Fórmula canônica por dimensão:
 
 ```text
-novo = baseline + (atual - baseline) * 0.5 ** (segundos_efetivos / meia_vida)
+novo = base + (atual - base) * 0.5 ** (segundos_efetivos / meia_vida)
 ```
 
 No modo offline:
@@ -436,7 +495,7 @@ POLITICA = PoliticaDecaimento(3600, 900, 1800, 21600, 7200, 10800, 3600)
 
 
 class DecaimentoAfetivoTests(unittest.TestCase):
-    def test_uma_meia_vida_reduz_metade_da_distancia_ao_baseline(self):
+    def test_uma_meia_vida_reduz_metade_da_distancia_ate_a_base(self):
         estado = EstadoAfetivo(0.80, 0.25, 0.10, 0.70, 0.55, 0.75, "2026-09-04T12:00:00+00:00")
         novo = decair_estado(estado, PERSONALIDADE, POLITICA, "2026-09-04T13:00:00+00:00")
         self.assertAlmostEqual(0.50, novo.valencia, places=9)
@@ -476,16 +535,14 @@ from .modelo_afetivo import EstadoAfetivo, PersonalidadeBase, PoliticaDecaimento
 def _segundos(inicio: str, fim: str) -> float:
     a = datetime.fromisoformat(inicio)
     b = datetime.fromisoformat(fim)
-    if a.tzinfo is None or b.tzinfo is None:
-        raise ValueError("instantes devem possuir timezone")
     segundos = (b - a).total_seconds()
     if segundos < 0:
         raise ValueError("agora não pode ser anterior ao estado")
     return segundos
 
 
-def _aproximar(atual: float, baseline: float, meia_vida_s: float, segundos: float) -> float:
-    return baseline + (atual - baseline) * (0.5 ** (segundos / meia_vida_s))
+def _aproximar(atual: float, base: float, meia_vida_s: float, segundos: float) -> float:
+    return base + (atual - base) * (0.5 ** (segundos / meia_vida_s))
 
 
 def decair_estado(
@@ -496,7 +553,16 @@ def decair_estado(
     *,
     modo_offline: bool = False,
 ) -> EstadoAfetivo:
-    decorridos = _segundos(estado.atualizado_em, agora)
+    instante = EstadoAfetivo(
+        personalidade.valencia,
+        personalidade.ativacao,
+        personalidade.estresse,
+        personalidade.confianca,
+        personalidade.engajamento,
+        personalidade.curiosidade,
+        agora,
+    ).atualizado_em
+    decorridos = _segundos(estado.atualizado_em, instante)
     efetivos = min(decorridos, politica.atenuacao_offline_maxima_s) if modo_offline else decorridos
     return EstadoAfetivo(
         valencia=_aproximar(estado.valencia, personalidade.valencia, politica.meia_vida_valencia_s, efetivos),
@@ -505,7 +571,7 @@ def decair_estado(
         confianca=_aproximar(estado.confianca, personalidade.confianca, politica.meia_vida_confianca_s, efetivos),
         engajamento=_aproximar(estado.engajamento, personalidade.engajamento, politica.meia_vida_engajamento_s, efetivos),
         curiosidade=_aproximar(estado.curiosidade, personalidade.curiosidade, politica.meia_vida_curiosidade_s, efetivos),
-        atualizado_em=agora,
+        atualizado_em=instante,
         foco_atencao=estado.foco_atencao,
     )
 ```
@@ -672,11 +738,11 @@ git commit -m "feat(atlas): implementar motor de estado afetivo A1"
 **Interfaces:**
 - Consome: `EstadoAfetivo`, `PersonalidadeBase`, `PoliticaDecaimento`, `decair_estado`.
 - Produz:
-  - `SnapshotAfetivoInvalido`;
-  - enum `OrigemRestauracaoAfetiva` com `SNAPSHOT`, `BASELINE_AUSENTE`, `BASELINE_CORROMPIDO`;
+  - `EstadoAfetivoSalvoInvalido`;
+  - enum `OrigemRestauracaoAfetiva` com `ESTADO_SALVO`, `BASE_POR_AUSENCIA`, `BASE_POR_ESTADO_INVALIDO`;
   - `ResultadoRestauracaoAfetiva(estado, origem, erro)`;
-  - `RepositorioEstadoAfetivo(path).salvar(estado)`;
-  - `RepositorioEstadoAfetivo(path).carregar() -> EstadoAfetivo | None`;
+  - `RepositorioEstadoAfetivo(caminho).salvar(estado)`;
+  - `RepositorioEstadoAfetivo(caminho).carregar() -> EstadoAfetivo | None`;
   - `restaurar_estado(repositorio, personalidade, politica, agora) -> ResultadoRestauracaoAfetiva`.
 
 - [ ] **Passo 1: escrever o teste RED da persistência**
@@ -684,6 +750,7 @@ git commit -m "feat(atlas): implementar motor de estado afetivo A1"
 Criar `test_persistencia_afetiva.py`:
 
 ```python
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -709,19 +776,19 @@ class PersistenciaAfetivaTests(unittest.TestCase):
             self.assertEqual(estado, repo.carregar())
             self.assertFalse((Path(tmp) / "estado.json.tmp").exists())
 
-    def test_snapshot_corrompido_retorna_baseline_com_erro_explicito(self):
+    def test_arquivo_corrompido_retorna_base_com_erro_explicito(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "estado.json"
             path.write_text("{quebrado", encoding="utf-8")
             resultado = restaurar_estado(RepositorioEstadoAfetivo(path), PERSONALIDADE, POLITICA, "2026-09-04T12:00:00+00:00")
-            self.assertEqual(OrigemRestauracaoAfetiva.BASELINE_CORROMPIDO, resultado.origem)
+            self.assertEqual(OrigemRestauracaoAfetiva.BASE_POR_ESTADO_INVALIDO, resultado.origem)
             self.assertIsNotNone(resultado.erro)
             self.assertEqual(0.10, resultado.estado.estresse)
 
-    def test_snapshot_ausente_retorna_baseline_sem_erro(self):
+    def test_arquivo_ausente_retorna_base_sem_erro(self):
         with tempfile.TemporaryDirectory() as tmp:
             resultado = restaurar_estado(RepositorioEstadoAfetivo(Path(tmp) / "estado.json"), PERSONALIDADE, POLITICA, "2026-09-04T12:00:00+00:00")
-            self.assertEqual(OrigemRestauracaoAfetiva.BASELINE_AUSENTE, resultado.origem)
+            self.assertEqual(OrigemRestauracaoAfetiva.BASE_POR_AUSENCIA, resultado.origem)
             self.assertIsNone(resultado.erro)
             self.assertEqual(0.20, resultado.estado.valencia)
 
@@ -730,8 +797,29 @@ class PersistenciaAfetivaTests(unittest.TestCase):
             repo = RepositorioEstadoAfetivo(Path(tmp) / "estado.json")
             repo.salvar(EstadoAfetivo(0.80, 0.25, 0.10, 0.70, 0.55, 0.75, "2026-09-04T00:00:00+00:00"))
             resultado = restaurar_estado(repo, PERSONALIDADE, POLITICA, "2026-09-04T12:00:00+00:00")
-            self.assertEqual(OrigemRestauracaoAfetiva.SNAPSHOT, resultado.origem)
+            self.assertEqual(OrigemRestauracaoAfetiva.ESTADO_SALVO, resultado.origem)
             self.assertAlmostEqual(0.50, resultado.estado.valencia, places=9)
+
+    def test_estado_salvo_no_futuro_nao_impede_retomada(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "estado.json"
+            payload = {
+                "versao_esquema": 1,
+                "estado": {
+                    "valencia": 0.8,
+                    "ativacao": 0.25,
+                    "estresse": 0.1,
+                    "confianca": 0.7,
+                    "engajamento": 0.55,
+                    "curiosidade": 0.75,
+                    "atualizado_em": "2026-09-05T12:00:00+00:00",
+                    "foco_atencao": None,
+                },
+            }
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            resultado = restaurar_estado(RepositorioEstadoAfetivo(path), PERSONALIDADE, POLITICA, "2026-09-04T12:00:00+00:00")
+            self.assertEqual(OrigemRestauracaoAfetiva.BASE_POR_ESTADO_INVALIDO, resultado.origem)
+            self.assertIsNotNone(resultado.erro)
 ```
 
 - [ ] **Passo 2: executar e confirmar RED**
@@ -742,7 +830,7 @@ python3 -m unittest infrastructure.pentium.atlas.tests.test_persistencia_afetiva
 
 Resultado esperado: falha de importação porque `persistencia_afetiva.py` ainda não existe.
 
-- [ ] **Passo 3: implementar persistência e fallback**
+- [ ] **Passo 3: implementar persistência e retorno seguro**
 
 Criar `persistencia_afetiva.py`:
 
@@ -759,14 +847,14 @@ from .decaimento_afetivo import decair_estado
 from .modelo_afetivo import EstadoAfetivo, PersonalidadeBase, PoliticaDecaimento
 
 
-class SnapshotAfetivoInvalido(ValueError):
+class EstadoAfetivoSalvoInvalido(ValueError):
     pass
 
 
 class OrigemRestauracaoAfetiva(str, Enum):
-    SNAPSHOT = "snapshot"
-    BASELINE_AUSENTE = "baseline_ausente"
-    BASELINE_CORROMPIDO = "baseline_corrompido"
+    ESTADO_SALVO = "estado_salvo"
+    BASE_POR_AUSENCIA = "base_por_ausencia"
+    BASE_POR_ESTADO_INVALIDO = "base_por_estado_invalido"
 
 
 @dataclass(frozen=True)
@@ -784,7 +872,7 @@ class RepositorioEstadoAfetivo:
         self._caminho.parent.mkdir(parents=True, exist_ok=True)
         temporario = self._caminho.with_name(self._caminho.name + ".tmp")
         payload = {
-            "schema_version": 1,
+            "versao_esquema": 1,
             "estado": {
                 "valencia": estado.valencia,
                 "ativacao": estado.ativacao,
@@ -803,6 +891,12 @@ class RepositorioEstadoAfetivo:
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temporario, self._caminho)
+            if os.name == "posix" and hasattr(os, "O_DIRECTORY"):
+                diretorio_fd = os.open(self._caminho.parent, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(diretorio_fd)
+                finally:
+                    os.close(diretorio_fd)
         finally:
             temporario.unlink(missing_ok=True)
 
@@ -811,11 +905,11 @@ class RepositorioEstadoAfetivo:
             return None
         try:
             payload = json.loads(self._caminho.read_text(encoding="utf-8"))
-            if payload.get("schema_version") != 1:
-                raise ValueError("snapshot schema_version deve ser 1")
+            if payload.get("versao_esquema") != 1:
+                raise ValueError("estado afetivo versao_esquema deve ser 1")
             return EstadoAfetivo(**payload["estado"])
         except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-            raise SnapshotAfetivoInvalido(str(exc)) from exc
+            raise EstadoAfetivoSalvoInvalido(str(exc)) from exc
 
 
 def restaurar_estado(
@@ -826,21 +920,19 @@ def restaurar_estado(
 ) -> ResultadoRestauracaoAfetiva:
     try:
         estado = repositorio.carregar()
-    except SnapshotAfetivoInvalido as exc:
+        if estado is None:
+            return ResultadoRestauracaoAfetiva(
+                personalidade.criar_estado(agora),
+                OrigemRestauracaoAfetiva.BASE_POR_AUSENCIA,
+            )
+        restaurado = decair_estado(estado, personalidade, politica, agora, modo_offline=True)
+        return ResultadoRestauracaoAfetiva(restaurado, OrigemRestauracaoAfetiva.ESTADO_SALVO)
+    except (EstadoAfetivoSalvoInvalido, ValueError) as exc:
         return ResultadoRestauracaoAfetiva(
             personalidade.criar_estado(agora),
-            OrigemRestauracaoAfetiva.BASELINE_CORROMPIDO,
+            OrigemRestauracaoAfetiva.BASE_POR_ESTADO_INVALIDO,
             str(exc),
         )
-    if estado is None:
-        return ResultadoRestauracaoAfetiva(
-            personalidade.criar_estado(agora),
-            OrigemRestauracaoAfetiva.BASELINE_AUSENTE,
-        )
-    return ResultadoRestauracaoAfetiva(
-        decair_estado(estado, personalidade, politica, agora, modo_offline=True),
-        OrigemRestauracaoAfetiva.SNAPSHOT,
-    )
 ```
 
 - [ ] **Passo 4: executar e confirmar GREEN**
@@ -849,7 +941,7 @@ def restaurar_estado(
 python3 -m unittest infrastructure.pentium.atlas.tests.test_persistencia_afetiva -v
 ```
 
-Resultado esperado: `Ran 4 tests ... OK`.
+Resultado esperado: `Ran 5 tests ... OK`.
 
 - [ ] **Passo 5: regressão e commit**
 
@@ -861,7 +953,7 @@ git commit -m "feat(atlas): persistir estado afetivo com retomada segura"
 
 ---
 
-### Tarefa 6: Empacotamento user-level e Foundation CI
+### Tarefa 6: Empacotamento local e Foundation CI
 
 **Arquivos:**
 - Criar: `infrastructure/pentium/atlas/tests/test_a1_empacotamento.py`
@@ -870,7 +962,7 @@ git commit -m "feat(atlas): persistir estado afetivo com retomada segura"
 
 **Interfaces:**
 - Consome: todos os módulos A1.
-- Produz: instalador user-level contendo A1 e marcador CI `DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS`.
+- Produz: instalador local contendo A1 e marcador CI `DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS`.
 
 - [ ] **Passo 1: escrever o teste RED de empacotamento e CI**
 
@@ -888,8 +980,8 @@ WORKFLOW = ROOT / ".github" / "workflows" / "foundation-ci.yml"
 
 class A1EmpacotamentoTests(unittest.TestCase):
     def test_instalador_inclui_nucleo_afetivo_sem_ativar_servico(self):
-        text = (ATLAS / "install-user.sh").read_text(encoding="utf-8")
-        for required in (
+        texto = (ATLAS / "install-user.sh").read_text(encoding="utf-8")
+        for obrigatorio in (
             "modelo_afetivo.py",
             "configuracao_afetiva.py",
             "decaimento_afetivo.py",
@@ -897,14 +989,14 @@ class A1EmpacotamentoTests(unittest.TestCase):
             "persistencia_afetiva.py",
             "config_afetiva.json",
         ):
-            self.assertIn(required, text)
-        lowered = text.lower()
-        self.assertNotIn("systemctl enable", lowered)
-        self.assertNotIn("systemctl start", lowered)
+            self.assertIn(obrigatorio, texto)
+        minusculo = texto.lower()
+        self.assertNotIn("systemctl enable", minusculo)
+        self.assertNotIn("systemctl start", minusculo)
 
     def test_foundation_ci_compila_valida_e_marca_a1(self):
-        text = WORKFLOW.read_text(encoding="utf-8")
-        for required in (
+        texto = WORKFLOW.read_text(encoding="utf-8")
+        for obrigatorio in (
             "modelo_afetivo.py",
             "configuracao_afetiva.py",
             "decaimento_afetivo.py",
@@ -913,7 +1005,7 @@ class A1EmpacotamentoTests(unittest.TestCase):
             "config_afetiva.json",
             "DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS",
         ):
-            self.assertIn(required, text)
+            self.assertIn(obrigatorio, texto)
 ```
 
 - [ ] **Passo 2: executar e confirmar RED**
@@ -944,7 +1036,7 @@ for config in config.json observation_config.json config_afetiva.json; do
 done
 ```
 
-Adicionar os cinco módulos ao `python3 -m py_compile` e validar:
+Adicionar os cinco módulos ao `python3 -m py_compile`, validar o novo JSON e emitir:
 
 ```bash
 python3 -m json.tool "${TARGET_DIR}/config_afetiva.json" >/dev/null
@@ -992,7 +1084,7 @@ Resultado esperado do teste específico: `Ran 2 tests ... OK`.
 - Consome: tarefas 1–6 concluídas.
 - Produz: HEAD de código A1 com gate local integral e PR Draft empilhada sobre Observation Runtime.
 
-- [ ] **Passo 1: confirmar worktree limpa e ancestry correta**
+- [ ] **Passo 1: confirmar worktree limpa e ancestralidade correta**
 
 ```bash
 git status --short
@@ -1016,7 +1108,7 @@ python3 -m json.tool infrastructure/pentium/atlas/config_afetiva.json >/dev/null
 git diff --check 1a28a54a051d152d83cf919a7f570e1bacccdf2e..HEAD
 ```
 
-Resultado esperado: Network `6`, Heartbeat `7`, Pentium Agent `10`, Atlas `78`; total `101` testes GREEN, além de Bash/JSON/diff check PASS.
+Resultado esperado: Network `6`, Heartbeat `7`, Pentium Agent `10`, Atlas `80`; total `103` testes GREEN, além de Bash/JSON/diff check PASS. A contagem Atlas é `60` existentes + `20` novos da A1.
 
 - [ ] **Passo 3: publicar a branch sem alterar configuração global de credenciais**
 
@@ -1024,9 +1116,8 @@ No x99, se o helper padrão travar, usar somente no comando:
 
 ```powershell
 git -c credential.helper= -c credential.helper='!gh auth git-credential' push -u origin atlas/issue-20-motor-estado-afetivo
+if ($LASTEXITCODE -ne 0) { throw 'push falhou' }
 ```
-
-Confirmar `PUSH_EXIT=0` antes de prosseguir.
 
 - [ ] **Passo 4: abrir PR Draft empilhada**
 
@@ -1037,78 +1128,113 @@ gh pr create \
   --base atlas/issue-20-observation-runtime \
   --head atlas/issue-20-motor-estado-afetivo \
   --title "feat(atlas): implementar A1 nucleo afetivo" \
-  --body "## Objetivo\nImplementa A1 do Motor de Estado Afetivo: contratos, personalidade-base, decaimento temporal, impulsos bounded e persistência atômica.\n\n## Base\nPR #23 / atlas/issue-20-observation-runtime @ 1a28a54a051d152d83cf919a7f570e1bacccdf2e.\n\n## Limites\nSem LLM, agentes C++, transporte, diagnóstico ativo, áudio, controle remoto ou serviço persistente.\n\n/checkpoint será atualizado após CI e certificação do HEAD exato."
+  --body "## Objetivo\nImplementa A1 do Motor de Estado Afetivo: contratos, personalidade-base, decaimento temporal, impulsos limitados e persistência atômica.\n\n## Base\nPR #23 / atlas/issue-20-observation-runtime @ 1a28a54a051d152d83cf919a7f570e1bacccdf2e.\n\n## Limites\nSem LLM, agentes C++, transporte, diagnóstico ativo, áudio, controle remoto ou serviço persistente.\n\n/checkpoint será atualizado após CI e certificação do HEAD exato."
 ```
 
 Não marcar Ready e não realizar merge.
 
 - [ ] **Passo 5: esperar Foundation CI no HEAD exato de código**
 
-Registrar o SHA:
+No x99:
 
-```bash
-CODE_SHA=$(git rev-parse HEAD)
-echo "$CODE_SHA"
+```powershell
+$CodeSha = (git rev-parse HEAD).Trim()
+$Run = gh run list --repo deraldinho/devex-homelab --workflow foundation-ci.yml --commit $CodeSha --limit 1 --json databaseId,headSha,status,conclusion | ConvertFrom-Json
+$Run | ConvertTo-Json -Depth 4
+if ($Run.headSha -ne $CodeSha -or $Run.status -ne 'completed' -or $Run.conclusion -ne 'success') { throw 'CI do HEAD exato ainda não está GREEN' }
 ```
 
-Verificar que Foundation CI terminou com `success` exatamente nesse SHA. Resultado de SHA anterior não é aceito.
+Resultado de SHA anterior não é aceito.
 
 ---
 
-### Tarefa 8: Certificação física bounded, as-built e checkpoint final
+### Tarefa 8: Certificação física limitada, as-built e checkpoint final
 
 **Arquivos:**
 - Modificar: `docs/as-built/2026-09-02-baseline.md`
-- Comentário `/checkpoint` na PR A1.
+- Atualizar comentário `/checkpoint` na PR A1.
 
 **Interfaces:**
 - Consome: HEAD de código local GREEN + Foundation CI `success` no mesmo SHA.
-- Produz: evidência física user-level sem serviço persistente, documentação as-built e HEAD final novamente certificado por CI.
+- Produz: evidência física isolada sem serviço persistente, documentação as-built e HEAD final novamente certificado por CI.
 
-- [ ] **Passo 1: gerar pacote determinístico sem `git archive` do Windows**
+- [ ] **Passo 1: gerar pacote determinístico diretamente dos blobs Git**
 
-Devido ao problema já comprovado de conversão CRLF em `git archive` no Windows, gerar o tar.gz diretamente dos blobs Git. O pacote deve conter somente:
-
-```text
-infrastructure/pentium/atlas/__init__.py
-infrastructure/pentium/atlas/modelo_afetivo.py
-infrastructure/pentium/atlas/configuracao_afetiva.py
-infrastructure/pentium/atlas/config_afetiva.json
-infrastructure/pentium/atlas/decaimento_afetivo.py
-infrastructure/pentium/atlas/motor_afetivo.py
-infrastructure/pentium/atlas/persistencia_afetiva.py
-```
-
-Usar um script Python temporário que leia cada conteúdo com `git show <CODE_SHA>:<path>`, grave tar entries com `mtime=0`, `uid=gid=0`, nomes vazios e gzip `mtime=0`. O arquivo final deve ser nomeado:
-
-```text
-atlas-a1-<CODE_SHA_CURTO>-gitblob.tar.gz
-```
-
-Calcular SHA-256 local e registrar o valor real.
-
-- [ ] **Passo 2: transferir para diretório isolado do Pentium**
-
-Usar o OpenSSH do Git for Windows já validado, sem alterar chaves ou `known_hosts`:
+No x99, definir variáveis:
 
 ```powershell
-& 'C:\Program Files\Git\usr\bin\scp.exe' -o BatchMode=yes <PACOTE> deraldinho@pentium:~/
+Set-Location 'C:\Users\deral\DevEx-HomeLab\.worktrees\issue-20-atlas-affective'
+$CodeSha = (git rev-parse HEAD).Trim()
+$ShortSha = $CodeSha.Substring(0,7)
+$Builder = Join-Path $env:TEMP 'construir-pacote-atlas-a1.py'
+$Package = Join-Path $env:TEMP "atlas-a1-$ShortSha-gitblob.tar.gz"
 ```
 
-No Pentium, extrair para:
+Gravar `$Builder` com este conteúdo:
 
-```text
-~/atlas-a1-cert/<CODE_SHA>/
+```python
+import gzip
+import io
+import os
+import subprocess
+import tarfile
+from pathlib import Path
+
+sha = os.environ["ATLAS_A1_SHA"]
+saida = Path(os.environ["ATLAS_A1_PACOTE"])
+arquivos = [
+    "infrastructure/pentium/atlas/__init__.py",
+    "infrastructure/pentium/atlas/modelo_afetivo.py",
+    "infrastructure/pentium/atlas/configuracao_afetiva.py",
+    "infrastructure/pentium/atlas/config_afetiva.json",
+    "infrastructure/pentium/atlas/decaimento_afetivo.py",
+    "infrastructure/pentium/atlas/motor_afetivo.py",
+    "infrastructure/pentium/atlas/persistencia_afetiva.py",
+]
+
+with saida.open("wb") as bruto:
+    with gzip.GzipFile(filename="", mode="wb", fileobj=bruto, mtime=0) as gz:
+        with tarfile.open(fileobj=gz, mode="w") as tar:
+            for caminho in arquivos:
+                conteudo = subprocess.check_output(["git", "show", f"{sha}:{caminho}"])
+                info = tarfile.TarInfo(caminho)
+                info.size = len(conteudo)
+                info.mode = 0o644
+                info.mtime = 0
+                info.uid = 0
+                info.gid = 0
+                info.uname = ""
+                info.gname = ""
+                tar.addfile(info, io.BytesIO(conteudo))
 ```
 
-Não executar `install-user.sh`; não sobrescrever `~/pentium-agent/atlas`; não criar systemd.
+Executar:
 
-- [ ] **Passo 3: executar smoke físico determinístico da A1**
+```powershell
+$env:ATLAS_A1_SHA = $CodeSha
+$env:ATLAS_A1_PACOTE = $Package
+python $Builder
+if ($LASTEXITCODE -ne 0) { throw 'construção do pacote falhou' }
+$PackageSha = (Get-FileHash $Package -Algorithm SHA256).Hash.ToLowerInvariant()
+Write-Output "PACOTE=$Package"
+Write-Output "SHA256=$PackageSha"
+```
 
-A partir do diretório extraído, executar com `PYTHONPATH` apontando para a raiz do pacote:
+Não usar `git archive` no Windows.
+
+- [ ] **Passo 2: criar o script de certificação física**
+
+No x99:
+
+```powershell
+$Smoke = Join-Path $env:TEMP 'certificar-atlas-a1.py'
+```
+
+Gravar `$Smoke` com:
 
 ```python
 from pathlib import Path
+
 from infrastructure.pentium.atlas.configuracao_afetiva import carregar_configuracao_afetiva
 from infrastructure.pentium.atlas.modelo_afetivo import ImpulsoAfetivo
 from infrastructure.pentium.atlas.motor_afetivo import MotorEstadoAfetivo
@@ -1118,104 +1244,169 @@ raiz = Path.cwd()
 atlas = raiz / "infrastructure" / "pentium" / "atlas"
 cfg = carregar_configuracao_afetiva(atlas / "config_afetiva.json")
 inicial = cfg.personalidade.criar_estado("2026-09-04T12:00:00+00:00")
-motor = MotorEstadoAfetivo(cfg.personalidade, cfg.decaimento, inicial, lambda: "2026-09-04T12:10:00+00:00")
-alterado = motor.aplicar_impulso(ImpulsoAfetivo("certificacao", delta_estresse=0.40, delta_ativacao=0.30))
+motor = MotorEstadoAfetivo(
+    cfg.personalidade,
+    cfg.decaimento,
+    inicial,
+    lambda: "2026-09-04T12:10:00+00:00",
+)
+alterado = motor.aplicar_impulso(
+    ImpulsoAfetivo("certificacao", delta_estresse=0.40, delta_ativacao=0.30)
+)
 assert alterado.estresse > inicial.estresse
 assert alterado.ativacao > inicial.ativacao
 repo = RepositorioEstadoAfetivo(raiz / "estado-afetivo-cert.json")
 repo.salvar(alterado)
-restaurado = restaurar_estado(repo, cfg.personalidade, cfg.decaimento, "2026-09-05T00:10:00+00:00")
+restaurado = restaurar_estado(
+    repo,
+    cfg.personalidade,
+    cfg.decaimento,
+    "2026-09-05T00:10:00+00:00",
+)
 assert restaurado.estado.estresse < alterado.estresse
 assert restaurado.estado.estresse > cfg.personalidade.estresse
 print("ATLAS_A1_PHYSICAL_SMOKE_PASS")
 ```
 
-Registrar saída real, hash do pacote e confirmar que nenhum serviço, rede, SSH, Tailscale, firewall ou modem foi modificado.
+- [ ] **Passo 3: transferir pacote e certificador ao Pentium sem alterar SSH**
 
-- [ ] **Passo 4: atualizar o as-built somente com evidência observada**
+```powershell
+$Scp = 'C:\Program Files\Git\usr\bin\scp.exe'
+$Ssh = 'C:\Program Files\Git\usr\bin\ssh.exe'
+$PackageName = Split-Path $Package -Leaf
+& $Scp -o BatchMode=yes $Package $Smoke deraldinho@pentium:~/
+if ($LASTEXITCODE -ne 0) { throw 'transferência para Pentium falhou' }
+$RemoteHash = (& $Ssh -o BatchMode=yes deraldinho@pentium "sha256sum ~/$PackageName").Split(' ')[0].Trim().ToLowerInvariant()
+if ($RemoteHash -ne $PackageSha) { throw 'hash remoto diverge do pacote local' }
+```
 
-Adicionar uma seção `Atlas Motor de Estado Afetivo — A1` contendo:
+Usar somente o hostname `pentium` já validado. Não alterar `known_hosts`, chaves, agente SSH ou configuração de rede.
 
-- base `1a28a54a051d152d83cf919a7f570e1bacccdf2e`;
-- `CODE_SHA` real;
-- contagens do gate local (`6 + 7 + 10 + 78 = 101` se exatamente essas contagens forem observadas);
-- número/id/conclusão da Foundation CI do `CODE_SHA`;
-- SHA-256 real do pacote gitblob;
-- marcador `ATLAS_A1_PHYSICAL_SMOKE_PASS` se efetivamente emitido;
-- confirmação de que a certificação foi isolada/user-level, sem instalação persistente;
-- ausência de LLM, agentes C++, transporte e diagnóstico ativo nesta sub-slice;
-- nenhuma afirmação de soak 24h/7d se ele não tiver ocorrido.
+- [ ] **Passo 4: executar certificação em diretório isolado no Pentium**
 
-Se qualquer contagem ou evidência divergir, registrar o valor observado, não o esperado.
+```powershell
+$RemoteRoot = "`$HOME/atlas-a1-cert/$CodeSha"
+$RemoteCommand = "set -euo pipefail; mkdir -p $RemoteRoot; tar -xzf `"`$HOME/$PackageName`" -C $RemoteRoot; cp `"`$HOME/certificar-atlas-a1.py`" $RemoteRoot/; cd $RemoteRoot; PYTHONPATH=. python3 certificar-atlas-a1.py"
+$SmokeOutput = & $Ssh -o BatchMode=yes deraldinho@pentium $RemoteCommand
+$SmokeOutput
+if ($SmokeOutput -notcontains 'ATLAS_A1_PHYSICAL_SMOKE_PASS') { throw 'certificação física A1 falhou' }
+```
 
-- [ ] **Passo 5: commit de documentação e gate final**
+Não executar `install-user.sh`; não sobrescrever `~/pentium-agent/atlas`; não criar ou iniciar systemd.
+
+- [ ] **Passo 5: atualizar o as-built somente com valores observados**
+
+Antes de editar, registrar:
+
+```powershell
+$PrNumber = [int](gh pr view --repo deraldinho/devex-homelab --head atlas/issue-20-motor-estado-afetivo --json number --jq .number)
+$CodeRun = gh run list --repo deraldinho/devex-homelab --workflow foundation-ci.yml --commit $CodeSha --limit 1 --json databaseId,headSha,status,conclusion | ConvertFrom-Json
+Write-Output "PR=$PrNumber"
+Write-Output "CODE_SHA=$CodeSha"
+Write-Output "CI_ID=$($CodeRun.databaseId)"
+Write-Output "PACOTE=$PackageName"
+Write-Output "SHA256=$PackageSha"
+```
+
+Adicionar ao `docs/as-built/2026-09-02-baseline.md` uma seção `Atlas Motor de Estado Afetivo — A1` com esses valores reais, as contagens observadas do gate, o marcador físico e a confirmação de que não houve serviço persistente nem mudança de rede/SSH/Tailscale/firewall/modem. Se a contagem observada divergir de `103`, registrar a observada e investigar antes de declarar GREEN.
+
+- [ ] **Passo 6: commit documental, gate final, push e CI final**
 
 ```bash
 git add docs/as-built/2026-09-02-baseline.md
 git commit -m "docs(atlas): registrar certificacao do nucleo afetivo A1"
-git rev-parse HEAD
+python3 -m unittest discover -s infrastructure/network/tests -p 'test_*.py' -v
+python3 -m unittest discover -s infrastructure/pentium/heartbeat/tests -p 'test_*.py' -v
+python3 -m unittest discover -s infrastructure/pentium/agent/tests -p 'test_*.py' -v
+python3 -m unittest discover -s infrastructure/pentium/atlas/tests -p 'test_*.py' -v
+bash -n infrastructure/pentium/atlas/install-user.sh
+python3 -m json.tool infrastructure/pentium/atlas/config.json >/dev/null
+python3 -m json.tool infrastructure/pentium/atlas/observation_config.json >/dev/null
+python3 -m json.tool infrastructure/pentium/atlas/config_afetiva.json >/dev/null
+git diff --check 1a28a54a051d152d83cf919a7f570e1bacccdf2e..HEAD
 ```
 
-Executar novamente todo o gate da Tarefa 7 no novo HEAD documental, depois push e aguardar Foundation CI `success` exatamente no HEAD final.
+Depois, no x99:
 
-- [ ] **Passo 6: publicar `/checkpoint` em pt-BR na PR**
+```powershell
+git -c credential.helper= -c credential.helper='!gh auth git-credential' push origin atlas/issue-20-motor-estado-afetivo
+if ($LASTEXITCODE -ne 0) { throw 'push final falhou' }
+$FinalSha = (git rev-parse HEAD).Trim()
+$FinalRun = gh run list --repo deraldinho/devex-homelab --workflow foundation-ci.yml --commit $FinalSha --limit 1 --json databaseId,headSha,status,conclusion | ConvertFrom-Json
+$FinalRun | ConvertTo-Json -Depth 4
+if ($FinalRun.headSha -ne $FinalSha -or $FinalRun.status -ne 'completed' -or $FinalRun.conclusion -ne 'success') { throw 'CI final do HEAD exato não está GREEN' }
+```
 
-O comentário deve conter apenas evidência confirmada:
+- [ ] **Passo 7: publicar `/checkpoint` em pt-BR sem placeholders**
 
-```text
+No mesmo PowerShell, recomputar a PR e publicar usando somente valores já confirmados:
+
+```powershell
+$PrNumber = [int](gh pr view --repo deraldinho/devex-homelab --head atlas/issue-20-motor-estado-afetivo --json number --jq .number)
+$Checkpoint = @"
 /checkpoint — Atlas Motor de Estado Afetivo A1
 
-HEAD final: <SHA_FINAL>
+HEAD final: $FinalSha
 Base: PR #23 @ 1a28a54a051d152d83cf919a7f570e1bacccdf2e
 Estado da PR: Draft
 
 Implementado:
-- EstadoAfetivo com seis dimensões bounded;
+- EstadoAfetivo com seis dimensões limitadas;
 - PersonalidadeBase versionada;
-- ImpulsoAfetivo bounded;
+- ImpulsoAfetivo limitado;
 - decaimento exponencial por meia-vida;
 - atenuação offline limitada a 3600 s;
-- persistência JSON atômica e fallback explícito.
+- persistência JSON atômica e retorno seguro à base.
 
-Validação:
+Validação local esperada e confirmada antes deste comentário:
 - Network: 6/6
 - Heartbeat: 7/7
 - Pentium Agent: 10/10
-- Atlas: 78/78
-- total: 101 GREEN
+- Atlas: 80/80
+- total: 103 GREEN
 - bash/json/diff check: PASS
-- Foundation CI: <RUN_ID>, success no SHA final exato
+- Foundation CI final: $($FinalRun.databaseId), success no SHA final exato
 
 Certificação física:
-- pacote: <NOME>
-- SHA-256: <HASH>
+- pacote: $PackageName
+- SHA-256: $PackageSha
 - marcador: ATLAS_A1_PHYSICAL_SMOKE_PASS
-- sem serviço persistente ou mudança de rede/SSH/Tailscale/firewall/modem
+- execução isolada no Pentium, sem serviço persistente ou mudança de rede/SSH/Tailscale/firewall/modem
 
 Fora de escopo confirmado:
 - LLM, A2–A8, agente C++, TCP/gRPC/HTTPS, diagnóstico ativo, áudio e controle remoto.
 
 Próximo passo seguro: A2 — Entidades, vínculos e expectativas, somente após decisão explícita.
+"@
+gh pr comment $PrNumber --repo deraldinho/devex-homelab --body $Checkpoint
+if ($LASTEXITCODE -ne 0) { throw 'checkpoint falhou' }
 ```
 
-Substituir campos entre `<...>` pelos valores observados; não publicar placeholders.
+Se qualquer contagem observada não for `6/7/10/80`, corrigir o texto para os valores reais somente depois de explicar e resolver a divergência; nunca publicar evidência esperada como se tivesse sido observada.
 
-- [ ] **Passo 7: verificar estado final da PR**
+- [ ] **Passo 8: verificar estado final da PR**
 
-Confirmar que a PR continua `open`, `draft=true`, `merged=false`, base `atlas/issue-20-observation-runtime` e HEAD igual ao SHA final certificado. Não marcar Ready nem mergear.
+```powershell
+$Pr = gh pr view $PrNumber --repo deraldinho/devex-homelab --json state,isDraft,headRefOid,baseRefName | ConvertFrom-Json
+$Pr | ConvertTo-Json -Depth 4
+if ($Pr.state -ne 'OPEN' -or -not $Pr.isDraft -or $Pr.headRefOid -ne $FinalSha -or $Pr.baseRefName -ne 'atlas/issue-20-observation-runtime') { throw 'estado final da PR diverge do esperado' }
+```
+
+Não marcar Ready nem mergear.
 
 ## Critérios de conclusão da A1
 
 A1 só pode ser declarada concluída quando todos estes itens forem verdadeiros no HEAD final:
 
 - `EstadoAfetivo`, `PersonalidadeBase`, `ImpulsoAfetivo` e `PoliticaDecaimento` implementados em pt-BR;
-- baseline carregado de `config_afetiva.json` schema 1;
+- personalidade-base carregada de `config_afetiva.json` com `versao_esquema=1`;
+- instantes normalizados para UTC;
 - decaimento exponencial determinístico por tempo absoluto;
 - limite offline de `3600` s comprovado por teste;
-- aplicação de impulso bounded e sem decisão de foco;
-- persistência atômica com round-trip;
-- snapshot ausente e corrompido retornam baseline com origem explícita;
-- instalador user-level inclui A1 sem ativar serviço;
+- aplicação de impulso limitada e sem decisão de foco;
+- persistência atômica com ida/volta;
+- arquivo ausente, corrompido ou temporalmente inválido retorna personalidade-base com origem explícita;
+- instalador local inclui A1 sem ativar serviço;
 - Foundation CI compila módulos, valida JSON e executa suíte A1;
 - gate local integral GREEN;
 - Foundation CI `success` no HEAD final exato;
