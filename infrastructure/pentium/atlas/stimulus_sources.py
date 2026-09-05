@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Protocol
 
+from .network_discovery import LinuxArpScanner, NetworkDiscoveryError
 from .stimulus_model import StimulusSeverity
 
 
@@ -111,4 +114,83 @@ class X99StatusSource:
         payload.setdefault("status", status)
         return SourceSnapshot(
             self.name, status, _severity(status, required=self.required), payload, _observed_at(observed)
+        )
+
+
+@dataclass
+class _WifiPresenceRecord:
+    mac: str
+    ipv4: str
+    first_seen: float
+    last_seen: float
+
+
+def _iso_utc(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+
+
+class WifiPresenceSource:
+    name = "wifi.presence"
+    required = False
+
+    def __init__(
+        self,
+        interface: str,
+        *,
+        scanner=None,
+        clock: Callable[[], float] = time.time,
+        presence_window_s: float = 180.0,
+        max_devices: int = 256,
+    ):
+        self._interface = interface
+        self._scanner = scanner or LinuxArpScanner()
+        self._clock = clock
+        self._presence_window_s = presence_window_s
+        self._max_devices = max_devices
+        self._devices: dict[str, _WifiPresenceRecord] = {}
+
+    def poll(self) -> SourceSnapshot:
+        now = self._clock()
+        neighbors = self._scanner.scan(self._interface)
+        if len(neighbors) > self._max_devices:
+            raise NetworkDiscoveryError("wifi presence snapshot exceeds bound")
+        for neighbor in neighbors:
+            current = self._devices.get(neighbor.mac)
+            if current is None:
+                self._devices[neighbor.mac] = _WifiPresenceRecord(
+                    mac=neighbor.mac,
+                    ipv4=neighbor.ipv4,
+                    first_seen=now,
+                    last_seen=now,
+                )
+            else:
+                current.ipv4 = neighbor.ipv4
+                current.last_seen = now
+
+
+        expired = [
+            mac
+            for mac, item in self._devices.items()
+            if now - item.last_seen > self._presence_window_s
+        ]
+        for mac in expired:
+            del self._devices[mac]
+
+        devices = [
+            {
+                "mac": item.mac,
+                "ipv4": item.ipv4,
+                "first_seen": _iso_utc(item.first_seen),
+                "last_seen": _iso_utc(item.last_seen),
+                "presence": "present",
+                "zone": "WIFI_OBSERVED",
+            }
+            for item in sorted(self._devices.values(), key=lambda item: (item.mac, item.ipv4))
+        ]
+        return SourceSnapshot(
+            source=self.name,
+            status="healthy",
+            severity=StimulusSeverity.INFO,
+            payload={"zone": "WIFI_OBSERVED", "devices": devices},
+            observed_at=_iso_utc(now),
         )
