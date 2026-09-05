@@ -1,0 +1,70 @@
+name: devex-homelab-sim
+
+services:
+  sim-core:
+    build:
+      context: ./core
+    image: devex-homelab/sim-core:ubuntu-26.04
+    container_name: devex-sim-core
+    environment:
+      DEVEX_NODE_NAME: sim-core
+      DEVEX_NODE_ROLE: homelab.compute
+    volumes:
+      - ../..:/workspace:ro
+      - sim-core-state:/state
+    networks:
+      - devex-sim
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test "$${DEVEX_NODE_ROLE}" = "homelab.compute" &&
+          test -r /workspace/docs/GDD.md &&
+          test -w /state &&
+          ! touch /workspace/.devex-write-probe 2>/dev/null &&
+          nc -z 127.0.0.1 8080
+      interval: 3s
+      timeout: 2s
+      retries: 20
+      start_period: 2s
+
+  sim-pentium:
+    build:
+      context: ./pentium
+    image: devex-homelab/sim-pentium:ubuntu-26.04
+    container_name: devex-sim-pentium
+    environment:
+      DEVEX_NODE_NAME: sim-pentium
+      DEVEX_NODE_ROLE: homelab.control
+    depends_on:
+      sim-core:
+        condition: service_healthy
+    volumes:
+      - ../..:/workspace:ro
+      - sim-pentium-state:/state
+    networks:
+      - devex-sim
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test "$${DEVEX_NODE_ROLE}" = "homelab.control" &&
+          test -r /workspace/docs/GDD.md &&
+          test -w /state &&
+          ! touch /workspace/.devex-write-probe 2>/dev/null &&
+          result="$$(printf probe | nc -w 2 sim-core 8080)" &&
+          test "$${result}" = "DEVEX_SIM_CORE_OK"
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 2s
+
+volumes:
+  sim-core-state:
+    name: devex-homelab-sim-core-state
+  sim-pentium-state:
+    name: devex-homelab-sim-pentium-state
+
+networks:
+  devex-sim:
+    name: devex-homelab-sim-net
