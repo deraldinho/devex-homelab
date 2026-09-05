@@ -21,6 +21,16 @@
       "max_backoff_seconds": 240,
       "cooldown_seconds": 60,
       "jitter_seconds": 0
+    },
+    "wifi.presence": {
+      "interval_seconds": 60,
+      "timeout_seconds": 10,
+      "max_backoff_seconds": 300,
+      "cooldown_seconds": 60,
+      "jitter_seconds": 5,
+      "interface_env": "ATLAS_WIFI_INTERFACE",
+      "presence_window_seconds": 180,
+      "max_devices": 256
     }
   }
 }
