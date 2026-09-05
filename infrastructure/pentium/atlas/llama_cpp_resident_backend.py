@@ -30,7 +30,11 @@ class LlamaCppResidentBackend:
             texto = data.get("content")
             if not isinstance(texto, str) or not texto.strip():
                 return ResultadoInferencia(False, None, ErroInferencia.SAIDA_INVALIDA, max(0, int((time.monotonic()-inicio)*1000)), "llama_server")
-            return ResultadoInferencia(True, texto.strip(), None, max(0, int((time.monotonic()-inicio)*1000)), "llama_server")
+            timings = data.get("timings") if isinstance(data.get("timings"), dict) else {}
+            tps = timings.get("predicted_per_second")
+            if isinstance(tps, bool) or not isinstance(tps, (int, float)) or tps < 0:
+                tps = None
+            return ResultadoInferencia(True, texto.strip(), None, max(0, int((time.monotonic()-inicio)*1000)), "llama_server", tps)
         except Exception:
             if self._fallback is not None:
                 return self._fallback.inferir(solicitacao)
