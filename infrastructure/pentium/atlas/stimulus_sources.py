@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Protocol
 
+from .network_discovery import LinuxArpScanner, NetworkDiscoveryError
+from .presence_persistence import PresenceRepository
+from .presence_registry import PresenceRegistry
 from .stimulus_model import StimulusSeverity
 
 
@@ -13,6 +18,7 @@ class SourceSnapshot:
     severity: StimulusSeverity
     payload: Mapping[str, Any]
     observed_at: str | None = None
+    fingerprint_payload: Mapping[str, Any] | None = None
 
 
 class StimulusSource(Protocol):
@@ -111,4 +117,100 @@ class X99StatusSource:
         payload.setdefault("status", status)
         return SourceSnapshot(
             self.name, status, _severity(status, required=self.required), payload, _observed_at(observed)
+        )
+
+
+def _iso_utc(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+
+
+class WifiPresenceSource:
+    name = "wifi.presence"
+    required = False
+
+    def __init__(
+        self,
+        interface: str,
+        *,
+        scanner=None,
+        clock: Callable[[], float] = time.time,
+        presence_window_s: float = 180.0,
+        max_devices: int = 256,
+        registry: PresenceRegistry | None = None,
+        repository: PresenceRepository | None = None,
+    ):
+        if registry is not None and repository is not None:
+            raise ValueError("registry and repository are mutually exclusive")
+        self._interface = interface
+        self._scanner = scanner or LinuxArpScanner()
+        self._clock = clock
+        self._max_devices = max_devices
+        self._repository = repository
+        if registry is not None:
+            if registry.max_devices != max_devices:
+                raise ValueError("registry max_devices differs from source bound")
+            self._registry = registry
+        elif repository is not None:
+            restored = repository.load(presence_window_s=presence_window_s)
+            self._registry = restored or PresenceRegistry(
+                presence_window_s=presence_window_s,
+                max_devices=max_devices,
+            )
+        else:
+            self._registry = PresenceRegistry(
+                presence_window_s=presence_window_s,
+                max_devices=max_devices,
+            )
+
+    def poll(self) -> SourceSnapshot:
+        now = self._clock()
+        neighbors = self._scanner.scan(self._interface)
+        if len(neighbors) > self._max_devices:
+            raise NetworkDiscoveryError("wifi presence snapshot exceeds bound")
+
+        update = self._registry.observe(neighbors, now)
+        if self._repository is not None:
+            self._repository.save(self._registry)
+        devices = [
+            {
+                "mac": item.mac,
+                "ipv4": item.ipv4,
+                "first_seen": _iso_utc(item.first_seen),
+                "last_seen": _iso_utc(item.last_seen),
+                "presence": item.presence,
+                "zone": item.zone,
+                "hostname": item.hostname,
+                "vendor": item.vendor,
+            }
+            for item in update.devices
+        ]
+        events = [
+            {
+                "kind": event.kind,
+                "mac": event.mac,
+                "changed_fields": list(event.changed_fields),
+            }
+            for event in update.events
+        ]
+        fingerprint_devices = [
+            {
+                key: item[key]
+                for key in ("mac", "ipv4", "presence", "zone", "hostname", "vendor")
+            }
+            for item in devices
+        ]
+        return SourceSnapshot(
+            source=self.name,
+            status="healthy",
+            severity=StimulusSeverity.INFO,
+            payload={
+                "zone": "WIFI_OBSERVED",
+                "devices": devices,
+                "events": events,
+            },
+            observed_at=_iso_utc(now),
+            fingerprint_payload={
+                "zone": "WIFI_OBSERVED",
+                "devices": fingerprint_devices,
+            },
         )
