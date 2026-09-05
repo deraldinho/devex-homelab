@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Protocol
 
 from .network_discovery import LinuxArpScanner, NetworkDiscoveryError
+from .presence_persistence import PresenceRepository
+from .presence_registry import PresenceRegistry
 from .stimulus_model import StimulusSeverity
 
 
@@ -118,14 +120,6 @@ class X99StatusSource:
         )
 
 
-@dataclass
-class _WifiPresenceRecord:
-    mac: str
-    ipv4: str
-    first_seen: float
-    last_seen: float
-
-
 def _iso_utc(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
 
@@ -142,61 +136,81 @@ class WifiPresenceSource:
         clock: Callable[[], float] = time.time,
         presence_window_s: float = 180.0,
         max_devices: int = 256,
+        registry: PresenceRegistry | None = None,
+        repository: PresenceRepository | None = None,
     ):
+        if registry is not None and repository is not None:
+            raise ValueError("registry and repository are mutually exclusive")
         self._interface = interface
         self._scanner = scanner or LinuxArpScanner()
         self._clock = clock
-        self._presence_window_s = presence_window_s
         self._max_devices = max_devices
-        self._devices: dict[str, _WifiPresenceRecord] = {}
+        self._repository = repository
+        if registry is not None:
+            if registry.max_devices != max_devices:
+                raise ValueError("registry max_devices differs from source bound")
+            self._registry = registry
+        elif repository is not None:
+            restored = repository.load(presence_window_s=presence_window_s)
+            self._registry = restored or PresenceRegistry(
+                presence_window_s=presence_window_s,
+                max_devices=max_devices,
+            )
+        else:
+            self._registry = PresenceRegistry(
+                presence_window_s=presence_window_s,
+                max_devices=max_devices,
+            )
 
     def poll(self) -> SourceSnapshot:
         now = self._clock()
         neighbors = self._scanner.scan(self._interface)
         if len(neighbors) > self._max_devices:
             raise NetworkDiscoveryError("wifi presence snapshot exceeds bound")
-        for neighbor in neighbors:
-            current = self._devices.get(neighbor.mac)
-            if current is None:
-                self._devices[neighbor.mac] = _WifiPresenceRecord(
-                    mac=neighbor.mac,
-                    ipv4=neighbor.ipv4,
-                    first_seen=now,
-                    last_seen=now,
-                )
-            else:
-                current.ipv4 = neighbor.ipv4
-                current.last_seen = now
 
-
-        expired = [
-            mac
-            for mac, item in self._devices.items()
-            if now - item.last_seen > self._presence_window_s
-        ]
-        for mac in expired:
-            del self._devices[mac]
-
+        update = self._registry.observe(neighbors, now)
+        if self._repository is not None:
+            self._repository.save(self._registry)
         devices = [
             {
                 "mac": item.mac,
                 "ipv4": item.ipv4,
                 "first_seen": _iso_utc(item.first_seen),
                 "last_seen": _iso_utc(item.last_seen),
-                "presence": "present",
-                "zone": "WIFI_OBSERVED",
+                "presence": item.presence,
+                "zone": item.zone,
+                "hostname": item.hostname,
+                "vendor": item.vendor,
             }
-            for item in sorted(self._devices.values(), key=lambda item: (item.mac, item.ipv4))
+            for item in update.devices
+        ]
+        events = [
+            {
+                "kind": event.kind,
+                "mac": event.mac,
+                "changed_fields": list(event.changed_fields),
+            }
+            for event in update.events
         ]
         fingerprint_devices = [
-            {key: item[key] for key in ("mac", "ipv4", "presence", "zone")}
+            {
+                key: item[key]
+                for key in ("mac", "ipv4", "presence", "zone", "hostname", "vendor")
+            }
             for item in devices
         ]
         return SourceSnapshot(
             source=self.name,
             status="healthy",
             severity=StimulusSeverity.INFO,
-            payload={"zone": "WIFI_OBSERVED", "devices": devices},
+            payload={
+                "zone": "WIFI_OBSERVED",
+                "devices": devices,
+                "events": events,
+            },
             observed_at=_iso_utc(now),
-            fingerprint_payload={"zone": "WIFI_OBSERVED", "devices": fingerprint_devices},
+            fingerprint_payload={
+                "zone": "WIFI_OBSERVED",
+                "devices": fingerprint_devices,
+            },
         )
