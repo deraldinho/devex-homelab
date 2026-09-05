@@ -17,7 +17,9 @@ class C4EmpacotamentoTests(unittest.TestCase):
         self.assertIn("capability_registry.py", texto)
         self.assertIn("policy_capabilities.py", texto)
         self.assertIn("saida_cognitiva.py", texto)
-        self.assertIn("DEVEX_HOMELAB_ATLAS_COGNITIVO_C4_PASS", texto)
+        linhas = [linha.strip() for linha in texto.splitlines()]
+        self.assertIn("echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C4_PASS'", linhas)
+        self.assertNotIn("\\n            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C4_PASS'", texto)
 
 
 if __name__ == "__main__":
