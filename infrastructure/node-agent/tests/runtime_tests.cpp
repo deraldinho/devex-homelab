@@ -41,6 +41,18 @@ void test_config_loader_is_versioned_and_bounded() {
         "project policy loaded");
 }
 
+void test_config_loader_accepts_crlf() {
+  const std::string path = "node-agent-test-crlf.conf";
+  std::ofstream out(path, std::ios::binary);
+  out << "schema_version=1\r\nqueue_capacity=3\r\nmax_message_bytes=64\r\ndisk_path=.\r\n";
+  out << "project=proj|24|servico_degradado,recuperacao\r\n";
+  out.close();
+  auto loaded = load_agent_config(path);
+  std::remove(path.c_str());
+  check(loaded.schema_version == 1 && loaded.projects.size() == 1,
+        "config loader accepts CRLF consistently");
+}
+
 void test_runtime_validates_and_queues_events() {
   NodeAgentRuntime runtime(config(), std::make_unique<FakeProbe>());
   auto accepted = runtime.ingest_line("ATLAS/1|proj|e1|servico_degradado|warning|slow");
@@ -72,6 +84,7 @@ void test_runtime_collects_vitals_without_health_classification() {
 
 int main() {
   test_config_loader_is_versioned_and_bounded();
+  test_config_loader_accepts_crlf();
   test_runtime_validates_and_queues_events();
   test_runtime_storm_remains_bounded_and_preserves_critical();
   test_runtime_collects_vitals_without_health_classification();

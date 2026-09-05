@@ -51,6 +51,7 @@ AgentConfig load_agent_config(const std::string& path) {
   AgentConfig config{0, 0, 0, {}, {}};
   std::string line;
   while (std::getline(input, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
     if (line.empty() || line[0] == '#') continue;
     const auto pos = line.find('=');
     if (pos == std::string::npos) throw std::runtime_error("invalid config line");
