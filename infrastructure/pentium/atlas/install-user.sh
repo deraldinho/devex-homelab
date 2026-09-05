@@ -51,6 +51,7 @@ for file in \
   configuracao_llm.py \
   llm_gateway.py \
   llama_cpp_backend.py \
+  reaction_loop_cognitivo.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
@@ -102,6 +103,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/configuracao_llm.py" \
   "${TARGET_DIR}/llm_gateway.py" \
   "${TARGET_DIR}/llama_cpp_backend.py" \
+  "${TARGET_DIR}/reaction_loop_cognitivo.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
@@ -121,4 +123,5 @@ echo "ATLAS_AFETIVO_A3_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A4_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C1_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C2_INSTALL_PASS"
+echo "ATLAS_COGNITIVO_C3_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"

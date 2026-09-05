@@ -163,6 +163,7 @@ jobs:
               "$atlas/configuracao_llm.py" \
               "$atlas/llm_gateway.py" \
               "$atlas/llama_cpp_backend.py" \
+              "$atlas/reaction_loop_cognitivo.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
@@ -190,6 +191,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A4_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C2_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C3_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
