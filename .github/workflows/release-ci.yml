@@ -1,0 +1,64 @@
+name: Release CI
+
+on:
+  pull_request:
+    paths:
+      - 'VERSION'
+      - 'docs/releases/**'
+      - 'infrastructure/node-agent/CMakeLists.txt'
+      - '.github/workflows/release-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact HEAD
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Validate version and release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          grep -Fq "project(atlas_node_agent VERSION ${version} LANGUAGES CXX)" \
+            infrastructure/node-agent/CMakeLists.txt
+          test -f "docs/releases/v${version}.md"
+          grep -Fq "Canal: \`stable\`" "docs/releases/v${version}.md"
+
+      - name: Validate certified ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          a5='83a8266171bdb574dfeb5e053bbe90810319104a'
+          observation_cert='1a28a54a051d152d83cf919a7f570e1bacccdf2e'
+          contaminated_tip='e954aea700b196a21549b2e498596973fe83bc63'
+          git merge-base --is-ancestor "$observation_cert" HEAD
+          git merge-base --is-ancestor "$a5" HEAD
+          if git merge-base --is-ancestor "$contaminated_tip" HEAD; then
+            echo 'Contaminated Observation Runtime tip entered release ancestry.' >&2
+            exit 1
+          fi
+
+      - name: Validate release diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$BASE_REF" ]]; then
+            git diff --check "origin/${BASE_REF}...HEAD"
+          else
+            git diff --check HEAD^ HEAD
+          fi
+          echo 'DEVEX_HOMELAB_RELEASE_V0_1_0_PASS'

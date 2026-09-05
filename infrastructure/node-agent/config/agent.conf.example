@@ -1,0 +1,5 @@
+schema_version=1
+queue_capacity=64
+max_message_bytes=4096
+disk_path=.
+project=example-project|1024|pressao_cpu,latencia_elevada,servico_degradado,servico_indisponivel,recuperacao

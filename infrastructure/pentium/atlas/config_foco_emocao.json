@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "foco": {
+    "capacidade_secundarios": 3,
+    "margem_histerese": 0.15,
+    "fator_recuperacao": 0.4
+  },
+  "emocao": {
+    "capacidade_nuances": 2
+  }
+}
