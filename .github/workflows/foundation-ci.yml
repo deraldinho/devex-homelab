@@ -129,6 +129,7 @@ jobs:
               "$atlas/stimulus_bus.py" \
               "$atlas/stimulus_journal.py" \
               "$atlas/network_discovery.py" \
+              "$atlas/network_discovery_smoke.py" \
               "$atlas/stimulus_sources.py" \
               "$atlas/observation_runtime.py" \
               "$atlas/modelo_afetivo.py" \

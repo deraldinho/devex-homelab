@@ -17,6 +17,7 @@ for file in \
   stimulus_bus.py \
   stimulus_journal.py \
   network_discovery.py \
+  network_discovery_smoke.py \
   stimulus_sources.py \
   observation_runtime.py \
   modelo_afetivo.py \
@@ -57,6 +58,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/stimulus_bus.py" \
   "${TARGET_DIR}/stimulus_journal.py" \
   "${TARGET_DIR}/network_discovery.py" \
+  "${TARGET_DIR}/network_discovery_smoke.py" \
   "${TARGET_DIR}/stimulus_sources.py" \
   "${TARGET_DIR}/observation_runtime.py" \
   "${TARGET_DIR}/modelo_afetivo.py" \
