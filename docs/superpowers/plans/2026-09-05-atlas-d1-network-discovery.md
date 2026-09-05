@@ -209,3 +209,151 @@ Foundation CI deve terminar `success` para o SHA da PR D1. Nenhum resultado de S
 - [ ] **Step 4: checkpoint**
 
 Registrar `/checkpoint` com RED observado, implementação, testes locais, CI do HEAD, blockers e próximo passo seguro `D2 — Identity & Presence Registry`.
+### Task 1: Adaptador Linux de escopo e ARP scan
+
+**Files:**
+- Create: `infrastructure/pentium/atlas/network_discovery.py`
+- Test: `infrastructure/pentium/atlas/tests/test_network_discovery.py`
+
+**Interfaces:**
+- Produces: `InterfaceNetwork`, `DiscoveredNeighbor`, `LinuxArpScanner.scan(interface) -> tuple[DiscoveredNeighbor, ...]`.
+- `LinuxArpScanner` receives injectable `command_runner(argv, timeout_s)` for deterministic tests.
+
+- [ ] **Step 1: escrever RED para interface/CIDR e bounds**
+
+```python
+def test_scanner_restricts_arp_scan_to_configured_interface_and_direct_cidr():
+    runner = RecordingRunner(interface_json='[{"ifname":"wlan0","addr_info":[{"family":"inet","local":"192.168.1.8","prefixlen":24}]}]')
+    LinuxArpScanner(runner=runner).scan("wlan0")
+    assert runner.last_scan[-1] == "192.168.1.0/24"
+    assert "--interface=wlan0" in runner.last_scan
+```
+
+Também testar interface sem IPv4, múltiplos IPv4 ambíguos, rede maior que 512 endereços e resposta fora do CIDR.
+
+- [ ] **Step 2: executar somente o teste e observar RED**
+
+Run: `python -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v`
+Expected: erro de importação de `network_discovery`.
+
+- [ ] **Step 3: implementar o mínimo GREEN**
+Implementar parsing estrito de `ip -json -4 addr show dev <interface>` com `ipaddress.ip_network(..., strict=False)`. Executar `arp-scan` por argv fixo e timeout explícito; parsear apenas linhas IPv4+MAC válidas, normalizar MAC lowercase e rejeitar qualquer IP fora da rede derivada.
+
+- [ ] **Step 4: verificar GREEN e regressão local**
+
+Run: `python -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v`
+Expected: PASS.
+
+Run: `python -m unittest discover -s infrastructure/pentium/atlas/tests -p "test_*.py" -v`
+Expected: suíte Atlas completa PASS.
+
+- [ ] **Step 5: commit**
+
+```bash
+git add infrastructure/pentium/atlas/network_discovery.py infrastructure/pentium/atlas/tests/test_network_discovery.py
+git commit -m "feat(atlas): adicionar descoberta arp bounded D1"
+```
+
+### Task 2: Fonte Wi-Fi e janela efêmera de presença
+
+**Files:**
+- Modify: `infrastructure/pentium/atlas/stimulus_sources.py`
+- Test: `infrastructure/pentium/atlas/tests/test_stimulus_sources.py`
+
+**Interfaces:**
+- Consumes: `LinuxArpScanner.scan(interface)` e `DiscoveredNeighbor`.
+- Produces: `WifiPresenceSource(scanner, interface, clock, presence_window_s=180, max_devices=256)`.
+
+- [ ] **Step 1: escrever RED para snapshot e ausência transitória**
+
+```python
+def test_wifi_presence_source_keeps_device_present_during_one_empty_round():
+    scanner = SequenceScanner([[neighbor("aa:bb:cc:dd:ee:ff", "192.168.1.20")], []])
+    source = WifiPresenceSource(scanner, "wlan0", clock=SequenceClock([100.0, 120.0]), presence_window_s=180)
+    first = source.poll()
+    second = source.poll()
+    self.assertEqual(first.payload["device_count"], 1)
+    self.assertEqual(second.payload["device_count"], 1)
+```
+
+Testar ordenação determinística por MAC/IP, limite de 256 dispositivos, `zone=WIFI_OBSERVED`, e expiração somente após 180 s.
+- [ ] **Step 2: executar o teste e observar RED**
+
+Run: `python -m unittest infrastructure.pentium.atlas.tests.test_stimulus_sources -v`
+Expected: falha porque `WifiPresenceSource` ainda não existe.
+
+- [ ] **Step 3: implementar o mínimo GREEN**
+
+Manter estado efêmero `mac -> {ipv4, first_seen, last_seen}` dentro da fonte. Cada `poll()` atualiza vistos, conserva ausentes dentro da janela e remove expirados. O payload contém somente `zone`, `interface`, `device_count` e `devices` ordenados, sem hostname/vendor persistente nesta slice.
+
+- [ ] **Step 4: verificar GREEN e regressão**
+
+Run: `python -m unittest infrastructure.pentium.atlas.tests.test_stimulus_sources -v`
+Expected: PASS.
+
+Run: `python -m unittest discover -s infrastructure/pentium/atlas/tests -p "test_*.py" -v`
+Expected: PASS.
+
+- [ ] **Step 5: commit**
+
+```bash
+git add infrastructure/pentium/atlas/stimulus_sources.py infrastructure/pentium/atlas/tests/test_stimulus_sources.py
+git commit -m "feat(atlas): integrar presença wifi ao runtime D1"
+```
+
+### Task 3: Configuração, packaging e gate D1
+
+**Files:**
+- Modify: `infrastructure/pentium/atlas/observation_config.json`
+- Modify: `infrastructure/pentium/atlas/install-user.sh`
+- Modify: `infrastructure/pentium/atlas/tests/test_observation_runtime.py`
+- Modify: `infrastructure/pentium/atlas/tests/test_observation_packaging.py`
+
+**Interfaces:**
+- Adds source schedule `wifi.observed` com intervalo 60 s, timeout 10 s, max backoff 240 s, cooldown 60 s e jitter 5 s.
+- Packaging must include `network_discovery.py` without enabling or modifying network services.
+- [ ] **Step 1: escrever RED para config/packaging**
+
+Atualizar primeiro os testes para exigir `wifi.observed` no config e `network_discovery.py` no instalador.
+
+- [ ] **Step 2: executar e observar RED**
+
+Run: `python -m unittest infrastructure.pentium.atlas.tests.test_observation_runtime infrastructure.pentium.atlas.tests.test_observation_packaging -v`
+Expected: FAIL por source/config e arquivo de packaging ausentes.
+
+- [ ] **Step 3: implementar o mínimo GREEN**
+
+Adicionar `wifi.observed` ao JSON e incluir `network_discovery.py` no pacote do Atlas. Não criar serviço, alterar interface, rota, firewall, NetworkManager ou Tailscale.
+
+- [ ] **Step 4: certificar a slice localmente**
+
+Run: `python -m unittest discover -s infrastructure/pentium/atlas/tests -p "test_*.py" -v`
+Expected: PASS.
+
+Run: `git diff --check`
+Expected: PASS.
+
+- [ ] **Step 5: commit**
+
+```bash
+git add infrastructure/pentium/atlas/observation_config.json infrastructure/pentium/atlas/install-user.sh infrastructure/pentium/atlas/tests/test_observation_runtime.py infrastructure/pentium/atlas/tests/test_observation_packaging.py
+git commit -m "test(atlas): certificar configuracao D1"
+```
+
+### Task 4: PR Draft e checkpoint D1
+
+**Files:**
+- No production files beyond Tasks 1–3.
+
+- [ ] Push branch de implementação e abrir PR Draft baseada em `atlas/issue-20-ssh-architecture`.
+- [ ] Verificar CI no HEAD exato; não reutilizar resultado de SHA anterior.
+- [ ] Se algum gate estiver RED/pending, parar e corrigir antes de avançar.
+- [ ] Quando GREEN, publicar `/checkpoint` com implementação, RED/GREEN observado, testes, CI do HEAD e limites preservados.
+- [ ] Não executar certificação física ARP no Pentium até o código e CI estarem GREEN; a certificação física é o próximo gate controlado da própria D1.
+
+## Self-review
+
+- Cobertura da spec D1: escopo de interface/CIDR, ARP bounded, deduplicação via snapshot/runtime, janela de presença, bounds, integração mínima e packaging estão mapeados nas Tasks 1–3.
+- D2 não foi antecipada: não há persistência durável, OUI/hostname enrichment nem máquina durável de eventos.
+- M1/M2 não foram antecipadas: nenhum SSH novo ou CONTROL entra em D1.
+- APIs e nomes usados nas tarefas são definidos neste plano.
