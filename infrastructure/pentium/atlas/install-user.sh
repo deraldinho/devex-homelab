@@ -64,11 +64,15 @@ for file in \
   config_memory.py \
   cognitive_cache.py \
   config_cache.py \
+  config_llama_server.py \
+  llama_server_runtime.py \
+  llama_cpp_resident_backend.py \
+  unix_http.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
 
-for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_cognitiva.json config_llm.json config_memory.json config_cache.json; do
+for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_cognitiva.json config_llm.json config_memory.json config_cache.json config_llama_server.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
 
@@ -128,6 +132,10 @@ python3 -m py_compile \
   "${TARGET_DIR}/config_memory.py" \
   "${TARGET_DIR}/cognitive_cache.py" \
   "${TARGET_DIR}/config_cache.py" \
+  "${TARGET_DIR}/config_llama_server.py" \
+  "${TARGET_DIR}/llama_server_runtime.py" \
+  "${TARGET_DIR}/llama_cpp_resident_backend.py" \
+  "${TARGET_DIR}/unix_http.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
@@ -139,6 +147,7 @@ python3 -m json.tool "${TARGET_DIR}/config_cognitiva.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_llm.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_memory.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_cache.json" >/dev/null
+python3 -m json.tool "${TARGET_DIR}/config_llama_server.json" >/dev/null
 
 echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
@@ -154,4 +163,5 @@ echo "ATLAS_COGNITIVO_C4_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C5_HARNESS_INSTALL_PASS"
 echo "ATLAS_MEMORY_M1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K1_INSTALL_PASS"
+echo "ATLAS_COGNITIVE_CACHE_K2_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"
