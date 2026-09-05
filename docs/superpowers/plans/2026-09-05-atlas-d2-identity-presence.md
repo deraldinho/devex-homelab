@@ -83,7 +83,7 @@ git commit -m "feat(atlas): adicionar registry de identidade D2"
 - Create: `infrastructure/pentium/atlas/presence_persistence.py`
 - Test: `infrastructure/pentium/atlas/tests/test_presence_persistence.py`
 **Interfaces:**
-- Produces: `PresenceRepository(path, max_devices)` com `save(registry)` e `load() -> PresenceRegistry | None`.
+- Produces: `PresenceRepository(path, max_devices)` com `save(registry)` e `load(*, presence_window_s) -> PresenceRegistry | None`.
 - Persisted schema: `schema_version=1`, `devices=[...]`; ordem estável por MAC.
 
 - [ ] **Step 1: escrever RED para round-trip e corrupção**

@@ -18,6 +18,8 @@ for file in \
   stimulus_journal.py \
   network_discovery.py \
   network_discovery_smoke.py \
+  presence_registry.py \
+  presence_persistence.py \
   stimulus_sources.py \
   observation_runtime.py \
   modelo_afetivo.py \
@@ -59,6 +61,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/stimulus_journal.py" \
   "${TARGET_DIR}/network_discovery.py" \
   "${TARGET_DIR}/network_discovery_smoke.py" \
+  "${TARGET_DIR}/presence_registry.py" \
+  "${TARGET_DIR}/presence_persistence.py" \
   "${TARGET_DIR}/stimulus_sources.py" \
   "${TARGET_DIR}/observation_runtime.py" \
   "${TARGET_DIR}/modelo_afetivo.py" \
@@ -92,6 +96,7 @@ python3 -m json.tool "${TARGET_DIR}/config_foco_emocao.json" >/dev/null
 
 echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
+echo "ATLAS_D2_IDENTITY_PRESENCE_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A1_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A2_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A3_INSTALL_PASS"
