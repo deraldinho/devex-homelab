@@ -155,12 +155,17 @@ jobs:
               "$atlas/emocao_derivada.py" \
               "$atlas/contexto_foco_emocao.py" \
               "$atlas/persistencia_foco_emocao.py" \
+              "$atlas/modelo_contexto_cognitivo.py" \
+              "$atlas/configuracao_cognitiva.py" \
+              "$atlas/contexto_cognitivo.py" \
+              "$atlas/politica_ativacao_cognitiva.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
             python3 -m json.tool "$atlas/config_afetiva.json" >/dev/null
             python3 -m json.tool "$atlas/config_percepcao.json" >/dev/null
             python3 -m json.tool "$atlas/config_foco_emocao.json" >/dev/null
+            python3 -m json.tool "$atlas/config_cognitiva.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_registry -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
@@ -178,6 +183,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A4_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C1_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
