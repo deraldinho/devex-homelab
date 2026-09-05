@@ -125,3 +125,50 @@ if(BUILD_TESTING)
     COMMAND atlas-node-agent-vital-transport-tests ${ATLAS_TEST_PKI_DIR})
   set_tests_properties(atlas-node-agent-vital-transport-tests PROPERTIES FIXTURES_REQUIRED atlas_test_pki)
 endif()
+
+option(ATLAS_ENABLE_GRPC "Build gRPC transport" ON)
+if(ATLAS_ENABLE_GRPC)
+if(BUILD_TESTING)
+  add_executable(atlas-node-agent-grpc-stream-tests tests/grpc_stream_tests.cpp)
+  target_link_libraries(atlas-node-agent-grpc-stream-tests PRIVATE atlas_node_agent_core Threads::Threads)
+endif()
+
+find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+
+set(ATLAS_GRPC_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+file(MAKE_DIRECTORY "${ATLAS_GRPC_GEN_DIR}")
+set(ATLAS_GRPC_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/proto/atlas_transport.proto")
+add_custom_command(
+  OUTPUT
+    "${ATLAS_GRPC_GEN_DIR}/atlas_transport.pb.cc"
+    "${ATLAS_GRPC_GEN_DIR}/atlas_transport.pb.h"
+    "${ATLAS_GRPC_GEN_DIR}/atlas_transport.grpc.pb.cc"
+    "${ATLAS_GRPC_GEN_DIR}/atlas_transport.grpc.pb.h"
+  COMMAND $<TARGET_FILE:protobuf::protoc>
+  ARGS
+    --cpp_out=${ATLAS_GRPC_GEN_DIR}
+    --grpc_out=${ATLAS_GRPC_GEN_DIR}
+    -I ${CMAKE_CURRENT_SOURCE_DIR}/proto
+    --plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
+    ${ATLAS_GRPC_PROTO}
+  DEPENDS ${ATLAS_GRPC_PROTO} protobuf::protoc gRPC::grpc_cpp_plugin
+  VERBATIM)
+
+add_library(atlas_node_agent_grpc_proto
+  "${ATLAS_GRPC_GEN_DIR}/atlas_transport.pb.cc"
+  "${ATLAS_GRPC_GEN_DIR}/atlas_transport.grpc.pb.cc")
+target_include_directories(atlas_node_agent_grpc_proto PUBLIC "${ATLAS_GRPC_GEN_DIR}")
+target_link_libraries(atlas_node_agent_grpc_proto PUBLIC gRPC::grpc++ protobuf::libprotobuf)
+add_library(atlas_node_agent_grpc_transport src/grpc_stream_transport.cpp)
+target_include_directories(atlas_node_agent_grpc_transport PUBLIC include)
+target_link_libraries(atlas_node_agent_grpc_transport
+  PUBLIC atlas_node_agent_core atlas_node_agent_grpc_proto gRPC::grpc++)
+
+if(BUILD_TESTING)
+  target_link_libraries(atlas-node-agent-grpc-stream-tests PRIVATE atlas_node_agent_grpc_transport)
+  add_test(NAME atlas-node-agent-grpc-stream-tests
+    COMMAND atlas-node-agent-grpc-stream-tests ${ATLAS_TEST_PKI_DIR})
+  set_tests_properties(atlas-node-agent-grpc-stream-tests PROPERTIES FIXTURES_REQUIRED atlas_test_pki)
+endif()
+endif()

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package atlas.node_agent.v1;
+
+message RemoteEnvelopeMessage {
+  uint32 protocol_version = 1;
+  string node_id = 2;
+  string project_id = 3;
+  string event_id = 4;
+  string event_type = 5;
+  uint32 severity = 6;
+  uint64 session_generation = 7;
+  uint64 sequence = 8;
+  string occurred_at = 9;
+  bytes payload = 10;
+}
+
+message PushAck {
+  bool accepted = 1;
+  string reason = 2;
+  uint32 received = 3;
+}
+
+service AtlasOperational {
+  rpc Push(stream RemoteEnvelopeMessage) returns (PushAck);
+}

@@ -48,3 +48,13 @@ A6.1 certifica contratos, sessão, replay e roteamento sem rede. A6.2 certifica 
 ## Dependência TLS A6.2
 
 O canal vital usa Mbed TLS 3.6.7 LTS, obtido exclusivamente do release oficial e fixado por SHA-256 `a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6` via CMake FetchContent. Certificados de teste são gerados de forma efêmera no diretório de build; nenhuma chave privada ou certificado operacional é versionado.
+
+## Dependência gRPC A6.3
+
+O gRPC C++ e Protobuf são consumidos por manifest vcpkg. O snapshot autoritativo do registry é o commit `04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4`, no qual o port `grpc` é `1.81.1`.
+
+O repositório não clona gRPC nem seus submódulos durante o CMake. O CI faz checkout explícito do commit vcpkg acima, executa o bootstrap e entrega o toolchain ao CMake. Isso evita gitlinks flutuantes e mantém Windows/Linux no mesmo grafo de ports.
+
+O streaming gRPC autentica cliente e servidor por mTLS, limita lote e payload e preserva integralmente o `RemoteEnvelope`. Política de projeto, replay e deduplicação cross-channel continuam no ingress comum A6.5, para não manter estado divergente por transporte.
+
+Para os gates de CI, os overlay triplets `x64-linux-release` e `x64-windows-release` mantêm os mesmos vínculos de CRT/biblioteca dos triplets oficiais pinados e acrescentam apenas `VCPKG_BUILD_TYPE=release`. Assim o gate não recompila dependências Debug que não participam da certificação Release.

@@ -18,7 +18,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 45
 
     steps:
       - name: Checkout exact HEAD
@@ -26,11 +26,36 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Checkout pinned vcpkg
+        uses: actions/checkout@v5
+        with:
+          repository: microsoft/vcpkg
+          ref: 04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4
+          path: .ci/vcpkg
+
+      - name: Bootstrap pinned vcpkg
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            cmd.exe /c ".ci\vcpkg\bootstrap-vcpkg.bat -disableMetrics"
+          else
+            ./.ci/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          fi
+
       - name: Configure
         shell: bash
         run: |
           set -euo pipefail
-          cmake -S infrastructure/node-agent -B build-node-agent -DCMAKE_BUILD_TYPE=Release
+          if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            target_triplet=x64-windows-release
+          else
+            target_triplet=x64-linux-release
+          fi
+          cmake -S infrastructure/node-agent -B build-node-agent -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="${GITHUB_WORKSPACE}/.ci/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_OVERLAY_TRIPLETS="${GITHUB_WORKSPACE}/infrastructure/node-agent/vcpkg-triplets" \
+            -DVCPKG_TARGET_TRIPLET="${target_triplet}"
 
       - name: Build
         shell: bash
