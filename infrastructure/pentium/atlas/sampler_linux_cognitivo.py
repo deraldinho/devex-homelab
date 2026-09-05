@@ -78,9 +78,9 @@ def _temperatura_c(path: Path) -> float | None:
 
 
 class LinuxCognitiveSampler:
-    def __init__(self, *, meminfo_path=Path("/proc/meminfo"), proc_stat_path=Path("/proc/stat"),
-                 thermal_path=Path("/sys/class/thermal/thermal_zone0/temp"),
-                 atlas_status_path=Path("/proc/self/status"), llm_status_path=Path("/proc/0/status")):
+    def __init__(self, *, thermal_path: Path, llm_status_path: Path,
+                 meminfo_path=Path("/proc/meminfo"), proc_stat_path=Path("/proc/stat"),
+                 atlas_status_path=Path("/proc/self/status")):
         self._meminfo = Path(meminfo_path)
         self._proc_stat = Path(proc_stat_path)
         self._thermal = Path(thermal_path)
