@@ -172,6 +172,7 @@ jobs:
               "$atlas/sampler_linux_cognitivo.py" \
               "$atlas/fontes_fisicas_cognitivas.py" \
               "$atlas/c5_physical_runner.py" \
+              "$atlas/c5_physical_orchestrator.py" \
               "$atlas/memory_model.py" \
               "$atlas/memory_store.py" \
               "$atlas/memory_manager.py" \
