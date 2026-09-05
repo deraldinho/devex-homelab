@@ -4,7 +4,8 @@ import unittest
 from infrastructure.pentium.atlas.observation_runtime import ObservationRuntime
 from infrastructure.pentium.atlas.stimulus_bus import StimulusBus
 from infrastructure.pentium.atlas.stimulus_model import StimulusSeverity
-from infrastructure.pentium.atlas.stimulus_sources import SourceSnapshot
+from infrastructure.pentium.atlas.network_discovery import DiscoveredNeighbor
+from infrastructure.pentium.atlas.stimulus_sources import SourceSnapshot, WifiPresenceSource
 
 
 class FakeClock:
@@ -60,6 +61,22 @@ class ObservationRuntimeTests(unittest.TestCase):
         self.assertEqual(bus.metrics().deduplicated, 1)
         self.assertEqual(bus.poll().stimulus_id, first.stimulus_id)
         self.assertIsNone(bus.poll())
+
+    def test_wifi_presence_last_seen_change_is_deduplicated_when_devices_are_unchanged(self):
+        class SameNeighborScanner:
+            def scan(self, interface):
+                return (DiscoveredNeighbor("aa:bb:cc:dd:ee:01", "192.168.1.10"),)
+
+        times = iter([1000.0, 1060.0])
+        source = WifiPresenceSource("wlan0", scanner=SameNeighborScanner(), clock=lambda: next(times))
+        runtime, bus = runtime_for(source)
+
+        first = runtime.run_once("wifi.presence")
+        second = runtime.run_once("wifi.presence")
+
+        self.assertIsNotNone(first)
+        self.assertIsNone(second)
+        self.assertEqual(bus.metrics().deduplicated, 1)
 
     def test_degraded_then_healthy_emits_recovery_with_same_correlation(self):
         source = SequenceSource(
@@ -338,20 +355,35 @@ class ObservationSchedulingTests(unittest.TestCase):
 
         config_path = Path(__file__).resolve().parents[1] / "observation_config.json"
         policies = load_observation_policies(config_path)
-        self.assertEqual(set(policies), {"pentium.self", "core", "x99"})
+        self.assertEqual(set(policies), {"pentium.self", "core", "x99", "wifi.presence"})
         self.assertEqual(policies["pentium.self"].cooldown_s, 60.0)
         self.assertEqual(policies["core"].cooldown_s, 60.0)
         self.assertEqual(policies["x99"].cooldown_s, 60.0)
+        self.assertEqual(policies["wifi.presence"].cooldown_s, 60.0)
 
     def test_repository_observation_config_covers_initial_sources(self):
         from pathlib import Path
 
         config_path = Path(__file__).resolve().parents[1] / "observation_config.json"
         schedules = load_observation_config(config_path)
-        self.assertEqual(set(schedules), {"pentium.self", "core", "x99"})
+        self.assertEqual(set(schedules), {"pentium.self", "core", "x99", "wifi.presence"})
         self.assertLessEqual(schedules["pentium.self"].timeout_seconds, 5.0)
         self.assertLessEqual(schedules["core"].timeout_seconds, 8.0)
         self.assertLessEqual(schedules["x99"].timeout_seconds, 8.0)
+        self.assertEqual(schedules["wifi.presence"].interval_seconds, 60.0)
+        self.assertLessEqual(schedules["wifi.presence"].timeout_seconds, 10.0)
+        self.assertEqual(schedules["wifi.presence"].jitter_seconds, 5.0)
+
+    def test_repository_config_declares_wifi_interface_contract_and_bounds(self):
+        import json
+        from pathlib import Path
+
+        config_path = Path(__file__).resolve().parents[1] / "observation_config.json"
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        wifi = payload["sources"].get("wifi.presence", {})
+        self.assertEqual(wifi.get("interface_env"), "ATLAS_WIFI_INTERFACE")
+        self.assertEqual(wifi.get("presence_window_seconds"), 180)
+        self.assertEqual(wifi.get("max_devices"), 256)
 
     def test_timeout_does_not_start_overlapping_poll_for_same_source(self):
         import threading

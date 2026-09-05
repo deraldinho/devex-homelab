@@ -246,7 +246,9 @@ class ObservationRuntime:
         state = self._state[source_name]
         payload = dict(snapshot.payload)
         payload["status"] = snapshot.status
-        fingerprint = stable_fingerprint(payload)
+        fingerprint_payload = dict(snapshot.fingerprint_payload or snapshot.payload)
+        fingerprint_payload["status"] = snapshot.status
+        fingerprint = stable_fingerprint(fingerprint_payload)
 
         if state.fingerprint == fingerprint:
             self._bus.record_deduplicated()

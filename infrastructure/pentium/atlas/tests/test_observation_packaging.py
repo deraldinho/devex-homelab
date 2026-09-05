@@ -15,6 +15,7 @@ class ObservationPackagingTests(unittest.TestCase):
             "stimulus_bus.py",
             "stimulus_journal.py",
             "stimulus_sources.py",
+            "network_discovery.py",
             "observation_runtime.py",
             "observation_config.json",
         ):
@@ -28,8 +29,11 @@ class ObservationPackagingTests(unittest.TestCase):
     def test_foundation_ci_has_observation_gate(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("observation_runtime.py", text)
+        self.assertIn("network_discovery.py", text)
         self.assertIn("observation_config.json", text)
         self.assertIn("DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS", text)
+        self.assertIn("DEVEX_HOMELAB_ATLAS_D1_DISCOVERY_PASS", text)
+        self.assertIn("infrastructure.pentium.atlas.tests.test_network_discovery", text)
         self.assertIn("python3 -m unittest discover", text)
 
 

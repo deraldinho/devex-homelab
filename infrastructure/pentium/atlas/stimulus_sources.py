@@ -16,6 +16,7 @@ class SourceSnapshot:
     severity: StimulusSeverity
     payload: Mapping[str, Any]
     observed_at: str | None = None
+    fingerprint_payload: Mapping[str, Any] | None = None
 
 
 class StimulusSource(Protocol):
@@ -187,10 +188,15 @@ class WifiPresenceSource:
             }
             for item in sorted(self._devices.values(), key=lambda item: (item.mac, item.ipv4))
         ]
+        fingerprint_devices = [
+            {key: item[key] for key in ("mac", "ipv4", "presence", "zone")}
+            for item in devices
+        ]
         return SourceSnapshot(
             source=self.name,
             status="healthy",
             severity=StimulusSeverity.INFO,
             payload={"zone": "WIFI_OBSERVED", "devices": devices},
             observed_at=_iso_utc(now),
+            fingerprint_payload={"zone": "WIFI_OBSERVED", "devices": fingerprint_devices},
         )
