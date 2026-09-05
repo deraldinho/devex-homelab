@@ -167,6 +167,8 @@ jobs:
               "$atlas/capability_registry.py" \
               "$atlas/policy_capabilities.py" \
               "$atlas/saida_cognitiva.py" \
+              "$atlas/certificacao_cognitiva.py" \
+              "$atlas/sampler_linux_cognitivo.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
@@ -196,6 +198,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C4_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C5_HARNESS_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi

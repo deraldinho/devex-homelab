@@ -55,6 +55,8 @@ for file in \
   capability_registry.py \
   policy_capabilities.py \
   saida_cognitiva.py \
+  certificacao_cognitiva.py \
+  sampler_linux_cognitivo.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
@@ -110,6 +112,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/capability_registry.py" \
   "${TARGET_DIR}/policy_capabilities.py" \
   "${TARGET_DIR}/saida_cognitiva.py" \
+  "${TARGET_DIR}/certificacao_cognitiva.py" \
+  "${TARGET_DIR}/sampler_linux_cognitivo.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
@@ -131,4 +135,5 @@ echo "ATLAS_COGNITIVO_C1_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C2_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C3_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C4_INSTALL_PASS"
+echo "ATLAS_COGNITIVO_C5_HARNESS_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"
