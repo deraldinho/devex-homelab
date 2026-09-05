@@ -39,3 +39,19 @@ class MemoryStoreTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MemoryStoreTransactionTests(unittest.TestCase):
+    def test_consolidate_persiste_keeper_antes_de_remover_origens(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = MemoryStore(Path(tmp) / "memory.db")
+            a = MemoryRecord("a", MemoryLayer.EPISODIC, "2026-09-05T20:00:00+00:00", "core", "evento", 0.5, 0.8, 1, "observation", dedupe_key="k")
+            b = MemoryRecord("b", MemoryLayer.EPISODIC, "2026-09-05T20:01:00+00:00", "core", "evento", 0.5, 0.8, 1, "observation", dedupe_key="k")
+            store.save(a)
+            store.save(b)
+            merged = MemoryRecord("a", MemoryLayer.EPISODIC, a.created_at, "core", "evento", 0.5, 0.8, 2, "observation", dedupe_key="k")
+            store.consolidate(merged, ("b",))
+            self.assertEqual(1, store.count())
+            self.assertEqual(2, store.get("a").frequency)
+            self.assertIsNone(store.get("b"))
+            store.close()

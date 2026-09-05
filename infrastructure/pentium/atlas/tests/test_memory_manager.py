@@ -78,3 +78,18 @@ class MemoryManagerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MemoryPromotionTests(unittest.TestCase):
+    def test_dedupe_continua_em_full_e_promove_recorrencia_para_semantic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = MemoryStore(Path(tmp) / "memory.db")
+            manager = MemoryManager(store, MemoryPolicy(max_records=1, max_bytes=100000))
+            self.assertTrue(manager.remember(record("a", confidence=0.9, dedupe_key="core-role"), NOW))
+            self.assertTrue(manager.remember(record("b", confidence=0.9, dedupe_key="core-role"), NOW))
+            self.assertTrue(manager.remember(record("c", confidence=0.9, dedupe_key="core-role"), NOW))
+            manager.maintain(NOW)
+            saved = store.get("a")
+            self.assertEqual(MemoryLayer.SEMANTIC, saved.layer)
+            self.assertEqual(3, saved.frequency)
+            store.close()

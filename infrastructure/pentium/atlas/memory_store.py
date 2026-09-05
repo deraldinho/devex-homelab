@@ -104,6 +104,23 @@ class MemoryStore:
         self._db.commit()
         return cursor.rowcount > 0
 
+    def consolidate(self, keeper: MemoryRecord, remove_ids) -> None:
+        try:
+            with self._db:
+                self._db.execute("""
+                    INSERT OR REPLACE INTO memories VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """, (
+                    keeper.memory_id, keeper.layer.value, keeper.created_at, keeper.entity_id,
+                    keeper.content, keeper.importance, keeper.confidence, keeper.frequency,
+                    keeper.origin, keeper.criticality, int(keeper.pinned), int(keeper.protected),
+                    keeper.expires_at, keeper.dedupe_key,
+                ))
+                for memory_id in remove_ids:
+                    if memory_id != keeper.memory_id:
+                        self._db.execute("DELETE FROM memories WHERE memory_id=?", (memory_id,))
+        except sqlite3.Error as exc:
+            raise MemoryStoreError(str(exc)) from exc
+
     def close(self) -> None:
         self._db.close()
 

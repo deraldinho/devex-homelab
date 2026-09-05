@@ -83,3 +83,43 @@ class ReactionLoopCognitivoTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeRetriever:
+    def __init__(self, result=(), error=None):
+        self.result = result
+        self.error = error
+        self.calls = []
+
+    def retrieve(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.error:
+            raise self.error
+        return self.result
+
+
+class _Percepcao:
+    entidade_id = "core"
+
+
+class ReactionLoopMemoryTests(unittest.TestCase):
+    def test_retriever_alimenta_builder_sem_expor_store_ao_gateway(self):
+        policy = FakePolicy(DecisaoAtivacaoCognitiva(True, MotivoAtivacaoCognitiva.INTERACAO_HUMANA))
+        builder = FakeBuilder()
+        gateway = FakeGateway(ResultadoInferencia(True, "ok", None, 2, "fake"))
+        retriever = FakeRetriever(({"memory_id": "m1", "content": "Core e membro"},))
+        loop = ReactionLoopCognitivo(policy, builder, gateway, memory_retriever=retriever)
+        loop.processar(
+            fingerprint="fp", agora="2026-09-05T20:00:00+00:00",
+            sinais_ativacao={"interacao_humana": True}, dados_contexto={"percepcao": _Percepcao()},
+        )
+        self.assertEqual("core", retriever.calls[0]["entity_id"])
+        self.assertEqual("m1", builder.kwargs["memorias_relevantes"][0]["memory_id"])
+
+    def test_falha_retriever_degrada_para_contexto_sem_memoria(self):
+        policy = FakePolicy(DecisaoAtivacaoCognitiva(True, MotivoAtivacaoCognitiva.INTERACAO_HUMANA))
+        builder = FakeBuilder()
+        gateway = FakeGateway(ResultadoInferencia(True, "ok", None, 2, "fake"))
+        loop = ReactionLoopCognitivo(policy, builder, gateway, memory_retriever=FakeRetriever(error=RuntimeError("db")))
+        loop.processar(fingerprint="fp", agora="2026-09-05T20:00:00+00:00", sinais_ativacao={}, dados_contexto={})
+        self.assertEqual((), builder.kwargs["memorias_relevantes"])
