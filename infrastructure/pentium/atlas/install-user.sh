@@ -50,6 +50,7 @@ for file in \
   modelo_llm_gateway.py \
   configuracao_llm.py \
   llm_gateway.py \
+  prompt_cognitivo.py \
   llama_cpp_backend.py \
   reaction_loop_cognitivo.py \
   capability_registry.py \
@@ -57,6 +58,8 @@ for file in \
   saida_cognitiva.py \
   certificacao_cognitiva.py \
   sampler_linux_cognitivo.py \
+  fontes_fisicas_cognitivas.py \
+  c5_physical_runner.py \
   memory_model.py \
   memory_store.py \
   memory_manager.py \
@@ -118,6 +121,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/modelo_llm_gateway.py" \
   "${TARGET_DIR}/configuracao_llm.py" \
   "${TARGET_DIR}/llm_gateway.py" \
+  "${TARGET_DIR}/prompt_cognitivo.py" \
   "${TARGET_DIR}/llama_cpp_backend.py" \
   "${TARGET_DIR}/reaction_loop_cognitivo.py" \
   "${TARGET_DIR}/capability_registry.py" \
@@ -125,6 +129,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/saida_cognitiva.py" \
   "${TARGET_DIR}/certificacao_cognitiva.py" \
   "${TARGET_DIR}/sampler_linux_cognitivo.py" \
+  "${TARGET_DIR}/fontes_fisicas_cognitivas.py" \
+  "${TARGET_DIR}/c5_physical_runner.py" \
   "${TARGET_DIR}/memory_model.py" \
   "${TARGET_DIR}/memory_store.py" \
   "${TARGET_DIR}/memory_manager.py" \
@@ -161,6 +167,7 @@ echo "ATLAS_COGNITIVO_C2_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C3_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C4_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C5_HARNESS_INSTALL_PASS"
+echo "ATLAS_COGNITIVO_C5_HARDENING_INSTALL_PASS"
 echo "ATLAS_MEMORY_M1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K2_INSTALL_PASS"
