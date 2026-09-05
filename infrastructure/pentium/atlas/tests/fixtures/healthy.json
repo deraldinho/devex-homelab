@@ -1,0 +1,8 @@
+{
+  "previous_state": "healthy",
+  "signals": [
+    {"source": "pentium", "state": "healthy", "intensity": 0, "required": true, "reason": "pentium.ok"},
+    {"source": "core", "state": "healthy", "intensity": 0, "required": true, "reason": "core.ok"},
+    {"source": "x99", "state": "healthy", "intensity": 0, "required": false, "reason": "x99.ok"}
+  ]
+}

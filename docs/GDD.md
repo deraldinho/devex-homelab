@@ -87,3 +87,9 @@ Docker socket é tratado como fronteira privilegiada. Workflows que o utilizarem
 ## 8. Sucesso da foundation
 
 A foundation é considerada pronta quando o repositório privado, documentação mestre, baseline as-built, simulação local, runner `core-devex-homelab`, CI no Core e observabilidade por projeto no Pentium estiverem certificados, mantendo x99 fora da dependência operacional e preservando o runner L2jToren durante sua migração separada.
+
+## 9. Atlas — interação local do homelab
+
+O `pentium` também hospeda o **Atlas**, camada local de percepção e interação do DevEx HomeLab. O Atlas consome observed state do control plane para representar a saúde do homelab inteiro, produzir uma linguagem sonora tecnológica variada e, por fases, oferecer voz local e interpretação por mini LLM.
+
+A autoridade operacional continua determinística: LLM e memes são interfaces de interpretação/expressão, nunca substituem health gates, allowlists, confirmações ou políticas de segurança.
