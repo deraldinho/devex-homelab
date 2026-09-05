@@ -130,6 +130,8 @@ jobs:
               "$atlas/stimulus_journal.py" \
               "$atlas/network_discovery.py" \
               "$atlas/network_discovery_smoke.py" \
+              "$atlas/presence_registry.py" \
+              "$atlas/presence_persistence.py" \
               "$atlas/stimulus_sources.py" \
               "$atlas/observation_runtime.py" \
               "$atlas/modelo_afetivo.py" \
@@ -160,6 +162,9 @@ jobs:
             python3 -m json.tool "$atlas/config_percepcao.json" >/dev/null
             python3 -m json.tool "$atlas/config_foco_emocao.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_registry -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_source_d2 -v
             python3 -m unittest discover -s "$atlas/tests" -p 'test_*.py' -v
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/healthy.json" >/tmp/atlas-healthy.json
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/critical.json" >/tmp/atlas-critical.json
@@ -168,6 +173,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D1_DISCOVERY_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_D2_IDENTITY_PRESENCE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A3_PASS'

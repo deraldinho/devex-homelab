@@ -55,21 +55,22 @@ docker compose exec -T sim-pentium test -w /state
 
 pentium_workspace_rw="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.RW}}{{end}}{{end}}' devex-sim-pentium)"
 [[ "${pentium_workspace_rw}" == "false" ]]
-
 probe="$(docker compose exec -T sim-pentium sh -c 'printf probe | nc -w 2 sim-core 8080' | tr -d '\r')"
 [[ "${probe}" == "DEVEX_SIM_CORE_OK" ]]
 
-pids=()
-for _ in {1..8}; do
-  (
-    result="$(docker compose exec -T sim-pentium sh -c 'printf probe | nc -w 2 sim-core 8080' | tr -d '\r')"
-    [[ "${result}" == "DEVEX_SIM_CORE_OK" ]]
-  ) &
-  pids+=("$!")
-done
-for pid in "${pids[@]}"; do
-  wait "${pid}"
-done
+docker compose exec -T sim-pentium sh -eu -c '
+  pids=""
+  for _ in 1 2 3 4 5 6 7 8; do
+    (
+      result="$(printf probe | nc -w 2 sim-core 8080 | tr -d "\r")"
+      [ "$result" = "DEVEX_SIM_CORE_OK" ]
+    ) &
+    pids="$pids $!"
+  done
+  for pid in $pids; do
+    wait "$pid"
+  done
+'
 
 printf 'DEVEX_SIMULATION_CONCURRENCY_PASS\n'
 printf 'DEVEX_SIMULATION_RUNTIME_PASS\n'

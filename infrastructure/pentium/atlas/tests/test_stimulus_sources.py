@@ -133,7 +133,9 @@ class StimulusSourceTests(unittest.TestCase):
         source.poll()
         expired = source.poll()
 
-        self.assertEqual(expired.payload["devices"], [])
+        self.assertEqual(len(expired.payload["devices"]), 1)
+        self.assertEqual(expired.payload["devices"][0]["presence"], "missing")
+        self.assertEqual(expired.payload["events"][0]["kind"], "missing")
 
     def test_wifi_presence_source_emits_sorted_bounded_zone_payload(self):
         source_cls = getattr(stimulus_sources_module, "WifiPresenceSource")
