@@ -55,7 +55,8 @@ jobs:
           cmake -S infrastructure/node-agent -B build-node-agent -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="${GITHUB_WORKSPACE}/.ci/vcpkg/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_OVERLAY_TRIPLETS="${GITHUB_WORKSPACE}/infrastructure/node-agent/vcpkg-triplets" \
-            -DVCPKG_TARGET_TRIPLET="${target_triplet}"
+            -DVCPKG_TARGET_TRIPLET="${target_triplet}" \
+            -DVCPKG_HOST_TRIPLET="${target_triplet}"
 
       - name: Build
         shell: bash

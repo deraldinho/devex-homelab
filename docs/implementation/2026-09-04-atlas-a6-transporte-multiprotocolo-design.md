@@ -57,4 +57,4 @@ O repositório não clona gRPC nem seus submódulos durante o CMake. O CI faz ch
 
 O streaming gRPC autentica cliente e servidor por mTLS, limita lote e payload e preserva integralmente o `RemoteEnvelope`. Política de projeto, replay e deduplicação cross-channel continuam no ingress comum A6.5, para não manter estado divergente por transporte.
 
-Para os gates de CI, os overlay triplets `x64-linux-release` e `x64-windows-release` mantêm os mesmos vínculos de CRT/biblioteca dos triplets oficiais pinados e acrescentam apenas `VCPKG_BUILD_TYPE=release`. Assim o gate não recompila dependências Debug que não participam da certificação Release.
+Para os gates de CI, os overlay triplets `x64-linux-release` e `x64-windows-release` mantêm os mesmos vínculos de CRT/biblioteca dos triplets oficiais pinados e acrescentam apenas `VCPKG_BUILD_TYPE=release`. O workflow aplica o mesmo triplet a `VCPKG_TARGET_TRIPLET` e `VCPKG_HOST_TRIPLET`, evitando que ferramentas de host voltem ao triplet nativo padrão e reconstruam um segundo grafo Debug+Release. Assim o gate compila apenas os artefatos Release que participam da certificação.
