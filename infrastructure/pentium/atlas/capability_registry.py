@@ -59,3 +59,15 @@ class CapabilityRegistry:
             return self._specs[nome]
         except KeyError as exc:
             raise KeyError(f"capability desconhecida: {nome}") from exc
+
+
+def atlas_capability_registry() -> CapabilityRegistry:
+    """Canonical Atlas capability registry, including M2 CONTROL intents."""
+    specs = [
+        CapabilitySpec("get_host_status", "READ", ("host",), tipos_parametros=(("host", "str"),)),
+        CapabilitySpec("start_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
+        CapabilitySpec("stop_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
+        CapabilitySpec("restart_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
+        CapabilitySpec("reboot_host", "DESTRUCTIVE", ("host",), tipos_parametros=(("host", "str"),)),
+    ]
+    return CapabilityRegistry(specs)

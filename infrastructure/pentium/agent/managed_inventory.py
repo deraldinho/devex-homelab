@@ -25,6 +25,8 @@ class ManagedHost:
     known_hosts_file: Path
     platform: str
     allowed_reads: frozenset[str]
+    allowed_controls: frozenset[str] = frozenset()
+    allowed_services: frozenset[str] = frozenset()
     connect_timeout_seconds: int = 5
     max_output_bytes: int = 65536
 
@@ -41,6 +43,10 @@ class ManagedHost:
             raise ValueError("connect_timeout_seconds must be positive")
         if self.max_output_bytes <= 0:
             raise ValueError("max_output_bytes must be positive")
+        if any(not isinstance(name, str) or not name.strip() for name in self.allowed_controls):
+            raise ValueError("allowed_controls contains invalid name")
+        if any(not isinstance(name, str) or not name.strip() for name in self.allowed_services):
+            raise ValueError("allowed_services contains invalid name")
 
 
 class ManagedInventory:

@@ -11,12 +11,16 @@ from pathlib import Path
 try:
     from .actions.x99_status import collect_x99_status
     from .agent import Agent, UnknownActionError
+    from .control_audit import ControlAuditJournal
+    from .managed_control import ManagedControlService
     from .managed_inventory import ManagedHost, ManagedInventory
     from .managed_read import ManagedReadService
     from .ssh_transport import SshTransport
 except ImportError:
     from actions.x99_status import collect_x99_status
     from agent import Agent, UnknownActionError
+    from control_audit import ControlAuditJournal
+    from managed_control import ManagedControlService
     from managed_inventory import ManagedHost, ManagedInventory
     from managed_read import ManagedReadService
     from ssh_transport import SshTransport
@@ -41,6 +45,8 @@ def _managed_host_from_config(item: dict) -> ManagedHost:
         known_hosts_file=Path(str(item["known_hosts_file"])).expanduser(),
         platform=str(item["platform"]),
         allowed_reads=frozenset(str(value) for value in item["allowed_reads"]),
+        allowed_controls=frozenset(str(value) for value in item.get("allowed_controls", [])),
+        allowed_services=frozenset(str(value) for value in item.get("allowed_services", [])),
         connect_timeout_seconds=int(item.get("connect_timeout_seconds", 5)),
         max_output_bytes=int(item.get("max_output_bytes", 65536)),
     )
@@ -53,6 +59,18 @@ def build_agent(path: Path) -> Agent:
     ])
     service = ManagedReadService(inventory, SshTransport())
     return Agent(x99_status_handler=lambda: collect_x99_status(service))
+
+
+def build_control_service(path: Path, *, transport=None, audit_sink=None) -> ManagedControlService:
+    config = load_config(path)
+    inventory = ManagedInventory([
+        _managed_host_from_config(item) for item in config["managed_hosts"]
+    ])
+    selected_transport = transport or SshTransport()
+    selected_audit = audit_sink or ControlAuditJournal(
+        Path(str(config.get("control_audit_file", "~/.local/state/devex-homelab/control-audit.jsonl"))).expanduser()
+    )
+    return ManagedControlService(inventory, selected_transport, selected_audit)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:

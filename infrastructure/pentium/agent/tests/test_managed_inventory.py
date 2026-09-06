@@ -23,6 +23,8 @@ class ManagedInventoryTests(unittest.TestCase):
             known_hosts_file=Path("/ssh/known_hosts"),
             platform="windows",
             allowed_reads=frozenset({"uptime"}),
+            allowed_controls=frozenset({"restart_service"}),
+            allowed_services=frozenset({"docker"}),
         )
 
     def test_require_managed_returns_registered_managed_host(self):
@@ -40,6 +42,13 @@ class ManagedInventoryTests(unittest.TestCase):
         with self.assertRaises(HostNotManagedError):
             inventory.require_managed("x99")
 
+    def test_control_contract_is_exact_per_host(self):
+        host = self.make_host()
+        self.assertEqual(host.allowed_controls, frozenset({"restart_service"}))
+        self.assertEqual(host.allowed_services, frozenset({"docker"}))
+        self.assertNotIn("start_service", host.allowed_controls)
+        self.assertNotIn("sshd", host.allowed_services)
+
     def test_duplicate_host_ids_are_rejected(self):
         host = self.make_host()
         with self.assertRaises(ValueError):
@@ -50,6 +59,8 @@ class ManagedInventoryTests(unittest.TestCase):
             replace(self.make_host(), connect_timeout_seconds=0)
         with self.assertRaises(ValueError):
             replace(self.make_host(), host_id="")
+        with self.assertRaises(ValueError):
+            replace(self.make_host(), allowed_services=frozenset({""}))
 
 
 if __name__ == "__main__":
