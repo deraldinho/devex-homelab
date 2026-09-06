@@ -26,6 +26,12 @@ contrato externo -> StimulusSource -> Stimulus -> FronteiraSemantica -> EventoSe
 
 `FronteiraSemantica` é interna ao Atlas. Serviços observados continuam publicando seus próprios contratos e nunca precisam traduzir ou armazenar códigos cognitivos do Atlas.
 
+### Fast Router S2
+
+`EventoSemantico` entra no `FastRouter` determinístico antes de qualquer caminho lento. A decisão pode abrir lanes `FAST_REACTION`, `AFFECT`, `CACHE_LOOKUP` e `SLOW_LLM`; `DROP` é exclusivo.
+
+Eventos críticos e recuperações relevantes seguem o fast path sem aguardar LLM. `SLOW_LLM` é apenas deferência assíncrona para eventos novos na faixa ambígua; eventos conhecidos de baixa novidade preferem cache.
+
 ```text
 Observed State
   |-- management-network health

@@ -129,6 +129,9 @@ jobs:
               "$atlas/modelo_evento_semantico.py" \
               "$atlas/registro_semantico.py" \
               "$atlas/adaptadores_semanticos.py" \
+              "$atlas/modelo_fast_router.py" \
+              "$atlas/configuracao_fast_router.py" \
+              "$atlas/fast_router.py" \
               "$atlas/stimulus_bus.py" \
               "$atlas/stimulus_journal.py" \
               "$atlas/network_discovery.py" \
@@ -201,6 +204,7 @@ jobs:
             python3 -m json.tool "$atlas/config_memory.json" >/dev/null
             python3 -m json.tool "$atlas/config_cache.json" >/dev/null
             python3 -m json.tool "$atlas/config_llama_server.json" >/dev/null
+            python3 -m json.tool "$atlas/config_fast_router.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_registry -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
@@ -213,6 +217,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_SEMANTIC_S1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_FAST_ROUTER_S2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D1_DISCOVERY_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D2_IDENTITY_PRESENCE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'

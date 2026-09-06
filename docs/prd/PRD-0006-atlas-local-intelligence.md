@@ -44,6 +44,10 @@ A mini LLM deve interpretar/sumarizar, mas não executar shell. O candidato inic
 
 Traduzir contratos observados para `EventoSemantico` exclusivamente dentro do Atlas. Nenhum serviço externo precisa conhecer o vocabulário semântico interno do Atlas, seus códigos compactos ou o registry.
 
+### RF9 - Fast Router deterministico
+
+Classificar `EventoSemantico` por score bounded em lanes internas. Criticidade e recuperação não aguardam LLM; baixa novidade prefere cache; apenas ambiguidade nova pode receber `SLOW_LLM`, sempre fora do caminho crítico.
+
 ## Requisitos não funcionais
 
 - funcionamento de Health/Reaction sem Internet;
@@ -61,6 +65,10 @@ Traduzir contratos observados para `EventoSemantico` exclusivamente dentro do At
 Escopo: modelo `EventoSemantico` bounded/versionado, `RegistroSemantico` interno, adapters explícitos para Pentium/Core/x99/Wi-Fi e `FronteiraSemantica` com fan-out máximo de 32. A S1 não altera contratos dos serviços observados e prepara a S2 Fast Router.
 
 Definition of Done S1: source desconhecida falha fechada; payload composto não atravessa `attributes`; códigos compactos são internos; installer/CI empacotam a slice; suíte Atlas GREEN no HEAD exato.
+
+## S2 - Fast Router
+
+Escopo: score de pré-julgamento determinístico e lanes `DROP`, `FAST_REACTION`, `AFFECT`, `CACHE_LOOKUP` e `SLOW_LLM`, sem executar nenhuma delas.
 
 ## Primeira slice — Atlas State & Reaction Foundation
 
