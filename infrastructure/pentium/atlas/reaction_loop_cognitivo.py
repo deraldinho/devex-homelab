@@ -24,12 +24,13 @@ class RespostaCognitiva:
 
 
 class ReactionLoopCognitivo:
-    def __init__(self, policy, builder, gateway, *, capability_policy=None, memory_retriever=None):
+    def __init__(self, policy, builder, gateway, *, capability_policy=None, memory_retriever=None, cognitive_cache=None):
         self._policy = policy
         self._builder = builder
         self._gateway = gateway
         self._capability_policy = capability_policy
         self._memory_retriever = memory_retriever
+        self._cognitive_cache = cognitive_cache
     def processar(self, *, fingerprint: str, agora: str,
                  sinais_ativacao: Mapping[str, Any], dados_contexto: Mapping[str, Any]) -> RespostaCognitiva:
         decisao = self._policy.avaliar(
@@ -64,7 +65,20 @@ class ReactionLoopCognitivo:
         )
         autonomo = motivo is not MotivoAtivacaoCognitiva.INTERACAO_HUMANA
         self._policy.registrar_ativacao(fingerprint, agora, autonomo)
-        resultado = self._gateway.inferir(contexto, "formular_resposta_cognitiva")
+        tarefa = "formular_resposta_cognitiva"
+        cache_permitido = False
+        resultado = None
+        if self._cognitive_cache is not None:
+            try:
+                cache_permitido = self._cognitive_cache.allowed(motivo)
+                if cache_permitido:
+                    resultado = self._cognitive_cache.get(contexto, tarefa)
+            except Exception:
+                cache_permitido = False
+                resultado = None
+        cache_hit = resultado is not None
+        if resultado is None:
+            resultado = self._gateway.inferir(contexto, tarefa)
 
         if not resultado.sucesso:
             return RespostaCognitiva(
@@ -76,6 +90,17 @@ class ReactionLoopCognitivo:
                 resultado.duracao_ms,
             )
 
+        try:
+            estruturada = parse_resposta_llm(resultado.texto or "")
+        except ValueError:
+            estruturada = None
+
+        if cache_permitido and not cache_hit and estruturada is not None and estruturada.intencao is None:
+            try:
+                self._cognitive_cache.put(contexto, tarefa, resultado)
+            except Exception:
+                pass
+
         if self._capability_policy is None:
             return RespostaCognitiva(
                 True,
@@ -86,9 +111,7 @@ class ReactionLoopCognitivo:
                 resultado.duracao_ms,
             )
 
-        try:
-            estruturada = parse_resposta_llm(resultado.texto or "")
-        except ValueError:
+        if estruturada is None:
             return RespostaCognitiva(
                 True,
                 motivo.value if motivo is not None else None,
