@@ -131,3 +131,12 @@ A M2 entrega CONTROL administrativo tipado e auditavel para hosts `MANAGED`.
 Requisitos obrigatorios: default-deny; allowlist exata por host + operacao + alvo; `START_SERVICE`, `STOP_SERVICE` e `RESTART_SERVICE` como CONTROL; `REBOOT_HOST` como DESTRUCTIVE com confirmacao humana independente; comandos fixos Linux/Windows; host-key estrita; timeout/output bounded; auditoria antes/depois; nenhuma API de shell arbitrario.
 
 O repositório mantém `allowed_controls` e `allowed_services` vazios por padrao. Habilitacao concreta de um host/servico e uma decisao explicita de configuracao, nunca inferida pela LLM.
+
+
+### Observation Integration I1
+
+A slice I1 deve operar `WIFI_OBSERVED` e `MANAGED` em um unico ObservationRuntime, com scheduling, timeout, backoff, jitter, deduplicacao e journal centralizados.
+
+A zona Wi-Fi fornece presenca e identidade sem privilegio administrativo. A zona MANAGED fornece READ tipado e bounded por SSH. CONTROL continua fora do polling e permanece protegido por policy/default-deny.
+
+DoD I1: as duas zonas produzem evidencia no mesmo runtime; falha de uma zona nao bloqueia a outra; nenhum shell arbitrario e exposto; CI do HEAD exato emite marker tecnico I1; certificacao fisica do Pentium e registrada separadamente quando realmente executada.

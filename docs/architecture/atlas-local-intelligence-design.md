@@ -180,3 +180,12 @@ A M2 adiciona execucao administrativa tipada para hosts `MANAGED` sobre a fundac
 O `ManagedControlService` usa comandos fixos por plataforma, host-key estrita, timeout e output bounded herdados da M1. Nao existe API publica de shell arbitrario e nao ha retry autonomo de CONTROL.
 
 Toda execucao autorizada registra `attempt` antes do transporte e `result` depois. Falha de pre-audit bloqueia a operacao; falha SSH e registrada como evidencia degradada do canal sem inventar sucesso.
+
+
+### Observation Integration I1
+
+A I1 conecta `WIFI_OBSERVED` e `MANAGED` em um unico ObservationRuntime. `WifiPresenceSource` permanece dona da presenca Wi-Fi; `ManagedObservationSource` transforma somente READ tipado e bounded em `SourceSnapshot`.
+
+Falha ARP e falha SSH permanecem independentes. Erro em `wifi.presence` nao cancela `managed.*`, e erro em `managed.*` nao cancela descoberta Wi-Fi. Falha SSH descreve o canal administrativo e nao declara o host offline.
+
+CONTROL nao participa do polling. O composition root conhece `ManagedReadService`, mas nenhuma fonte de observacao expoe shell ou executor administrativo. A certificacao tecnica I1 exige evidencia simultanea das duas zonas e default-deny de CONTROL; certificacao fisica permanece um gate separado no Pentium.

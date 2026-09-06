@@ -149,6 +149,8 @@ jobs:
               "$atlas/presence_persistence.py" \
               "$atlas/stimulus_sources.py" \
               "$atlas/observation_runtime.py" \
+              "$atlas/dual_zone_runtime.py" \
+              "$atlas/i1_certification.py" \
               "$atlas/modelo_afetivo.py" \
               "$atlas/configuracao_afetiva.py" \
               "$atlas/decaimento_afetivo.py" \
@@ -243,6 +245,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_MEMORY_M1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K2_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_I1_OBSERVATION_INTEGRATION_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi

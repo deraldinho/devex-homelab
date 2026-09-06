@@ -31,6 +31,8 @@ for file in \
   presence_persistence.py \
   stimulus_sources.py \
   observation_runtime.py \
+  dual_zone_runtime.py \
+  i1_certification.py \
   modelo_afetivo.py \
   configuracao_afetiva.py \
   decaimento_afetivo.py \
@@ -115,6 +117,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/presence_persistence.py" \
   "${TARGET_DIR}/stimulus_sources.py" \
   "${TARGET_DIR}/observation_runtime.py" \
+  "${TARGET_DIR}/dual_zone_runtime.py" \
+  "${TARGET_DIR}/i1_certification.py" \
   "${TARGET_DIR}/modelo_afetivo.py" \
   "${TARGET_DIR}/configuracao_afetiva.py" \
   "${TARGET_DIR}/decaimento_afetivo.py" \
@@ -201,4 +205,5 @@ echo "ATLAS_COGNITIVO_C5_HARDENING_INSTALL_PASS"
 echo "ATLAS_MEMORY_M1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K2_INSTALL_PASS"
+echo "ATLAS_I1_OBSERVATION_INTEGRATION_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"
