@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 from infrastructure.pentium.atlas.llama_cpp_resident_backend import LlamaCppResidentBackend
-from infrastructure.pentium.atlas.modelo_llm_gateway import SolicitacaoInferencia, ResultadoInferencia, ErroInferencia
+from infrastructure.pentium.atlas.modelo_llm_gateway import SolicitacaoInferencia, ResultadoInferencia
 
 
 class Fallback:
@@ -15,17 +15,20 @@ class Fallback:
 class ResidentBackendTests(unittest.TestCase):
     def req(self): return SolicitacaoInferencia(1, 'formular', '{"x":1}', 4096)
 
-    def test_envia_completion_com_cache_prompt_e_reuse(self):
+    def test_envia_completion_com_cache_prompt_reuse_e_timings(self):
         seen = {}
         def requester(sock, path, payload, timeout, max_bytes):
-            seen.update(payload); return 200, {"content":"ok"}
+            seen.update(payload)
+            return 200, {"content":"ok", "timings":{"predicted_per_second":4.25}}
         backend = LlamaCppResidentBackend(Path('/tmp/a.sock'), cache_reuse=64, timeout_s=20, requester=requester)
         result = backend.inferir(self.req())
         self.assertTrue(result.sucesso)
         self.assertEqual('ok', result.texto)
+        self.assertEqual(4.25, result.tokens_por_s)
         self.assertTrue(seen['cache_prompt'])
         self.assertEqual(64, seen['n_cache_reuse'])
         self.assertEqual(256, seen['n_predict'])
+        self.assertIn('"versao_schema"', seen['prompt'])
 
     def test_falha_residente_usa_fallback(self):
         fallback = Fallback()

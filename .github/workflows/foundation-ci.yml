@@ -126,6 +126,9 @@ jobs:
               "$atlas/reaction_engine.py" \
               "$atlas/journal.py" \
               "$atlas/stimulus_model.py" \
+              "$atlas/modelo_evento_semantico.py" \
+              "$atlas/registro_semantico.py" \
+              "$atlas/adaptadores_semanticos.py" \
               "$atlas/stimulus_bus.py" \
               "$atlas/stimulus_journal.py" \
               "$atlas/network_discovery.py" \
@@ -162,6 +165,7 @@ jobs:
               "$atlas/modelo_llm_gateway.py" \
               "$atlas/configuracao_llm.py" \
               "$atlas/llm_gateway.py" \
+              "$atlas/prompt_cognitivo.py" \
               "$atlas/llama_cpp_backend.py" \
               "$atlas/reaction_loop_cognitivo.py" \
               "$atlas/capability_registry.py" \
@@ -169,6 +173,12 @@ jobs:
               "$atlas/saida_cognitiva.py" \
               "$atlas/certificacao_cognitiva.py" \
               "$atlas/sampler_linux_cognitivo.py" \
+              "$atlas/fontes_fisicas_cognitivas.py" \
+              "$atlas/c5_physical_runner.py" \
+              "$atlas/c5_physical_orchestrator.py" \
+              "$atlas/c5_physical_evaluator.py" \
+              "$atlas/c5_physical_campaign.py" \
+              "$atlas/c5_observation_probe.py" \
               "$atlas/memory_model.py" \
               "$atlas/memory_store.py" \
               "$atlas/memory_manager.py" \
@@ -202,6 +212,7 @@ jobs:
             bash -n "$atlas/install-user.sh"
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_SEMANTIC_S1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D1_DISCOVERY_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D2_IDENTITY_PRESENCE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'
@@ -213,6 +224,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C4_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C5_HARNESS_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C5_HARDENING_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_MEMORY_M1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K2_PASS'

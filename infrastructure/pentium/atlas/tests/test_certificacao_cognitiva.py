@@ -22,19 +22,18 @@ class FakeSampler:
 
 
 class CertificadorCognitivoTests(unittest.TestCase):
-    def test_certificacao_mede_antes_depois_e_latencia(self):
+    def test_certificacao_mede_antes_durante_depois_e_latencia(self):
         sampler = FakeSampler()
         tempos = iter([10.0, 10.25])
         cert = CertificadorCognitivo(sampler=sampler, monotonic=lambda: next(tempos))
-
         resultado = cert.executar(lambda: {"sucesso": True, "tokens_por_s": 4.5})
-
-        self.assertEqual(2, sampler.calls)
+        self.assertEqual(3, sampler.calls)
         self.assertEqual(250, resultado.latencia_total_ms)
         self.assertTrue(resultado.inferencia_sucesso)
         self.assertEqual(4.5, resultado.tokens_por_s)
         self.assertEqual(1001, resultado.antes.rss_atlas_kib)
-        self.assertEqual(1002, resultado.depois.rss_atlas_kib)
+        self.assertEqual(1002, resultado.durante[0].rss_atlas_kib)
+        self.assertEqual(1003, resultado.depois.rss_atlas_kib)
 
     def test_falha_da_inferencia_e_registrada_sem_quebrar_harness(self):
         sampler = FakeSampler()

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Callable
 
 from .modelo_llm_gateway import ErroInferencia, ResultadoInferencia, SolicitacaoInferencia
+from .prompt_cognitivo import construir_prompt_cognitivo
 
 
 class LlamaCppBackend:
@@ -36,11 +37,7 @@ class LlamaCppBackend:
         if not self._model.is_file():
             return self._falha(ErroInferencia.MODELO_INDISPONIVEL, inicio)
 
-        prompt = (
-            "Tarefa versionada: " + solicitacao.tarefa + "\n"
-            "Use apenas o contexto JSON abaixo. Nao invente estado tecnico.\n"
-            + solicitacao.contexto_json
-        )
+        prompt = construir_prompt_cognitivo(solicitacao)
         argv = [
             str(self._binary),
             "-m", str(self._model),

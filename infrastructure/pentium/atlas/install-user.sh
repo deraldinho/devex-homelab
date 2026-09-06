@@ -14,6 +14,9 @@ for file in \
   reaction_engine.py \
   journal.py \
   stimulus_model.py \
+  modelo_evento_semantico.py \
+  registro_semantico.py \
+  adaptadores_semanticos.py \
   stimulus_bus.py \
   stimulus_journal.py \
   network_discovery.py \
@@ -50,6 +53,7 @@ for file in \
   modelo_llm_gateway.py \
   configuracao_llm.py \
   llm_gateway.py \
+  prompt_cognitivo.py \
   llama_cpp_backend.py \
   reaction_loop_cognitivo.py \
   capability_registry.py \
@@ -57,6 +61,12 @@ for file in \
   saida_cognitiva.py \
   certificacao_cognitiva.py \
   sampler_linux_cognitivo.py \
+  fontes_fisicas_cognitivas.py \
+  c5_physical_runner.py \
+  c5_physical_orchestrator.py \
+  c5_physical_evaluator.py \
+  c5_physical_campaign.py \
+  c5_observation_probe.py \
   memory_model.py \
   memory_store.py \
   memory_manager.py \
@@ -82,6 +92,9 @@ python3 -m py_compile \
   "${TARGET_DIR}/reaction_engine.py" \
   "${TARGET_DIR}/journal.py" \
   "${TARGET_DIR}/stimulus_model.py" \
+  "${TARGET_DIR}/modelo_evento_semantico.py" \
+  "${TARGET_DIR}/registro_semantico.py" \
+  "${TARGET_DIR}/adaptadores_semanticos.py" \
   "${TARGET_DIR}/stimulus_bus.py" \
   "${TARGET_DIR}/stimulus_journal.py" \
   "${TARGET_DIR}/network_discovery.py" \
@@ -118,6 +131,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/modelo_llm_gateway.py" \
   "${TARGET_DIR}/configuracao_llm.py" \
   "${TARGET_DIR}/llm_gateway.py" \
+  "${TARGET_DIR}/prompt_cognitivo.py" \
   "${TARGET_DIR}/llama_cpp_backend.py" \
   "${TARGET_DIR}/reaction_loop_cognitivo.py" \
   "${TARGET_DIR}/capability_registry.py" \
@@ -125,6 +139,12 @@ python3 -m py_compile \
   "${TARGET_DIR}/saida_cognitiva.py" \
   "${TARGET_DIR}/certificacao_cognitiva.py" \
   "${TARGET_DIR}/sampler_linux_cognitivo.py" \
+  "${TARGET_DIR}/fontes_fisicas_cognitivas.py" \
+  "${TARGET_DIR}/c5_physical_runner.py" \
+  "${TARGET_DIR}/c5_physical_orchestrator.py" \
+  "${TARGET_DIR}/c5_physical_evaluator.py" \
+  "${TARGET_DIR}/c5_physical_campaign.py" \
+  "${TARGET_DIR}/c5_observation_probe.py" \
   "${TARGET_DIR}/memory_model.py" \
   "${TARGET_DIR}/memory_store.py" \
   "${TARGET_DIR}/memory_manager.py" \
@@ -151,6 +171,7 @@ python3 -m json.tool "${TARGET_DIR}/config_llama_server.json" >/dev/null
 
 echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
+echo "ATLAS_SEMANTIC_S1_INSTALL_PASS"
 echo "ATLAS_D2_IDENTITY_PRESENCE_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A1_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A2_INSTALL_PASS"
@@ -161,6 +182,7 @@ echo "ATLAS_COGNITIVO_C2_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C3_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C4_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C5_HARNESS_INSTALL_PASS"
+echo "ATLAS_COGNITIVO_C5_HARDENING_INSTALL_PASS"
 echo "ATLAS_MEMORY_M1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K2_INSTALL_PASS"
