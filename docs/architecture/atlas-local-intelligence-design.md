@@ -148,3 +148,35 @@ A primeira promoção de voz será READ-only. Ações `CONTROL` só entram após
 ## 11. Limites da primeira slice
 
 A primeira slice não instala LLM, STT, TTS, não baixa memes e não altera rede. Ela cria o modelo de estado global, o Reaction Engine, o journal e o contrato de biblioteca sonora, consumindo contratos já versionados sempre que possível.
+
+### Fast Dispatch S3
+
+A S3 conecta `DecisaoFastRouter` a um `FastDispatcher` tipado e bounded. O dispatcher preserva a ordem das lanes e delega cada entrega por porta explícita, sem recalcular score, health, severidade ou autorização.
+
+`FAST_REACTION`, `AFFECT` e `CACHE_LOOKUP` são entregues aos respectivos owners. Falha em uma lane é registrada sem cancelar lanes independentes seguintes. `DROP` continua exclusivo e não chama nenhuma porta.
+
+`SLOW_LLM apenas agenda` uma intenção tipada em fila bounded para processamento posterior. A S3 não importa nem executa `llm_gateway` ou `ReactionLoopCognitivo` inline, mantendo inferência fora do caminho crítico.
+
+### Managed SSH READ M1
+
+A M1 generaliza o transporte SSH existente do Pentium para observacao profunda de hosts explicitamente `MANAGED`. O inventario gerenciado resolve `host_id`, identidade SSH, `known_hosts`, plataforma, bounds e allowlist READ antes de qualquer chamada remota.
+
+O contrato de transporte usa `BatchMode=yes`, `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes` e `UserKnownHostsFile` explicito. Mudanca inesperada de host key falha fechado; descoberta de rede nunca promove um equipamento para MANAGED.
+
+O `ManagedReadService` expõe somente operacoes tipadas (`cpu`, `memory`, `disk`, `uptime`, `temperature`, `services`, `processes`, `network`, `containers`, `logs`) resolvidas para comandos fixos por plataforma. Nao existe API publica de shell arbitrario.
+
+Saida remota e bounded por host antes de entrar no dominio. Falha SSH ou parsing degrada a evidencia daquele READ sem redefinir a saude tecnica do host. `x99.status` permanece como compatibilidade, agora consumindo a camada tipada M1 em vez de montar comandos SSH diretamente.
+
+M2 CONTROL permanece separada e fora desta slice.
+
+O contrato M1 opera sem shell arbitrario em toda a fronteira de alto nivel.
+
+### Managed CONTROL M2
+
+A M2 adiciona execucao administrativa tipada para hosts `MANAGED` sobre a fundacao SSH M1. `PolicyCapabilities` continua sendo a autoridade: o executor recebe somente uma decisao estruturada e aplica novamente inventario, operacao e alvo em regime default-deny antes de qualquer SSH.
+
+`START_SERVICE`, `STOP_SERVICE` e `RESTART_SERVICE` sao CONTROL. `REBOOT_HOST` permanece DESTRUCTIVE e exige confirmacao humana independente. A autorizacao efetiva e restrita a combinacao exata host + operacao + alvo; nenhum host ou servico e herdado por permissao generica.
+
+O `ManagedControlService` usa comandos fixos por plataforma, host-key estrita, timeout e output bounded herdados da M1. Nao existe API publica de shell arbitrario e nao ha retry autonomo de CONTROL.
+
+Toda execucao autorizada registra `attempt` antes do transporte e `result` depois. Falha de pre-audit bloqueia a operacao; falha SSH e registrada como evidencia degradada do canal sem inventar sucesso.
