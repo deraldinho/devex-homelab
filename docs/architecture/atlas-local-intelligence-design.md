@@ -148,3 +148,11 @@ A primeira promoção de voz será READ-only. Ações `CONTROL` só entram após
 ## 11. Limites da primeira slice
 
 A primeira slice não instala LLM, STT, TTS, não baixa memes e não altera rede. Ela cria o modelo de estado global, o Reaction Engine, o journal e o contrato de biblioteca sonora, consumindo contratos já versionados sempre que possível.
+
+### Fast Dispatch S3
+
+A S3 conecta `DecisaoFastRouter` a um `FastDispatcher` tipado e bounded. O dispatcher preserva a ordem das lanes e delega cada entrega por porta explícita, sem recalcular score, health, severidade ou autorização.
+
+`FAST_REACTION`, `AFFECT` e `CACHE_LOOKUP` são entregues aos respectivos owners. Falha em uma lane é registrada sem cancelar lanes independentes seguintes. `DROP` continua exclusivo e não chama nenhuma porta.
+
+`SLOW_LLM apenas agenda` uma intenção tipada em fila bounded para processamento posterior. A S3 não importa nem executa `llm_gateway` ou `ReactionLoopCognitivo` inline, mantendo inferência fora do caminho crítico.

@@ -132,6 +132,9 @@ jobs:
               "$atlas/modelo_fast_router.py" \
               "$atlas/configuracao_fast_router.py" \
               "$atlas/fast_router.py" \
+              "$atlas/modelo_fast_dispatch.py" \
+              "$atlas/fast_dispatch.py" \
+              "$atlas/slow_llm_defer_queue.py" \
               "$atlas/stimulus_bus.py" \
               "$atlas/stimulus_journal.py" \
               "$atlas/network_discovery.py" \
@@ -218,6 +221,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_SEMANTIC_S1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_FAST_ROUTER_S2_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_FAST_DISPATCH_S3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D1_DISCOVERY_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D2_IDENTITY_PRESENCE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'

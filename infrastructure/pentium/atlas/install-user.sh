@@ -20,6 +20,9 @@ for file in \
   modelo_fast_router.py \
   configuracao_fast_router.py \
   fast_router.py \
+  modelo_fast_dispatch.py \
+  fast_dispatch.py \
+  slow_llm_defer_queue.py \
   stimulus_bus.py \
   stimulus_journal.py \
   network_discovery.py \
@@ -101,6 +104,9 @@ python3 -m py_compile \
   "${TARGET_DIR}/modelo_fast_router.py" \
   "${TARGET_DIR}/configuracao_fast_router.py" \
   "${TARGET_DIR}/fast_router.py" \
+  "${TARGET_DIR}/modelo_fast_dispatch.py" \
+  "${TARGET_DIR}/fast_dispatch.py" \
+  "${TARGET_DIR}/slow_llm_defer_queue.py" \
   "${TARGET_DIR}/stimulus_bus.py" \
   "${TARGET_DIR}/stimulus_journal.py" \
   "${TARGET_DIR}/network_discovery.py" \
@@ -180,6 +186,7 @@ echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
 echo "ATLAS_SEMANTIC_S1_INSTALL_PASS"
 echo "ATLAS_FAST_ROUTER_S2_INSTALL_PASS"
+echo "ATLAS_FAST_DISPATCH_S3_INSTALL_PASS"
 echo "ATLAS_D2_IDENTITY_PRESENCE_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A1_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A2_INSTALL_PASS"

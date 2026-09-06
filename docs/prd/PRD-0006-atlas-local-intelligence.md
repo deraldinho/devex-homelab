@@ -105,3 +105,11 @@ Não escopo:
 - CI GREEN no HEAD exato;
 - deploy físico só após reconciliação com o Pentium e aprovação;
 - checkpoint registra SHA, CI, evidência física e próximo passo.
+
+### RF10 - Fast Dispatch deterministico
+
+Encaminhar as lanes produzidas pelo `FastRouter` por portas explícitas, preservando ordem e isolamento de falha. `DROP` não executa portas; `SLOW_LLM` apenas agenda trabalho bounded e nunca realiza inferência inline.
+
+## S3 - Fast Dispatch
+
+Escopo: modelo imutável de resultado, dispatcher bounded e fila de deferimento `SLOW_LLM`, mantendo Reaction/Affect/Cache/LLM como owners de suas políticas. A S3 não adquire autoridade sobre health, autorização ou CONTROL.
