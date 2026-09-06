@@ -6,7 +6,9 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from infrastructure.pentium.agent.agent import Agent
-from infrastructure.pentium.agent.cli import load_config, main
+from infrastructure.pentium.agent.cli import build_control_service, load_config, main
+from infrastructure.pentium.agent.managed_control import ControlAuthorization, ManagedControlOperation
+from infrastructure.pentium.agent.ssh_transport import SshResult
 
 
 class AgentCliTests(unittest.TestCase):
@@ -48,6 +50,28 @@ class AgentCliTests(unittest.TestCase):
             loaded = load_config(path)
         self.assertEqual(loaded["schema_version"], 2)
         self.assertEqual(loaded["managed_hosts"][0]["known_hosts_file"], "~/.ssh/known_hosts")
+
+    def test_build_control_service_uses_configured_allowlist_and_audit(self):
+        class FakeTransport:
+            def run(self, target, command):
+                return SshResult(0, "", "")
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = {
+                "schema_version": 2,
+                "control_audit_file": str(Path(tmp) / "audit.jsonl"),
+                "managed_hosts": [{
+                    "host_id": "x99", "enrollment": "MANAGED", "user": "deral", "host": "10.0.0.9",
+                    "identity_file": "key", "known_hosts_file": "known_hosts", "platform": "linux",
+                    "allowed_reads": ["uptime"], "allowed_controls": ["restart_service"],
+                    "allowed_services": ["docker"]
+                }],
+            }
+            path = Path(tmp) / "config.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            service = build_control_service(path, transport=FakeTransport())
+            result = service.execute(ControlAuthorization(True, "x99", ManagedControlOperation.RESTART_SERVICE, "docker", reason="test"))
+            self.assertEqual(result["status"], "success")
+            self.assertTrue((Path(tmp) / "audit.jsonl").exists())
 
 
 if __name__ == "__main__":
