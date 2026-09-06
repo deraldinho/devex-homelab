@@ -1,0 +1,52 @@
+services:
+  core-l2jtoren-01:
+    build: {context: ., target: l2jtoren}
+    image: devex/core-l2jtoren-runner:2.337.0
+    container_name: core-l2jtoren-01
+    restart: unless-stopped
+    environment:
+      REPO_URL: https://github.com/deraldinho/L2jToren
+      RUNNER_NAME: core-l2jtoren-01
+      RUNNER_LABELS: core,homelab,container,l2jtoren,docker,l2jtoren-heavy
+      RUNNER_TOKEN: ${L2JTOREN_RUNNER_TOKEN:-}
+    group_add: ["${DOCKER_GID}"]
+    volumes:
+      - core-l2jtoren-01-work:/runner
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  core-l2jtoren-02:
+    build: {context: ., target: l2jtoren}
+    image: devex/core-l2jtoren-runner:2.337.0
+    container_name: core-l2jtoren-02
+    restart: unless-stopped
+    environment:
+      REPO_URL: https://github.com/deraldinho/L2jToren
+      RUNNER_NAME: core-l2jtoren-02
+      RUNNER_LABELS: core,homelab,container,l2jtoren,docker
+      RUNNER_TOKEN: ${L2JTOREN_RUNNER_TOKEN:-}
+    group_add: ["${DOCKER_GID}"]
+    volumes:
+      - core-l2jtoren-02-work:/runner
+      - /var/run/docker.sock:/var/run/docker.sock
+  core-homelab-01:
+    build: {context: ., target: homelab}
+    image: devex/core-homelab-runner:2.337.0
+    container_name: core-homelab-01
+    restart: unless-stopped
+    environment:
+      REPO_URL: https://github.com/deraldinho/devex-homelab
+      RUNNER_NAME: core-homelab-01
+      RUNNER_LABELS: core,homelab,container,devex-homelab,docker
+      RUNNER_TOKEN: ${HOMELAB_RUNNER_TOKEN:-}
+    group_add: ["${DOCKER_GID}"]
+    volumes:
+      - core-homelab-01-work:/runner
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  core-l2jtoren-01-work:
+    name: core-l2jtoren-01-work
+  core-l2jtoren-02-work:
+    name: core-l2jtoren-02-work
+  core-homelab-01-work:
+    name: core-homelab-01-work
