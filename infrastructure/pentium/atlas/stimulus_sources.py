@@ -214,3 +214,43 @@ class WifiPresenceSource:
                 "devices": fingerprint_devices,
             },
         )
+
+
+class ManagedObservationSource:
+    """Adapts bounded MANAGED READ results into ObservationRuntime snapshots."""
+
+    required = False
+
+    def __init__(self, host_id: str, reader, *, operations: tuple[str, ...]):
+        if not host_id.strip():
+            raise ValueError("host_id is required")
+        if not operations or len(set(operations)) != len(operations):
+            raise ValueError("operations must be non-empty and unique")
+        self.host_id = host_id
+        self.name = f"managed.{host_id}"
+        self._reader = reader
+        self._operations = tuple(operations)
+
+    def poll(self) -> SourceSnapshot:
+        reads = {
+            operation: self._reader.read(self.host_id, operation)
+            for operation in self._operations
+        }
+        degraded = any(
+            str(result.get("status", "degraded")) != "healthy"
+            for result in reads.values()
+        )
+        status = "degraded" if degraded else "healthy"
+        payload = {
+            "zone": "MANAGED",
+            "host_id": self.host_id,
+            "channel_status": status,
+            "reads": reads,
+        }
+        return SourceSnapshot(
+            source=self.name,
+            status=status,
+            severity=_severity(status, required=self.required),
+            payload=payload,
+            fingerprint_payload=payload,
+        )
