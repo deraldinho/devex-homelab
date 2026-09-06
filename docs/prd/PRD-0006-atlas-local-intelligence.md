@@ -113,3 +113,21 @@ Encaminhar as lanes produzidas pelo `FastRouter` por portas explícitas, preserv
 ## S3 - Fast Dispatch
 
 Escopo: modelo imutável de resultado, dispatcher bounded e fila de deferimento `SLOW_LLM`, mantendo Reaction/Affect/Cache/LLM como owners de suas políticas. A S3 não adquire autoridade sobre health, autorização ou CONTROL.
+
+## Managed SSH READ M1
+
+Hosts administrativos do homelab devem ser cadastrados explicitamente como `MANAGED` antes de qualquer READ remoto. Cada host declara identidade SSH, arquivo `known_hosts`, plataforma, timeout, limite de output e allowlist de capacidades READ.
+
+A API de alto nivel recebe operacoes tipadas e nunca um comando shell arbitrario. Host desconhecido, enrollment diferente de MANAGED ou READ fora da allowlist falham antes do transporte SSH.
+
+M1 cobre observacao de CPU, memoria, disco, uptime, temperatura quando suportada, servicos, processos resumidos, rede resumida, containers e logs bounded. Falha do canal SSH e evidencia administrativa degradada, nao prova isolada de falha do host.
+
+M2 CONTROL permanece fora desta entrega e exige policy/autorizacao propria.
+
+### Managed CONTROL M2
+
+A M2 entrega CONTROL administrativo tipado e auditavel para hosts `MANAGED`.
+
+Requisitos obrigatorios: default-deny; allowlist exata por host + operacao + alvo; `START_SERVICE`, `STOP_SERVICE` e `RESTART_SERVICE` como CONTROL; `REBOOT_HOST` como DESTRUCTIVE com confirmacao humana independente; comandos fixos Linux/Windows; host-key estrita; timeout/output bounded; auditoria antes/depois; nenhuma API de shell arbitrario.
+
+O repositório mantém `allowed_controls` e `allowed_services` vazios por padrao. Habilitacao concreta de um host/servico e uma decisao explicita de configuracao, nunca inferida pela LLM.
