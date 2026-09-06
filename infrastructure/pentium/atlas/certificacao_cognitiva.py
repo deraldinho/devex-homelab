@@ -50,10 +50,12 @@ class CertificadorCognitivo:
         stop = Event()
 
         def amostrar() -> None:
-            while len(durante) < self._max_amostras_durante and not stop.wait(self._interval_s):
+            while len(durante) < self._max_amostras_durante and not stop.is_set():
                 try:
                     durante.append(self._sampler.coletar())
                 except Exception:
+                    break
+                if stop.wait(self._interval_s):
                     break
 
         thread = Thread(target=amostrar, name="atlas-c5-sampler", daemon=True)

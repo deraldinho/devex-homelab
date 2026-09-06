@@ -11,6 +11,7 @@ from . import c5_physical_runner
 from .c5_observation_probe import C5ObservationProbe
 from .c5_physical_campaign import executar_campanha_c5
 from .llama_server_runtime import LlamaCppServerRuntime
+from .unix_http import get_json_unix
 
 
 def _sha_local(repo_root: Path) -> str:
@@ -77,6 +78,19 @@ def executar(args: argparse.Namespace) -> dict[str, object]:
                 raise RuntimeError("llama-server encerrou antes de criar o socket")
             if time.monotonic() >= limite:
                 raise TimeoutError("llama-server nao criou socket no prazo")
+            time.sleep(0.1)
+
+        while True:
+            if proc.poll() is not None:
+                raise RuntimeError("llama-server encerrou antes do readiness")
+            if time.monotonic() >= limite:
+                raise TimeoutError("llama-server nao ficou ready no prazo")
+            try:
+                status, health = get_json_unix(args.socket, "/health", 1.0, 1024)
+                if status == 200 and health.get("status") == "ok":
+                    break
+            except Exception:
+                pass
             time.sleep(0.1)
 
         observation_probe = C5ObservationProbe(
