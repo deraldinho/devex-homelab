@@ -98,6 +98,31 @@ class NetworkDiscoveryTests(unittest.TestCase):
         with self.assertRaises(module.NetworkDiscoveryError):
             scanner.scan("wlan0")
 
+    def test_scanner_falls_back_to_bounded_neighbor_table_without_arp_scan(self):
+        module = discovery_module()
+        calls = []
+        probes = []
+
+        def runner(argv, timeout_s):
+            calls.append((tuple(argv), timeout_s))
+            if tuple(argv[:5]) == ("ip", "-json", "-4", "addr", "show"):
+                return SimpleNamespace(returncode=0, stdout=DEFAULT_INTERFACE_JSON, stderr="")
+            if argv[0] == "arp-scan":
+                raise FileNotFoundError("arp-scan")
+            if tuple(argv) == ("ip", "-json", "neigh", "show", "dev", "wlan0"):
+                payload = '[{"dst":"192.168.1.10","lladdr":"aa:bb:cc:dd:ee:01","state":["STALE"]},{"dst":"192.168.1.11","state":["FAILED"]}]'
+                return SimpleNamespace(returncode=0, stdout=payload, stderr="")
+            raise AssertionError(f"unexpected command: {argv}")
+
+        def prober(scoped, timeout_s):
+            probes.append((scoped.interface, str(scoped.address), str(scoped.network), timeout_s))
+
+        scanner = module.LinuxArpScanner(runner=runner, neighbor_prober=prober, timeout_s=5.0)
+        discovered = scanner.scan("wlan0")
+
+        self.assertEqual(probes, [("wlan0", "192.168.1.8", "192.168.1.0/24", 5.0)])
+        self.assertEqual([(item.mac, item.ipv4) for item in discovered], [("aa:bb:cc:dd:ee:01", "192.168.1.10")])
+        self.assertIn((("ip", "-json", "neigh", "show", "dev", "wlan0"), 5.0), calls)
     def test_scanner_accepts_only_valid_unicast_mac_addresses(self):
         module = discovery_module()
         runner = RecordingRunner(scan_stdout=("192.168.1.10\taa:bb:cc:dd:ee:01\n" "192.168.1.11\t01:00:5e:00:00:01\n" "192.168.1.12\tnot-a-mac\n"))
