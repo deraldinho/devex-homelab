@@ -88,6 +88,9 @@ for file in \
   unix_http.py \
   voice_gate.py \
   live_tts.py \
+  alsa_capture.py \
+  whisper_stt.py \
+  voice_runtime.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
@@ -176,6 +179,9 @@ python3 -m py_compile \
   "${TARGET_DIR}/unix_http.py" \
   "${TARGET_DIR}/voice_gate.py" \
   "${TARGET_DIR}/live_tts.py" \
+  "${TARGET_DIR}/alsa_capture.py" \
+  "${TARGET_DIR}/whisper_stt.py" \
+  "${TARGET_DIR}/voice_runtime.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
