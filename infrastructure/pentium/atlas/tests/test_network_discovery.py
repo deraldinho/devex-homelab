@@ -1,5 +1,7 @@
 import importlib
+import ipaddress
 import unittest
+from unittest import mock
 from types import SimpleNamespace
 
 
@@ -98,6 +100,30 @@ class NetworkDiscoveryTests(unittest.TestCase):
         with self.assertRaises(module.NetworkDiscoveryError):
             scanner.scan("wlan0")
 
+    def test_default_neighbor_prober_is_bounded_to_direct_network(self):
+        module = discovery_module()
+        sent = []
+
+        class FakeSocket:
+            def bind(self, address):
+                self.bound = address
+            def setblocking(self, value):
+                self.blocking = value
+            def sendto(self, payload, target):
+                sent.append((payload, target))
+            def close(self):
+                self.closed = True
+
+        fake = FakeSocket()
+        scoped = module.InterfaceNetwork(
+            "wlan0", ipaddress.IPv4Address("192.168.1.2"), ipaddress.IPv4Network("192.168.1.0/30")
+        )
+        with mock.patch.object(module.socket, "socket", return_value=fake), mock.patch.object(module.time, "sleep"):
+            module._prime_neighbor_table(scoped, 1.0)
+
+        self.assertEqual(fake.bound, ("192.168.1.2", 0))
+        self.assertEqual(sent, [(b"\x00", ("192.168.1.1", 9))])
+        self.assertTrue(fake.closed)
     def test_scanner_falls_back_to_bounded_neighbor_table_without_arp_scan(self):
         module = discovery_module()
         calls = []
