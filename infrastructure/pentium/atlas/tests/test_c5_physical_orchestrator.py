@@ -16,6 +16,8 @@ class C5PhysicalOrchestratorContractTests(unittest.TestCase):
         self.assertIn("c5_physical_runner", texto)
         self.assertIn("C5ObservationProbe", texto)
         self.assertIn("executar_campanha_c5", texto)
+        self.assertIn("get_json_unix", texto)
+        self.assertIn('"/health"', texto)
         self.assertNotIn("shell=True", texto)
         self.assertNotIn("os.system", texto)
         self.assertNotIn("ssh ", texto)
