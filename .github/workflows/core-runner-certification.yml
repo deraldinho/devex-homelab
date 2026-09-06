@@ -1,0 +1,58 @@
+name: Core HomeLab Runner Certification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/core-runner-certification.yml'
+      - 'infrastructure/core/runners/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify-core-homelab-01:
+    name: Certify core-homelab-01
+    runs-on: [self-hosted, core-homelab-01]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout do HEAD exato
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Validar identidade e workspace
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "${RUNNER_NAME}" = "core-homelab-01"
+          test "${RUNNER_OS}" = "Linux"
+          case "${GITHUB_WORKSPACE}" in
+            /runner/_work/*) ;;
+            *) echo "workspace inesperado: ${GITHUB_WORKSPACE}" >&2; exit 1 ;;
+          esac
+          test "$(git rev-parse HEAD)" = "${EXPECTED_HEAD}"
+
+      - name: Validar toolchain HomeLab
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          git --version
+          docker version
+          docker compose version
+          marker="$(docker run --rm alpine:3.22 sh -c 'printf CORE_HOMELAB_DOCKER_OK')"
+          test "$marker" = "CORE_HOMELAB_DOCKER_OK"
+
+      - name: Registrar evidência
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'CORE_HOMELAB_RUNNER_CERTIFICATION_PASS'
+          echo "runner=${RUNNER_NAME}"
+          echo "head=$(git rev-parse HEAD)"
+          echo "workspace=${GITHUB_WORKSPACE}"
