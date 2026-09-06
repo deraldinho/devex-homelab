@@ -47,6 +47,8 @@ class LlamaCppBackendTests(unittest.TestCase):
         self.assertIn(str(model), argv)
         self.assertIs(kwargs["shell"], False)
         self.assertNotIn("http", " ".join(argv).lower())
+        prompt = argv[argv.index("-p") + 1]
+        self.assertIn('"versao_schema"', prompt)
 
     def test_timeout_e_modelo_ausente_falham_fechado(self):
         td, binary, model = self.paths()

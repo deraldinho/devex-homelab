@@ -41,6 +41,7 @@ class ResultadoInferencia:
     erro: ErroInferencia | None
     duracao_ms: int
     backend: str
+    tokens_por_s: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.sucesso, bool):
@@ -52,6 +53,8 @@ class ResultadoInferencia:
         if not isinstance(self.duracao_ms, int) or self.duracao_ms < 0:
             raise ValueError("duracao_ms deve ser inteiro >= 0")
         object.__setattr__(self, "backend", _texto(self.backend, "backend"))
+        if self.tokens_por_s is not None and float(self.tokens_por_s) < 0:
+            raise ValueError("tokens_por_s deve ser >= 0")
         if self.sucesso and self.erro is not None:
             raise ValueError("resultado bem sucedido nao pode conter erro")
         if not self.sucesso and self.erro is None:

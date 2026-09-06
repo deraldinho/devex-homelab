@@ -28,8 +28,10 @@ class LinuxCognitiveSamplerTests(unittest.TestCase):
             self.assertEqual(1234, m.rss_atlas_kib)
             self.assertEqual(4321, m.rss_llm_kib)
             self.assertEqual(250000, m.swap_usada_kib)
-            self.assertEqual(15.0, m.cpu_percent)
+            self.assertIsNone(m.cpu_percent)
             self.assertEqual(57.0, m.temperatura_c)
+            (root / "stat").write_text("cpu  150 0 100 950 0 0 0 0 0 0\n", encoding="utf-8")
+            self.assertEqual(50.0, sampler.coletar().cpu_percent)
 
     def test_fonte_ausente_vira_none_sem_excecao(self):
         with tempfile.TemporaryDirectory() as tmp:
