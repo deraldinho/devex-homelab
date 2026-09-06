@@ -103,6 +103,8 @@ jobs:
               "$agent/agent.py" \
               "$agent/cli.py" \
               "$agent/ssh_transport.py" \
+              "$agent/managed_inventory.py" \
+              "$agent/managed_read.py" \
               "$agent/actions/x99_status.py"
             python3 -m json.tool "$agent/config.json" >/dev/null
             python3 -m unittest discover \
@@ -110,6 +112,7 @@ jobs:
               -p 'test_*.py' \
               -v
             echo 'DEVEX_HOMELAB_PENTIUM_AGENT_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_MANAGED_SSH_READ_M1_PASS'
           else
             echo 'PENTIUM_AGENT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi

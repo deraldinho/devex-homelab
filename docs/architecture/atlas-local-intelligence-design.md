@@ -156,3 +156,17 @@ A S3 conecta `DecisaoFastRouter` a um `FastDispatcher` tipado e bounded. O dispa
 `FAST_REACTION`, `AFFECT` e `CACHE_LOOKUP` são entregues aos respectivos owners. Falha em uma lane é registrada sem cancelar lanes independentes seguintes. `DROP` continua exclusivo e não chama nenhuma porta.
 
 `SLOW_LLM apenas agenda` uma intenção tipada em fila bounded para processamento posterior. A S3 não importa nem executa `llm_gateway` ou `ReactionLoopCognitivo` inline, mantendo inferência fora do caminho crítico.
+
+### Managed SSH READ M1
+
+A M1 generaliza o transporte SSH existente do Pentium para observacao profunda de hosts explicitamente `MANAGED`. O inventario gerenciado resolve `host_id`, identidade SSH, `known_hosts`, plataforma, bounds e allowlist READ antes de qualquer chamada remota.
+
+O contrato de transporte usa `BatchMode=yes`, `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes` e `UserKnownHostsFile` explicito. Mudanca inesperada de host key falha fechado; descoberta de rede nunca promove um equipamento para MANAGED.
+
+O `ManagedReadService` expõe somente operacoes tipadas (`cpu`, `memory`, `disk`, `uptime`, `temperature`, `services`, `processes`, `network`, `containers`, `logs`) resolvidas para comandos fixos por plataforma. Nao existe API publica de shell arbitrario.
+
+Saida remota e bounded por host antes de entrar no dominio. Falha SSH ou parsing degrada a evidencia daquele READ sem redefinir a saude tecnica do host. `x99.status` permanece como compatibilidade, agora consumindo a camada tipada M1 em vez de montar comandos SSH diretamente.
+
+M2 CONTROL permanece separada e fora desta slice.
+
+O contrato M1 opera sem shell arbitrario em toda a fronteira de alto nivel.
