@@ -26,6 +26,7 @@ class X99StatusTests(unittest.TestCase):
             user="deral",
             host="100.101.23.111",
             identity_file=Path("/tmp/key"),
+            known_hosts_file=Path("/tmp/known_hosts"),
         )
     def test_healthy_payload_is_reduced(self):
         payload = {
@@ -52,6 +53,7 @@ class X99StatusTests(unittest.TestCase):
         result = collect_x99_status(transport, self.target)
         self.assertEqual(result["status"], "degraded")
         self.assertEqual(result["error"], "invalid-json")
+
     def test_unexpected_hostname_is_degraded(self):
         payload = {
             "hostname": "other",
