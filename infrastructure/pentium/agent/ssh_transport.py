@@ -14,7 +14,15 @@ class SshTarget:
     user: str
     host: str
     identity_file: Path
+    known_hosts_file: Path
     connect_timeout_seconds: int = 5
+    max_output_bytes: int = 65536
+
+    def __post_init__(self) -> None:
+        if self.connect_timeout_seconds <= 0:
+            raise ValueError("connect_timeout_seconds must be positive")
+        if self.max_output_bytes <= 0:
+            raise ValueError("max_output_bytes must be positive")
 
 
 @dataclass(frozen=True)
@@ -24,8 +32,9 @@ class SshResult:
     stderr: str
     error: str | None = None
 
-
 Runner = Callable[..., subprocess.CompletedProcess[str]]
+
+
 class SshTransport:
     def __init__(self, *, runner: Runner = subprocess.run):
         self._runner = runner
@@ -36,6 +45,7 @@ class SshTransport:
             "-o", "BatchMode=yes",
             "-o", "IdentitiesOnly=yes",
             "-o", "StrictHostKeyChecking=yes",
+            "-o", f"UserKnownHostsFile={target.known_hosts_file}",
             "-o", f"ConnectTimeout={target.connect_timeout_seconds}",
             "-i", str(target.identity_file),
             f"{target.user}@{target.host}",
@@ -53,9 +63,15 @@ class SshTransport:
             )
         except subprocess.TimeoutExpired:
             return SshResult(124, "", "", "timeout")
+        stdout = completed.stdout or ""
+        stderr = completed.stderr or ""
+        output_size = len(stdout.encode("utf-8")) + len(stderr.encode("utf-8"))
+        if output_size > target.max_output_bytes:
+            return SshResult(125, "", "", "output-limit")
+
         return SshResult(
             completed.returncode,
-            completed.stdout,
-            completed.stderr,
+            stdout,
+            stderr,
             None if completed.returncode == 0 else "ssh-failed",
         )

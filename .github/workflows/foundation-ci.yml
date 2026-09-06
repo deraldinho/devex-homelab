@@ -103,6 +103,10 @@ jobs:
               "$agent/agent.py" \
               "$agent/cli.py" \
               "$agent/ssh_transport.py" \
+              "$agent/managed_inventory.py" \
+              "$agent/managed_read.py" \
+              "$agent/control_audit.py" \
+              "$agent/managed_control.py" \
               "$agent/actions/x99_status.py"
             python3 -m json.tool "$agent/config.json" >/dev/null
             python3 -m unittest discover \
@@ -110,6 +114,8 @@ jobs:
               -p 'test_*.py' \
               -v
             echo 'DEVEX_HOMELAB_PENTIUM_AGENT_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_MANAGED_SSH_READ_M1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_MANAGED_CONTROL_M2_PASS'
           else
             echo 'PENTIUM_AGENT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
@@ -129,6 +135,12 @@ jobs:
               "$atlas/modelo_evento_semantico.py" \
               "$atlas/registro_semantico.py" \
               "$atlas/adaptadores_semanticos.py" \
+              "$atlas/modelo_fast_router.py" \
+              "$atlas/configuracao_fast_router.py" \
+              "$atlas/fast_router.py" \
+              "$atlas/modelo_fast_dispatch.py" \
+              "$atlas/fast_dispatch.py" \
+              "$atlas/slow_llm_defer_queue.py" \
               "$atlas/stimulus_bus.py" \
               "$atlas/stimulus_journal.py" \
               "$atlas/network_discovery.py" \
@@ -201,6 +213,7 @@ jobs:
             python3 -m json.tool "$atlas/config_memory.json" >/dev/null
             python3 -m json.tool "$atlas/config_cache.json" >/dev/null
             python3 -m json.tool "$atlas/config_llama_server.json" >/dev/null
+            python3 -m json.tool "$atlas/config_fast_router.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_registry -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
@@ -213,6 +226,8 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_SEMANTIC_S1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_FAST_ROUTER_S2_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_FAST_DISPATCH_S3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D1_DISCOVERY_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D2_IDENTITY_PRESENCE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'

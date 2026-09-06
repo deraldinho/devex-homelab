@@ -44,6 +44,10 @@ A mini LLM deve interpretar/sumarizar, mas não executar shell. O candidato inic
 
 Traduzir contratos observados para `EventoSemantico` exclusivamente dentro do Atlas. Nenhum serviço externo precisa conhecer o vocabulário semântico interno do Atlas, seus códigos compactos ou o registry.
 
+### RF9 - Fast Router deterministico
+
+Classificar `EventoSemantico` por score bounded em lanes internas. Criticidade e recuperação não aguardam LLM; baixa novidade prefere cache; apenas ambiguidade nova pode receber `SLOW_LLM`, sempre fora do caminho crítico.
+
 ## Requisitos não funcionais
 
 - funcionamento de Health/Reaction sem Internet;
@@ -61,6 +65,10 @@ Traduzir contratos observados para `EventoSemantico` exclusivamente dentro do At
 Escopo: modelo `EventoSemantico` bounded/versionado, `RegistroSemantico` interno, adapters explícitos para Pentium/Core/x99/Wi-Fi e `FronteiraSemantica` com fan-out máximo de 32. A S1 não altera contratos dos serviços observados e prepara a S2 Fast Router.
 
 Definition of Done S1: source desconhecida falha fechada; payload composto não atravessa `attributes`; códigos compactos são internos; installer/CI empacotam a slice; suíte Atlas GREEN no HEAD exato.
+
+## S2 - Fast Router
+
+Escopo: score de pré-julgamento determinístico e lanes `DROP`, `FAST_REACTION`, `AFFECT`, `CACHE_LOOKUP` e `SLOW_LLM`, sem executar nenhuma delas.
 
 ## Primeira slice — Atlas State & Reaction Foundation
 
@@ -97,3 +105,29 @@ Não escopo:
 - CI GREEN no HEAD exato;
 - deploy físico só após reconciliação com o Pentium e aprovação;
 - checkpoint registra SHA, CI, evidência física e próximo passo.
+
+### RF10 - Fast Dispatch deterministico
+
+Encaminhar as lanes produzidas pelo `FastRouter` por portas explícitas, preservando ordem e isolamento de falha. `DROP` não executa portas; `SLOW_LLM` apenas agenda trabalho bounded e nunca realiza inferência inline.
+
+## S3 - Fast Dispatch
+
+Escopo: modelo imutável de resultado, dispatcher bounded e fila de deferimento `SLOW_LLM`, mantendo Reaction/Affect/Cache/LLM como owners de suas políticas. A S3 não adquire autoridade sobre health, autorização ou CONTROL.
+
+## Managed SSH READ M1
+
+Hosts administrativos do homelab devem ser cadastrados explicitamente como `MANAGED` antes de qualquer READ remoto. Cada host declara identidade SSH, arquivo `known_hosts`, plataforma, timeout, limite de output e allowlist de capacidades READ.
+
+A API de alto nivel recebe operacoes tipadas e nunca um comando shell arbitrario. Host desconhecido, enrollment diferente de MANAGED ou READ fora da allowlist falham antes do transporte SSH.
+
+M1 cobre observacao de CPU, memoria, disco, uptime, temperatura quando suportada, servicos, processos resumidos, rede resumida, containers e logs bounded. Falha do canal SSH e evidencia administrativa degradada, nao prova isolada de falha do host.
+
+M2 CONTROL permanece fora desta entrega e exige policy/autorizacao propria.
+
+### Managed CONTROL M2
+
+A M2 entrega CONTROL administrativo tipado e auditavel para hosts `MANAGED`.
+
+Requisitos obrigatorios: default-deny; allowlist exata por host + operacao + alvo; `START_SERVICE`, `STOP_SERVICE` e `RESTART_SERVICE` como CONTROL; `REBOOT_HOST` como DESTRUCTIVE com confirmacao humana independente; comandos fixos Linux/Windows; host-key estrita; timeout/output bounded; auditoria antes/depois; nenhuma API de shell arbitrario.
+
+O repositório mantém `allowed_controls` e `allowed_services` vazios por padrao. Habilitacao concreta de um host/servico e uma decisao explicita de configuracao, nunca inferida pela LLM.
