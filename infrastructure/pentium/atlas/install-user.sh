@@ -62,6 +62,8 @@ for file in \
   c5_physical_runner.py \
   c5_physical_orchestrator.py \
   c5_physical_evaluator.py \
+  c5_physical_campaign.py \
+  c5_observation_probe.py \
   memory_model.py \
   memory_store.py \
   memory_manager.py \
@@ -135,6 +137,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/c5_physical_runner.py" \
   "${TARGET_DIR}/c5_physical_orchestrator.py" \
   "${TARGET_DIR}/c5_physical_evaluator.py" \
+  "${TARGET_DIR}/c5_physical_campaign.py" \
+  "${TARGET_DIR}/c5_observation_probe.py" \
   "${TARGET_DIR}/memory_model.py" \
   "${TARGET_DIR}/memory_store.py" \
   "${TARGET_DIR}/memory_manager.py" \
