@@ -31,4 +31,4 @@ python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
 echo "PENTIUM_AGENT_INSTALL_PASS"
 echo "PENTIUM_AGENT_MANAGED_SSH_READ_M1_INSTALL_PASS"
 echo "PENTIUM_AGENT_MANAGED_CONTROL_M2_INSTALL_PASS"
-echo "run=python3 ${TARGET_DIR}/cli.py x99.status"
+echo "run=cd ${HOME}/pentium-agent && python3 -m agent.cli x99.status"

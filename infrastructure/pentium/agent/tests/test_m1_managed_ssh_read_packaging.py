@@ -10,6 +10,10 @@ class ManagedSshReadM1PackagingTests(unittest.TestCase):
         self.assertIn("managed_read.py", text)
         self.assertIn("PENTIUM_AGENT_MANAGED_SSH_READ_M1_INSTALL_PASS", text)
 
+    def test_installer_prints_package_entrypoint(self):
+        text = Path("infrastructure/pentium/agent/install-user.sh").read_text(encoding="utf-8")
+        self.assertIn("python3 -m agent.cli x99.status", text)
+        self.assertNotIn("${TARGET_DIR}/cli.py x99.status", text)
     def test_foundation_ci_compiles_tests_and_marks_m1(self):
         text = Path(".github/workflows/foundation-ci.yml").read_text(encoding="utf-8")
         self.assertIn('"$agent/managed_inventory.py"', text)
