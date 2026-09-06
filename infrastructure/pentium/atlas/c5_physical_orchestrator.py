@@ -4,9 +4,12 @@ import argparse
 import json
 import subprocess
 import time
+from dataclasses import asdict
 from pathlib import Path
 
 from . import c5_physical_runner
+from .c5_observation_probe import C5ObservationProbe
+from .c5_physical_campaign import executar_campanha_c5
 from .llama_server_runtime import LlamaCppServerRuntime
 
 
@@ -28,9 +31,13 @@ def construir_parser() -> argparse.ArgumentParser:
     parser.add_argument("--llama-server", type=Path, required=True)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--socket", type=Path, required=True)
+    parser.add_argument("--heartbeat-state", type=Path, required=True)
+    parser.add_argument("--heartbeat-max-age-s", type=float, required=True)
+    parser.add_argument("--soak-iterations", type=int, required=True)
     parser.add_argument("--context-size", type=int, default=4096)
     parser.add_argument("--cache-reuse", type=int, default=64)
     parser.add_argument("--timeout-s", type=float, default=20.0)
+    parser.add_argument("--timeout-probe-s", type=float, default=0.001)
     parser.add_argument("--startup-timeout-s", type=float, default=10.0)
     parser.add_argument("--max-response-bytes", type=int, default=8192)
     return parser
@@ -45,6 +52,8 @@ def executar(args: argparse.Namespace) -> dict[str, object]:
         raise FileNotFoundError("llama-server nao encontrado")
     if not args.model.is_file():
         raise FileNotFoundError("modelo GGUF nao encontrado")
+    if not args.heartbeat_state.expanduser().is_file():
+        raise FileNotFoundError("heartbeat state nao encontrado")
     if not str(args.socket).endswith(".sock"):
         raise ValueError("socket deve terminar em .sock")
     if args.socket.exists():
@@ -61,6 +70,7 @@ def executar(args: argparse.Namespace) -> dict[str, object]:
     )
     proc = runtime.start()
     limite = time.monotonic() + args.startup_timeout_s
+    observation_probe = None
     try:
         while not args.socket.exists():
             if proc.poll() is not None:
@@ -68,25 +78,49 @@ def executar(args: argparse.Namespace) -> dict[str, object]:
             if time.monotonic() >= limite:
                 raise TimeoutError("llama-server nao criou socket no prazo")
             time.sleep(0.1)
-        runner_args = argparse.Namespace(
-            llm_pid=proc.pid,
-            socket=args.socket,
-            expected_sha=esperado,
-            timeout_s=args.timeout_s,
-            cache_reuse=args.cache_reuse,
-            max_response_bytes=args.max_response_bytes,
+
+        observation_probe = C5ObservationProbe(
+            args.heartbeat_state,
+            max_age_s=args.heartbeat_max_age_s,
         )
-        evidencia = c5_physical_runner.executar(runner_args)
-        evidencia["orchestrator"] = {
-            "schema_version": 1,
-            "repo_root": str(repo_root),
-            "llama_server": str(args.llama_server),
-            "model": str(args.model),
-            "context_size": args.context_size,
-            "cache_reuse": args.cache_reuse,
+
+        def run_once(*, timeout_s: float, fase: str) -> dict[str, object]:
+            runner_args = argparse.Namespace(
+                llm_pid=proc.pid,
+                socket=args.socket,
+                expected_sha=esperado,
+                timeout_s=timeout_s,
+                cache_reuse=args.cache_reuse,
+                max_response_bytes=args.max_response_bytes,
+            )
+            evidencia = c5_physical_runner.executar(runner_args)
+            evidencia["fase"] = fase
+            return evidencia
+
+        campanha = executar_campanha_c5(
+            expected_sha=esperado,
+            run_once=run_once,
+            observation_probe=observation_probe,
+            timeout_normal_s=args.timeout_s,
+            timeout_probe_s=args.timeout_probe_s,
+            soak_iteracoes=args.soak_iterations,
+        )
+        return {
+            "schema_version": 2,
+            "campaign": asdict(campanha),
+            "orchestrator": {
+                "repo_root": str(repo_root),
+                "llama_server": str(args.llama_server),
+                "model": str(args.model),
+                "context_size": args.context_size,
+                "cache_reuse": args.cache_reuse,
+                "heartbeat_state": str(args.heartbeat_state.expanduser()),
+                "heartbeat_max_age_s": args.heartbeat_max_age_s,
+            },
         }
-        return evidencia
     finally:
+        if observation_probe is not None:
+            observation_probe.close()
         runtime.stop()
 
 
@@ -94,7 +128,17 @@ def main() -> int:
     args = construir_parser().parse_args()
     evidencia = executar(args)
     print(json.dumps(evidencia, ensure_ascii=True, sort_keys=True, separators=(",", ":")))
-    return 0 if evidencia["resultado"]["inferencia_sucesso"] else 2
+    campanha = evidencia["campaign"]
+    cold_ok = bool(campanha["cold"].get("inferencia_sucesso"))
+    warm_ok = bool(campanha["warm"].get("inferencia_sucesso"))
+    coleta_ok = (
+        cold_ok
+        and warm_ok
+        and bool(campanha["timeout_isolado"])
+        and bool(campanha["observation_runtime_preservado"])
+        and int(campanha["soak_falhas"]) == 0
+    )
+    return 0 if coleta_ok else 2
 
 
 if __name__ == "__main__":
