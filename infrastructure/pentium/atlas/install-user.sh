@@ -61,6 +61,7 @@ for file in \
   fontes_fisicas_cognitivas.py \
   c5_physical_runner.py \
   c5_physical_orchestrator.py \
+  c5_physical_evaluator.py \
   memory_model.py \
   memory_store.py \
   memory_manager.py \
@@ -133,6 +134,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/fontes_fisicas_cognitivas.py" \
   "${TARGET_DIR}/c5_physical_runner.py" \
   "${TARGET_DIR}/c5_physical_orchestrator.py" \
+  "${TARGET_DIR}/c5_physical_evaluator.py" \
   "${TARGET_DIR}/memory_model.py" \
   "${TARGET_DIR}/memory_store.py" \
   "${TARGET_DIR}/memory_manager.py" \
