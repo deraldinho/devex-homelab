@@ -30,7 +30,7 @@ class ContextoCognitivoBuilder:
         return valor
 
     def construir(self, *, motivo, assessment, percepcao, incidente, estado_afetivo, emocao, foco,
-                  expectativa, mudancas_recentes, dependencias_afetadas, agora) -> ContextoCognitivo:
+                  expectativa, mudancas_recentes, dependencias_afetadas, agora, memorias_relevantes=()) -> ContextoCognitivo:
         truncamentos: list[str] = []
         entidade = incidente.entidade_principal if incidente is not None else percepcao.entidade_id
         if not entidade and foco.principal is not None:
@@ -84,6 +84,11 @@ class ContextoCognitivoBuilder:
             for indice, item in enumerate(mudancas)
         )
 
+        memorias_reduzidas = tuple(
+            self._reduzir_payload(dict(item), f"memorias_relevantes[{indice}]", truncamentos)
+            for indice, item in enumerate(memorias_relevantes)
+        )
+
         estado_afetivo_reduzido = {
             "valencia": estado_afetivo.valencia,
             "ativacao": estado_afetivo.ativacao,
@@ -110,8 +115,16 @@ class ContextoCognitivoBuilder:
             mudancas_recentes=mudancas_reduzidas,
             dependencias_afetadas=tuple(self._string(x, "dependencia", truncamentos) for x in dependencias),
             truncamentos=tuple(truncamentos),
+            memorias_relevantes=memorias_reduzidas,
         )
 
+        while ctx.payload_bytes() > self._politica.max_payload_bytes and ctx.memorias_relevantes:
+            truncamentos.append("payload:memorias_relevantes")
+            ctx = ContextoCognitivo(**{
+                **ctx.__dict__,
+                "memorias_relevantes": ctx.memorias_relevantes[:-1],
+                "truncamentos": tuple(truncamentos),
+            })
         while ctx.payload_bytes() > self._politica.max_payload_bytes and ctx.mudancas_recentes:
             truncamentos.append("payload:mudancas_recentes")
             ctx = ContextoCognitivo(**{

@@ -64,3 +64,19 @@ class ContextoCognitivoBuilderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ContextoCognitivoMemoriaBuilderTests(ContextoCognitivoBuilderTests):
+    def test_builder_inclui_memorias_relevantes(self):
+        ctx = self.builder().construir(
+            motivo=MotivoAtivacaoCognitiva.INTERACAO_HUMANA,
+            assessment=self.assessment(), percepcao=self.percepcao(), incidente=self.incidente(),
+            estado_afetivo=self.estado(), emocao=EmocaoDerivada("atento", ()),
+            foco=self.foco(), expectativa=None, mudancas_recentes=(),
+            dependencias_afetadas=(), agora="2026-09-05T18:10:00+00:00",
+            memorias_relevantes=(
+                {"memory_id": "m1", "content": "Core e membro", "importance": 0.9},
+                {"memory_id": "m2", "content": "Core reiniciou", "importance": 0.7},
+            ),
+        )
+        self.assertEqual(("m1", "m2"), tuple(item["memory_id"] for item in ctx.memorias_relevantes))
