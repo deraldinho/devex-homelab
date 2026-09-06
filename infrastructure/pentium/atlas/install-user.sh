@@ -86,6 +86,8 @@ for file in \
   llama_server_runtime.py \
   llama_cpp_resident_backend.py \
   unix_http.py \
+  voice_gate.py \
+  live_tts.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
@@ -172,6 +174,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/llama_server_runtime.py" \
   "${TARGET_DIR}/llama_cpp_resident_backend.py" \
   "${TARGET_DIR}/unix_http.py" \
+  "${TARGET_DIR}/voice_gate.py" \
+  "${TARGET_DIR}/live_tts.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
@@ -206,4 +210,5 @@ echo "ATLAS_MEMORY_M1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K2_INSTALL_PASS"
 echo "ATLAS_I1_OBSERVATION_INTEGRATION_INSTALL_PASS"
+echo "ATLAS_V1_ALWAYS_ON_VOICE_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"
