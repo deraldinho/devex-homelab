@@ -176,6 +176,10 @@ jobs:
               "$atlas/config_memory.py" \
               "$atlas/cognitive_cache.py" \
               "$atlas/config_cache.py" \
+              "$atlas/config_llama_server.py" \
+              "$atlas/llama_server_runtime.py" \
+              "$atlas/llama_cpp_resident_backend.py" \
+              "$atlas/unix_http.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
@@ -186,6 +190,7 @@ jobs:
             python3 -m json.tool "$atlas/config_llm.json" >/dev/null
             python3 -m json.tool "$atlas/config_memory.json" >/dev/null
             python3 -m json.tool "$atlas/config_cache.json" >/dev/null
+            python3 -m json.tool "$atlas/config_llama_server.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_registry -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
@@ -210,6 +215,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C5_HARNESS_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_MEMORY_M1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K2_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
