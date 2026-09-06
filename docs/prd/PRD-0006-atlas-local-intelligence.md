@@ -40,6 +40,10 @@ A mini LLM deve interpretar/sumarizar, mas não executar shell. O candidato inic
 - `CONTROL`: apenas ações nominais explicitamente allowlisted;
 - `DESTRUCTIVE`: confirmação humana obrigatória.
 
+### RF8 — Fronteira semântica interna
+
+Traduzir contratos observados para `EventoSemantico` exclusivamente dentro do Atlas. Nenhum serviço externo precisa conhecer o vocabulário semântico interno do Atlas, seus códigos compactos ou o registry.
+
 ## Requisitos não funcionais
 
 - funcionamento de Health/Reaction sem Internet;
@@ -48,7 +52,15 @@ A mini LLM deve interpretar/sumarizar, mas não executar shell. O candidato inic
 - saída e logs ASCII/UTF-8 portáveis;
 - nenhum secret ou mídia sem licença versionado;
 - testes determinísticos para seleção de reação;
-- nenhuma dependência de x99 para operação diária.
+- nenhuma dependência de x99 para operação diária;
+- nenhuma dependência de serviços externos no registry ou nos códigos semânticos internos do Atlas;
+- percepção, emoção e reação imediata não dependem de resposta da LLM.
+
+## S1 — Semantic Event + Adapter Boundary
+
+Escopo: modelo `EventoSemantico` bounded/versionado, `RegistroSemantico` interno, adapters explícitos para Pentium/Core/x99/Wi-Fi e `FronteiraSemantica` com fan-out máximo de 32. A S1 não altera contratos dos serviços observados e prepara a S2 Fast Router.
+
+Definition of Done S1: source desconhecida falha fechada; payload composto não atravessa `attributes`; códigos compactos são internos; installer/CI empacotam a slice; suíte Atlas GREEN no HEAD exato.
 
 ## Primeira slice — Atlas State & Reaction Foundation
 

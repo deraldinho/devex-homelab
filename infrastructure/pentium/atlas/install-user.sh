@@ -14,6 +14,9 @@ for file in \
   reaction_engine.py \
   journal.py \
   stimulus_model.py \
+  modelo_evento_semantico.py \
+  registro_semantico.py \
+  adaptadores_semanticos.py \
   stimulus_bus.py \
   stimulus_journal.py \
   network_discovery.py \
@@ -89,6 +92,9 @@ python3 -m py_compile \
   "${TARGET_DIR}/reaction_engine.py" \
   "${TARGET_DIR}/journal.py" \
   "${TARGET_DIR}/stimulus_model.py" \
+  "${TARGET_DIR}/modelo_evento_semantico.py" \
+  "${TARGET_DIR}/registro_semantico.py" \
+  "${TARGET_DIR}/adaptadores_semanticos.py" \
   "${TARGET_DIR}/stimulus_bus.py" \
   "${TARGET_DIR}/stimulus_journal.py" \
   "${TARGET_DIR}/network_discovery.py" \
@@ -165,6 +171,7 @@ python3 -m json.tool "${TARGET_DIR}/config_llama_server.json" >/dev/null
 
 echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
+echo "ATLAS_SEMANTIC_S1_INSTALL_PASS"
 echo "ATLAS_D2_IDENTITY_PRESENCE_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A1_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A2_INSTALL_PASS"
