@@ -29,7 +29,7 @@ class ManagedReadOperation(str, Enum):
 
 
 WINDOWS_COMMANDS = {
-    ManagedReadOperation.UPTIME: "powershell.exe -NoProfile -NonInteractive -Command \"$os=Get-CimInstance Win32_OperatingSystem; @{uptime_seconds=[int][Math]::Floor(((Get-Date)-$os.LastBootUpTime).TotalSeconds)} | ConvertTo-Json -Compress\"",
+    ManagedReadOperation.UPTIME: "powershell.exe -NoProfile -NonInteractive -Command \"$os=Get-CimInstance Win32_OperatingSystem; $boot=$os.LastBootUpTime; @{hostname=[Environment]::MachineName; user=[Environment]::UserName; last_boot=$boot.ToUniversalTime().ToString('o'); uptime_seconds=[int][Math]::Floor(((Get-Date)-$boot).TotalSeconds)} | ConvertTo-Json -Compress\"",
     ManagedReadOperation.MEMORY: "powershell.exe -NoProfile -NonInteractive -Command \"$os=Get-CimInstance Win32_OperatingSystem; @{total_bytes=[int64]$os.TotalVisibleMemorySize*1024; available_bytes=[int64]$os.FreePhysicalMemory*1024} | ConvertTo-Json -Compress\"",
     ManagedReadOperation.CPU: "powershell.exe -NoProfile -NonInteractive -Command \"@{cpu_percent=[double](Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average} | ConvertTo-Json -Compress\"",
 }
@@ -101,6 +101,9 @@ class ManagedReadService:
         if operation is ManagedReadOperation.UPTIME:
             payload = json.loads(stdout)
             base["uptime_seconds"] = int(payload["uptime_seconds"])
+            for key in ("hostname", "user", "last_boot"):
+                if key in payload:
+                    base[key] = str(payload[key])
             return base
         if operation is ManagedReadOperation.MEMORY:
             payload = json.loads(stdout)
