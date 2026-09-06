@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "drop_score_max": 0.15,
+  "cache_novelty_max": 0.25,
+  "fast_reaction_score_min": 0.70,
+  "slow_llm_score_min": 0.40,
+  "slow_llm_score_max": 0.69,
+  "slow_llm_novelty_min": 0.80
+}
