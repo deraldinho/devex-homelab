@@ -170,3 +170,13 @@ Saida remota e bounded por host antes de entrar no dominio. Falha SSH ou parsing
 M2 CONTROL permanece separada e fora desta slice.
 
 O contrato M1 opera sem shell arbitrario em toda a fronteira de alto nivel.
+
+### Managed CONTROL M2
+
+A M2 adiciona execucao administrativa tipada para hosts `MANAGED` sobre a fundacao SSH M1. `PolicyCapabilities` continua sendo a autoridade: o executor recebe somente uma decisao estruturada e aplica novamente inventario, operacao e alvo em regime default-deny antes de qualquer SSH.
+
+`START_SERVICE`, `STOP_SERVICE` e `RESTART_SERVICE` sao CONTROL. `REBOOT_HOST` permanece DESTRUCTIVE e exige confirmacao humana independente. A autorizacao efetiva e restrita a combinacao exata host + operacao + alvo; nenhum host ou servico e herdado por permissao generica.
+
+O `ManagedControlService` usa comandos fixos por plataforma, host-key estrita, timeout e output bounded herdados da M1. Nao existe API publica de shell arbitrario e nao ha retry autonomo de CONTROL.
+
+Toda execucao autorizada registra `attempt` antes do transporte e `result` depois. Falha de pre-audit bloqueia a operacao; falha SSH e registrada como evidencia degradada do canal sem inventar sucesso.

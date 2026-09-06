@@ -1,5 +1,6 @@
 {
   "schema_version": 2,
+  "control_audit_file": "~/.local/state/devex-homelab/control-audit.jsonl",
   "managed_hosts": [
     {
       "host_id": "x99",
@@ -10,6 +11,8 @@
       "known_hosts_file": "~/.ssh/known_hosts",
       "platform": "windows",
       "allowed_reads": ["cpu", "memory", "disk", "uptime", "temperature", "services", "processes", "network", "containers", "logs"],
+      "allowed_controls": [],
+      "allowed_services": [],
       "connect_timeout_seconds": 5,
       "max_output_bytes": 65536
     }

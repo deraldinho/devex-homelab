@@ -123,3 +123,11 @@ A API de alto nivel recebe operacoes tipadas e nunca um comando shell arbitrario
 M1 cobre observacao de CPU, memoria, disco, uptime, temperatura quando suportada, servicos, processos resumidos, rede resumida, containers e logs bounded. Falha do canal SSH e evidencia administrativa degradada, nao prova isolada de falha do host.
 
 M2 CONTROL permanece fora desta entrega e exige policy/autorizacao propria.
+
+### Managed CONTROL M2
+
+A M2 entrega CONTROL administrativo tipado e auditavel para hosts `MANAGED`.
+
+Requisitos obrigatorios: default-deny; allowlist exata por host + operacao + alvo; `START_SERVICE`, `STOP_SERVICE` e `RESTART_SERVICE` como CONTROL; `REBOOT_HOST` como DESTRUCTIVE com confirmacao humana independente; comandos fixos Linux/Windows; host-key estrita; timeout/output bounded; auditoria antes/depois; nenhuma API de shell arbitrario.
+
+O repositório mantém `allowed_controls` e `allowed_services` vazios por padrao. Habilitacao concreta de um host/servico e uma decisao explicita de configuracao, nunca inferida pela LLM.
