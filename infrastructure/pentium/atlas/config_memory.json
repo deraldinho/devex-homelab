@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "storage": {
+    "max_records": 10000,
+    "max_bytes": 8388608
+  },
+  "pressure": {
+    "cleanup_ratio": 0.70,
+    "consolidate_ratio": 0.85,
+    "evict_ratio": 0.95
+  },
+  "retriever": {
+    "max_items": 6,
+    "max_bytes": 2048
+  }
+}

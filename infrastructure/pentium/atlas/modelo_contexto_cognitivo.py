@@ -56,6 +56,7 @@ class ContextoCognitivo:
     mudancas_recentes: tuple[Mapping[str, Any], ...]
     dependencias_afetadas: tuple[str, ...]
     truncamentos: tuple[str, ...]
+    memorias_relevantes: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         if self.versao_schema != 1:
@@ -69,6 +70,7 @@ class ContextoCognitivo:
         object.__setattr__(self, "nuances", tuple(dict.fromkeys(self.nuances)))
         object.__setattr__(self, "dependencias_afetadas", tuple(dict.fromkeys(self.dependencias_afetadas)))
         object.__setattr__(self, "truncamentos", tuple(dict.fromkeys(self.truncamentos)))
+        object.__setattr__(self, "memorias_relevantes", tuple(dict(item) for item in self.memorias_relevantes))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -87,6 +89,7 @@ class ContextoCognitivo:
             "mudancas_recentes": [dict(item) for item in self.mudancas_recentes],
             "dependencias_afetadas": list(self.dependencias_afetadas),
             "truncamentos": list(self.truncamentos),
+            "memorias_relevantes": [dict(item) for item in self.memorias_relevantes],
         }
 
     def payload_bytes(self) -> int:
