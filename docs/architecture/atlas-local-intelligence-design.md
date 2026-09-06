@@ -14,8 +14,17 @@ O Atlas não substitui o Pentium Agent, o heartbeat, o Tailscale, o MikroTik nem
 4. **Baixo orçamento de recursos.** O Pentium é Pentium Dual-Core T4300, 2C/2T, ~2,5 GiB RAM e ~2,8 GiB swap; a plataforma deve preservar o papel 24/7 de control plane.
 5. **Expressão separada de severidade.** Um meme pode expressar emoção, mas nunca substitui um alerta técnico inequívoco.
 6. **Sem repetição excessiva.** Cooldown, histerese, anti-repeat e quiet hours são parte do contrato, não detalhes cosméticos.
+7. **Vocabulário semântico é interno.** Nenhum serviço externo depende do vocabulário, códigos ou registry semântico do Atlas; a tradução pertence à fronteira de percepção do Atlas.
 
 ## 3. Componentes
+
+A fronteira S1 preserva ownership dos contratos externos:
+
+```text
+contrato externo -> StimulusSource -> Stimulus -> FronteiraSemantica -> EventoSemantico
+```
+
+`FronteiraSemantica` é interna ao Atlas. Serviços observados continuam publicando seus próprios contratos e nunca precisam traduzir ou armazenar códigos cognitivos do Atlas.
 
 ```text
 Observed State
@@ -92,6 +101,8 @@ Thresholds específicos ficam em configuração versionada e exigem duração m�
 ## 7. Mini LLM
 
 O candidato inicial é `Qwen3-0.6B` em GGUF Q4 via `llama.cpp`, com contexto inicial limitado a 2048–4096 tokens. A promoção para serviço permanente depende de benchmark físico no Pentium: RAM, swap, CPU, tokens/s, latência e temperatura.
+
+A LLM fica fora do caminho crítico de percepção, emoção e reação imediata. Eventos semânticos e futuras decisões Fast Path continuam funcionando mesmo quando a LLM está lenta, indisponível ou em timeout.
 
 A LLM tem três funções permitidas:
 

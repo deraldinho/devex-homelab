@@ -126,6 +126,9 @@ jobs:
               "$atlas/reaction_engine.py" \
               "$atlas/journal.py" \
               "$atlas/stimulus_model.py" \
+              "$atlas/modelo_evento_semantico.py" \
+              "$atlas/registro_semantico.py" \
+              "$atlas/adaptadores_semanticos.py" \
               "$atlas/stimulus_bus.py" \
               "$atlas/stimulus_journal.py" \
               "$atlas/network_discovery.py" \
@@ -209,6 +212,7 @@ jobs:
             bash -n "$atlas/install-user.sh"
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_SEMANTIC_S1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D1_DISCOVERY_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D2_IDENTITY_PRESENCE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'
