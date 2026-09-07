@@ -155,12 +155,34 @@ jobs:
               "$atlas/emocao_derivada.py" \
               "$atlas/contexto_foco_emocao.py" \
               "$atlas/persistencia_foco_emocao.py" \
+              "$atlas/modelo_contexto_cognitivo.py" \
+              "$atlas/configuracao_cognitiva.py" \
+              "$atlas/contexto_cognitivo.py" \
+              "$atlas/politica_ativacao_cognitiva.py" \
+              "$atlas/modelo_llm_gateway.py" \
+              "$atlas/configuracao_llm.py" \
+              "$atlas/llm_gateway.py" \
+              "$atlas/llama_cpp_backend.py" \
+              "$atlas/reaction_loop_cognitivo.py" \
+              "$atlas/capability_registry.py" \
+              "$atlas/policy_capabilities.py" \
+              "$atlas/saida_cognitiva.py" \
+              "$atlas/certificacao_cognitiva.py" \
+              "$atlas/sampler_linux_cognitivo.py" \
+              "$atlas/memory_model.py" \
+              "$atlas/memory_store.py" \
+              "$atlas/memory_manager.py" \
+              "$atlas/memory_retriever.py" \
+              "$atlas/config_memory.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
             python3 -m json.tool "$atlas/config_afetiva.json" >/dev/null
             python3 -m json.tool "$atlas/config_percepcao.json" >/dev/null
             python3 -m json.tool "$atlas/config_foco_emocao.json" >/dev/null
+            python3 -m json.tool "$atlas/config_cognitiva.json" >/dev/null
+            python3 -m json.tool "$atlas/config_llm.json" >/dev/null
+            python3 -m json.tool "$atlas/config_memory.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_registry -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
@@ -178,6 +200,12 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A4_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C2_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C3_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C4_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C5_HARNESS_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_MEMORY_M1_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi

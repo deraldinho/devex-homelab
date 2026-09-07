@@ -43,11 +43,30 @@ for file in \
   emocao_derivada.py \
   contexto_foco_emocao.py \
   persistencia_foco_emocao.py \
+  modelo_contexto_cognitivo.py \
+  configuracao_cognitiva.py \
+  contexto_cognitivo.py \
+  politica_ativacao_cognitiva.py \
+  modelo_llm_gateway.py \
+  configuracao_llm.py \
+  llm_gateway.py \
+  llama_cpp_backend.py \
+  reaction_loop_cognitivo.py \
+  capability_registry.py \
+  policy_capabilities.py \
+  saida_cognitiva.py \
+  certificacao_cognitiva.py \
+  sampler_linux_cognitivo.py \
+  memory_model.py \
+  memory_store.py \
+  memory_manager.py \
+  memory_retriever.py \
+  config_memory.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
 
-for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json; do
+for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_cognitiva.json config_llm.json config_memory.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
 
@@ -86,6 +105,25 @@ python3 -m py_compile \
   "${TARGET_DIR}/emocao_derivada.py" \
   "${TARGET_DIR}/contexto_foco_emocao.py" \
   "${TARGET_DIR}/persistencia_foco_emocao.py" \
+  "${TARGET_DIR}/modelo_contexto_cognitivo.py" \
+  "${TARGET_DIR}/configuracao_cognitiva.py" \
+  "${TARGET_DIR}/contexto_cognitivo.py" \
+  "${TARGET_DIR}/politica_ativacao_cognitiva.py" \
+  "${TARGET_DIR}/modelo_llm_gateway.py" \
+  "${TARGET_DIR}/configuracao_llm.py" \
+  "${TARGET_DIR}/llm_gateway.py" \
+  "${TARGET_DIR}/llama_cpp_backend.py" \
+  "${TARGET_DIR}/reaction_loop_cognitivo.py" \
+  "${TARGET_DIR}/capability_registry.py" \
+  "${TARGET_DIR}/policy_capabilities.py" \
+  "${TARGET_DIR}/saida_cognitiva.py" \
+  "${TARGET_DIR}/certificacao_cognitiva.py" \
+  "${TARGET_DIR}/sampler_linux_cognitivo.py" \
+  "${TARGET_DIR}/memory_model.py" \
+  "${TARGET_DIR}/memory_store.py" \
+  "${TARGET_DIR}/memory_manager.py" \
+  "${TARGET_DIR}/memory_retriever.py" \
+  "${TARGET_DIR}/config_memory.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
@@ -93,6 +131,9 @@ python3 -m json.tool "${TARGET_DIR}/observation_config.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_afetiva.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_percepcao.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_foco_emocao.json" >/dev/null
+python3 -m json.tool "${TARGET_DIR}/config_cognitiva.json" >/dev/null
+python3 -m json.tool "${TARGET_DIR}/config_llm.json" >/dev/null
+python3 -m json.tool "${TARGET_DIR}/config_memory.json" >/dev/null
 
 echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
@@ -101,4 +142,10 @@ echo "ATLAS_AFETIVO_A1_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A2_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A3_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A4_INSTALL_PASS"
+echo "ATLAS_COGNITIVO_C1_INSTALL_PASS"
+echo "ATLAS_COGNITIVO_C2_INSTALL_PASS"
+echo "ATLAS_COGNITIVO_C3_INSTALL_PASS"
+echo "ATLAS_COGNITIVO_C4_INSTALL_PASS"
+echo "ATLAS_COGNITIVO_C5_HARNESS_INSTALL_PASS"
+echo "ATLAS_MEMORY_M1_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"
