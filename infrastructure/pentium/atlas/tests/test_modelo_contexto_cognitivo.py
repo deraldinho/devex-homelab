@@ -32,3 +32,22 @@ class ModeloContextoCognitivoTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModeloContextoMemoriaTests(unittest.TestCase):
+    def test_contexto_serializa_memorias_relevantes_bounded(self):
+        ctx = ContextoCognitivo(
+            versao_schema=1,
+            timestamp="2026-09-05T18:00:00+00:00",
+            motivo_ativacao=MotivoAtivacaoCognitiva.INTERACAO_HUMANA,
+            entidade_principal="core",
+            estado_tecnico="healthy",
+            estado_percepcao="observado",
+            incidente_principal=None,
+            estado_afetivo={"valencia": 0.2},
+            emocao_principal="calmo",
+            nuances=(), foco_atencao=None, expectativa=None,
+            mudancas_recentes=(), dependencias_afetadas=(), truncamentos=(),
+            memorias_relevantes=({"memory_id": "m1", "content": "Core e membro"},),
+        )
+        self.assertEqual("m1", ctx.to_dict()["memorias_relevantes"][0]["memory_id"])
