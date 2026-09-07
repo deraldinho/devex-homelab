@@ -91,6 +91,7 @@ for file in \
   live_tts.py \
   alsa_capture.py \
   alsa_stream.py \
+  adaptive_noise_canceller.py \
   utterance_capture.py \
   streaming_vad.py \
   whisper_stt.py \
@@ -193,6 +194,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/live_tts.py" \
   "${TARGET_DIR}/alsa_capture.py" \
   "${TARGET_DIR}/alsa_stream.py" \
+  "${TARGET_DIR}/adaptive_noise_canceller.py" \
   "${TARGET_DIR}/utterance_capture.py" \
   "${TARGET_DIR}/streaming_vad.py" \
   "${TARGET_DIR}/whisper_stt.py" \

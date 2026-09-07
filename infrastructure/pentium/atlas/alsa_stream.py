@@ -21,11 +21,12 @@ class SubprocessPcmFrameSource:
         finally:
             self._proc = None
 
-
-def open_arecord_pcm(binary: str, *, device: str, frame_ms: int = 20):
-    frame_bytes = 16000 * 2 * int(frame_ms) // 1000
-    argv = [binary, "-D", device, "-f", "S16_LE", "-r", "16000", "-c", "1", "-t", "raw", "-"]
+def open_arecord_pcm(binary: str, *, device: str, frame_ms: int = 20, channels: int = 1):
+    if channels not in (1, 2):
+        raise ValueError('channels must be 1 or 2')
+    frame_bytes = 16000 * 2 * int(frame_ms) // 1000 * channels
+    argv = [binary, '-D', device, '-f', 'S16_LE', '-r', '16000', '-c', str(channels), '-t', 'raw', '-']
     proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, shell=False)
     if proc.stdout is None:
-        raise RuntimeError("arecord stdout unavailable")
+        raise RuntimeError('arecord stdout unavailable')
     return SubprocessPcmFrameSource(proc, frame_bytes=frame_bytes)

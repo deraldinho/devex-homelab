@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .alsa_capture import AlsaCaptureBackend
 from .alsa_stream import open_arecord_pcm
+from .adaptive_noise_canceller import AdaptiveNoiseCancelledFrameSource
 from .capability_registry import atlas_capability_registry
 from .configuracao_cognitiva import carregar_configuracao_cognitiva
 from .contexto_cognitivo import ContextoCognitivoBuilder
@@ -73,6 +74,17 @@ def _tts_env() -> tuple[dict[str, str], Path, Path, Path]:
     return env, alsa, espeak, home
 
 
+def build_audio_source(binary: str, cfg: dict):
+    channels = 2 if bool(cfg.get("anc_enabled", False)) else 1
+    source = open_arecord_pcm(binary, device=cfg["capture_device"], frame_ms=int(cfg["vad_frame_ms"]), channels=channels)
+    if not bool(cfg.get("anc_enabled", False)):
+        return source
+    return AdaptiveNoiseCancelledFrameSource(
+        source, primary_channel=cfg["anc_primary_channel"], reference_channel=cfg["anc_reference_channel"],
+        taps=int(cfg["anc_taps"]), mu=float(cfg["anc_mu"]), calibration_frames=int(cfg["anc_calibration_frames"]),
+    )
+
+
 def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntime:
     cfg = load_voice_config(config_path)
     env, alsa, espeak, runtime_root = _tts_env()
@@ -83,7 +95,7 @@ def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntim
         margin=int(cfg["vad_margin"]),
     )
     capture = StreamingUtteranceCapture(
-        lambda: open_arecord_pcm(str(alsa / "usr/bin/arecord"), device=cfg["capture_device"], frame_ms=int(cfg["vad_frame_ms"])),
+        lambda: build_audio_source(str(alsa / "usr/bin/arecord"), cfg),
         stream_vad, frame_ms=int(cfg["vad_frame_ms"]),
         start_speech_frames=int(cfg["utterance_start_speech_frames"]),
         trailing_silence_ms=int(cfg["utterance_trailing_silence_ms"]),
