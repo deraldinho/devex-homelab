@@ -42,3 +42,17 @@ class VoiceRuntimeTests(unittest.TestCase):
         self.assertEqual([], interaction.calls); self.assertEqual([], tts.calls); self.assertEqual("wake_phrase_missing", result.reason)
 
 if __name__ == "__main__": unittest.main()
+
+
+class VoiceRuntimeNoiseFilterTests(unittest.TestCase):
+    def test_non_speech_caption_is_discarded_before_wake_gate(self):
+        from infrastructure.pentium.atlas.transcript_filter import NonSpeechTranscriptFilter
+        interaction, tts = FakeInteraction(), FakeTts()
+        runtime = VoiceRuntime(
+            FakeCapture(), FakeStt('[MÚSICA DE FUNDO]'), WakePhraseGate('Atlas', max_text_chars=256),
+            interaction, tts, vad=FakeVad(), transcript_filter=NonSpeechTranscriptFilter(),
+        )
+        result = runtime.run_once()
+        self.assertEqual([], interaction.calls)
+        self.assertEqual([], tts.calls)
+        self.assertEqual('non_speech_transcript', result.reason)

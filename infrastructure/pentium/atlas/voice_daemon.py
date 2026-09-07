@@ -10,7 +10,7 @@ from .alsa_capture import AlsaCaptureBackend
 from .capability_registry import atlas_capability_registry
 from .configuracao_cognitiva import carregar_configuracao_cognitiva
 from .contexto_cognitivo import ContextoCognitivoBuilder
-from .energy_vad import EnergyVad
+from .adaptive_vad import AdaptiveEnergyVad
 from .human_context import HumanContextProvider
 from .human_interaction import HumanInteractionGateway
 from .llama_cpp_backend import LlamaCppBackend
@@ -21,6 +21,7 @@ from .politica_ativacao_cognitiva import ActivationPolicy
 from .reaction_loop_cognitivo import ReactionLoopCognitivo
 from .reasoning_policy import ReasoningPolicy
 from .voice_gate import WakePhraseGate
+from .transcript_filter import NonSpeechTranscriptFilter
 from .voice_runtime import VoiceRuntime
 from .whisper_stt import SubprocessWhisperRunner, WhisperSttBackend
 
@@ -32,7 +33,8 @@ def load_voice_config(path: Path = ROOT / "config_voice.json") -> dict:
         raise ValueError("schema_version voice deve ser 1")
     required = (
         "wake_phrase", "capture_duration_s", "capture_device", "vad_rms_threshold",
-        "whisper_model", "whisper_timeout_s", "llm_model", "llm_timeout_s",
+        "vad_snr_ratio", "vad_margin", "vad_calibration_frames", "vad_alpha",
+        "vad_frame_ms", "vad_min_speech_frames", "whisper_model", "whisper_timeout_s", "llm_model", "llm_timeout_s",
         "llm_context_tokens", "tts_voice", "tts_device", "health_path",
         "idle_sleep_s", "error_sleep_s",
     )
@@ -69,7 +71,13 @@ def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntim
     cfg = load_voice_config(config_path)
     env, alsa, espeak, runtime_root = _tts_env()
     capture = AlsaCaptureBackend(str(alsa / "usr/bin/arecord"), device=cfg["capture_device"], duration_s=int(cfg["capture_duration_s"]))
-    vad = EnergyVad(rms_threshold=int(cfg["vad_rms_threshold"]), max_samples=int(cfg["capture_duration_s"]) * 16000)
+    vad = AdaptiveEnergyVad(
+        min_rms_threshold=int(cfg["vad_rms_threshold"]), snr_ratio=float(cfg["vad_snr_ratio"]),
+        margin=int(cfg["vad_margin"]), calibration_frames=int(cfg["vad_calibration_frames"]),
+        alpha=float(cfg["vad_alpha"]), frame_ms=int(cfg["vad_frame_ms"]),
+        min_speech_frames=int(cfg["vad_min_speech_frames"]),
+        max_samples=int(cfg["capture_duration_s"]) * 16000,
+    )
     stt_runner = SubprocessWhisperRunner(temp_dir=runtime_root / "audio")
     stt = WhisperSttBackend(str(runtime_root / "whisper/build/bin/whisper-cli"), str(_path(cfg["whisper_model"])), runner=stt_runner, timeout_s=float(cfg["whisper_timeout_s"]))
     gate = WakePhraseGate(cfg["wake_phrase"], max_text_chars=256)
@@ -92,7 +100,8 @@ def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntim
         voice=cfg["tts_voice"], device=cfg["tts_device"], max_text_chars=512,
         max_audio_bytes=2_000_000, timeout_s=20.0, env=env,
     )
-    return VoiceRuntime(capture, stt, gate, interaction, tts, vad=vad)
+    transcript_filter = NonSpeechTranscriptFilter()
+    return VoiceRuntime(capture, stt, gate, interaction, tts, vad=vad, transcript_filter=transcript_filter)
 def main() -> int:
     cfg = load_voice_config()
     runtime = build_runtime()

@@ -93,6 +93,8 @@ for file in \
   whisper_stt.py \
   voice_runtime.py \
   energy_vad.py \
+  adaptive_vad.py \
+  transcript_filter.py \
   human_interaction.py \
   human_context.py \
   voice_daemon.py \
@@ -189,6 +191,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/whisper_stt.py" \
   "${TARGET_DIR}/voice_runtime.py" \
   "${TARGET_DIR}/energy_vad.py" \
+  "${TARGET_DIR}/adaptive_vad.py" \
+  "${TARGET_DIR}/transcript_filter.py" \
   "${TARGET_DIR}/human_interaction.py" \
   "${TARGET_DIR}/human_context.py" \
   "${TARGET_DIR}/voice_daemon.py" \
