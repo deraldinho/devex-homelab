@@ -204,6 +204,15 @@ jobs:
               "$atlas/llama_server_runtime.py" \
               "$atlas/llama_cpp_resident_backend.py" \
               "$atlas/unix_http.py" \
+              "$atlas/voice_gate.py" \
+              "$atlas/live_tts.py" \
+              "$atlas/alsa_capture.py" \
+              "$atlas/whisper_stt.py" \
+              "$atlas/voice_runtime.py" \
+              "$atlas/energy_vad.py" \
+              "$atlas/human_interaction.py" \
+              "$atlas/human_context.py" \
+              "$atlas/voice_daemon.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
@@ -216,6 +225,7 @@ jobs:
             python3 -m json.tool "$atlas/config_cache.json" >/dev/null
             python3 -m json.tool "$atlas/config_llama_server.json" >/dev/null
             python3 -m json.tool "$atlas/config_fast_router.json" >/dev/null
+            python3 -m json.tool "$atlas/config_voice.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_registry -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
@@ -246,6 +256,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_I1_OBSERVATION_INTEGRATION_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_V1_ALWAYS_ON_VOICE_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi

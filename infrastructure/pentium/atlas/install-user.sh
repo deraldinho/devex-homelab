@@ -91,11 +91,15 @@ for file in \
   alsa_capture.py \
   whisper_stt.py \
   voice_runtime.py \
+  energy_vad.py \
+  human_interaction.py \
+  human_context.py \
+  voice_daemon.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
 
-for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_cognitiva.json config_llm.json config_memory.json config_cache.json config_llama_server.json config_fast_router.json; do
+for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_cognitiva.json config_llm.json config_memory.json config_cache.json config_llama_server.json config_fast_router.json config_voice.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
 
@@ -182,6 +186,10 @@ python3 -m py_compile \
   "${TARGET_DIR}/alsa_capture.py" \
   "${TARGET_DIR}/whisper_stt.py" \
   "${TARGET_DIR}/voice_runtime.py" \
+  "${TARGET_DIR}/energy_vad.py" \
+  "${TARGET_DIR}/human_interaction.py" \
+  "${TARGET_DIR}/human_context.py" \
+  "${TARGET_DIR}/voice_daemon.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
@@ -195,6 +203,7 @@ python3 -m json.tool "${TARGET_DIR}/config_memory.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_cache.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_llama_server.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_fast_router.json" >/dev/null
+python3 -m json.tool "${TARGET_DIR}/config_voice.json" >/dev/null
 
 echo "ATLAS_STATE_REACTION_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_INSTALL_PASS"
@@ -216,5 +225,12 @@ echo "ATLAS_MEMORY_M1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K2_INSTALL_PASS"
 echo "ATLAS_I1_OBSERVATION_INTEGRATION_INSTALL_PASS"
+install -d -m 0755 "${HOME}/.config/systemd/user"
+install -m 0644 "${SOURCE_DIR}/atlas-voice.service" "${HOME}/.config/systemd/user/atlas-voice.service"
+if systemctl --user show-environment >/dev/null 2>&1; then
+  systemctl --user daemon-reload
+  systemctl --user enable atlas-voice.service
+fi
+
 echo "ATLAS_V1_ALWAYS_ON_VOICE_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"
