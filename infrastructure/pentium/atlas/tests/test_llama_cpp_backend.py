@@ -13,7 +13,7 @@ from infrastructure.pentium.atlas.modelo_llm_gateway import (
 
 class ExecutorFake:
     def __init__(self, resultado=None, erro=None):
-        self.resultado = resultado or SimpleNamespace(returncode=0, stdout="resposta local", stderr="")
+        self.resultado = resultado or SimpleNamespace(returncode=0, stdout='{"versao_schema":1,"texto":"ok","resumo":null,"intencao":null,"parametros_intencao":{},"confianca":0.9,"motivo":"ok","requer_confirmacao":false}', stderr="")
         self.erro = erro
         self.calls = []
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import time
 from pathlib import Path
@@ -8,6 +9,21 @@ from typing import Callable
 from .modelo_llm_gateway import ErroInferencia, ResultadoInferencia, SolicitacaoInferencia
 from .prompt_cognitivo import construir_prompt_cognitivo
 
+_COGNITIVE_KEYS = {"versao_schema","texto","resumo","intencao","parametros_intencao","confianca","motivo","requer_confirmacao"}
+
+def _extract_cognitive_json(stdout: str) -> str | None:
+    decoder = json.JSONDecoder()
+    matches = []
+    for idx, ch in enumerate(stdout):
+        if ch != "{":
+            continue
+        try:
+            value, end = decoder.raw_decode(stdout[idx:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict) and _COGNITIVE_KEYS.issubset(value.keys()):
+            matches.append(json.dumps(value, ensure_ascii=False, separators=(",", ":")))
+    return matches[-1] if matches else None
 
 class LlamaCppBackend:
     def __init__(
@@ -70,7 +86,7 @@ class LlamaCppBackend:
             return self._falha(ErroInferencia.LIMITE_EXCEDIDO, inicio)
         if getattr(proc, "returncode", 1) != 0:
             return self._falha(ErroInferencia.BACKEND_INDISPONIVEL, inicio)
-        texto = stdout.strip()
+        texto = _extract_cognitive_json(stdout)
         if not texto:
             return self._falha(ErroInferencia.SAIDA_INVALIDA, inicio)
         return ResultadoInferencia(True, texto, None, max(0, int((time.monotonic() - inicio) * 1000)), "llama_cpp")
