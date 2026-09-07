@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 from .stimulus_model import Stimulus, StimulusSeverity
 
 
+_ALLOWED_SOURCES = frozenset(("human.voice", "human.cli"))
+
+
 class HumanInteractionGateway:
     def __init__(self, cognitive_loop, *, context_provider, max_text_chars: int = 256):
         if max_text_chars <= 0:
@@ -14,7 +17,9 @@ class HumanInteractionGateway:
         self._context_provider = context_provider
         self._max_text_chars = int(max_text_chars)
 
-    def handle(self, text: str) -> str | None:
+    def handle(self, text: str, *, source: str = "human.voice") -> str | None:
+        if source not in _ALLOWED_SOURCES:
+            raise ValueError("human interaction source is not allowed")
         clean = str(text).strip()
         if not clean:
             return None
@@ -23,7 +28,7 @@ class HumanInteractionGateway:
         now = datetime.now(timezone.utc).isoformat()
         fingerprint = hashlib.sha256(clean.encode("utf-8")).hexdigest()
         stimulus = Stimulus(
-            stimulus_id=f"human-{fingerprint[:16]}", source="human.voice",
+            stimulus_id=f"human-{fingerprint[:16]}", source=source,
             kind="human_interaction", severity=StimulusSeverity.INFO,
             timestamp=now, payload={"text": clean}, novelty=1.0,
             correlation_id=f"human-{fingerprint[:16]}",

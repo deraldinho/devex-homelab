@@ -30,6 +30,8 @@ class VoiceRuntime:
 
     def run_once(self) -> VoiceRunResult:
         audio = self._capture.capture_utterance()
+        if not audio:
+            return VoiceRunResult(VoiceState.LISTENING, "no_speech")
         if self._vad is not None and not self._vad.has_speech(audio):
             return VoiceRunResult(VoiceState.LISTENING, "no_speech")
         transcript = self._stt.transcribe(audio)

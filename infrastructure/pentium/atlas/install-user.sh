@@ -90,8 +90,12 @@ for file in \
   voice_gate.py \
   live_tts.py \
   alsa_capture.py \
+  alsa_stream.py \
+  utterance_capture.py \
+  streaming_vad.py \
   whisper_stt.py \
   voice_runtime.py \
+  chat_cli.py \
   energy_vad.py \
   adaptive_vad.py \
   transcript_filter.py \
@@ -188,8 +192,12 @@ python3 -m py_compile \
   "${TARGET_DIR}/voice_gate.py" \
   "${TARGET_DIR}/live_tts.py" \
   "${TARGET_DIR}/alsa_capture.py" \
+  "${TARGET_DIR}/alsa_stream.py" \
+  "${TARGET_DIR}/utterance_capture.py" \
+  "${TARGET_DIR}/streaming_vad.py" \
   "${TARGET_DIR}/whisper_stt.py" \
   "${TARGET_DIR}/voice_runtime.py" \
+  "${TARGET_DIR}/chat_cli.py" \
   "${TARGET_DIR}/energy_vad.py" \
   "${TARGET_DIR}/adaptive_vad.py" \
   "${TARGET_DIR}/transcript_filter.py" \

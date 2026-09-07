@@ -79,6 +79,18 @@ class AdaptiveEnergyVad:
             )
         self._observations += 1
 
+    def is_speech_frame(self, frame: bytes) -> bool:
+        if len(frame) % 2 or not frame:
+            return False
+        samples = [sample[0] for sample in struct.iter_unpack("<h", frame)]
+        rms = math.sqrt(sum(value * value for value in samples) / len(samples))
+        threshold = max(
+            self._minimum,
+            self._noise_floor * self._ratio + self._margin,
+            self._noise_peak_floor + self._margin,
+        )
+        return rms >= threshold
+
     def has_speech(self, audio: bytes) -> bool:
         values = self._frame_rms(audio)
         if not values:

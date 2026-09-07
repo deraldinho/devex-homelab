@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from .alsa_capture import AlsaCaptureBackend
+from .alsa_stream import open_arecord_pcm
 from .capability_registry import atlas_capability_registry
 from .configuracao_cognitiva import carregar_configuracao_cognitiva
 from .contexto_cognitivo import ContextoCognitivoBuilder
@@ -22,6 +23,8 @@ from .reaction_loop_cognitivo import ReactionLoopCognitivo
 from .reasoning_policy import ReasoningPolicy
 from .voice_gate import WakePhraseGate
 from .transcript_filter import NonSpeechTranscriptFilter
+from .streaming_vad import StreamingAdaptiveVad
+from .utterance_capture import StreamingUtteranceCapture
 from .voice_runtime import VoiceRuntime
 from .whisper_stt import SubprocessWhisperRunner, WhisperSttBackend
 
@@ -34,7 +37,10 @@ def load_voice_config(path: Path = ROOT / "config_voice.json") -> dict:
     required = (
         "wake_phrase", "capture_duration_s", "capture_device", "vad_rms_threshold",
         "vad_snr_ratio", "vad_margin", "vad_calibration_frames", "vad_alpha",
-        "vad_frame_ms", "vad_min_speech_frames", "whisper_model", "whisper_timeout_s", "llm_model", "llm_timeout_s",
+        "vad_frame_ms", "vad_min_speech_frames", "utterance_pre_roll_ms", "utterance_trailing_silence_ms",
+        "utterance_max_s", "utterance_listen_window_s", "utterance_start_speech_frames",
+        "stream_vad_calibration_frames", "stream_vad_history_frames",
+        "whisper_model", "whisper_timeout_s", "llm_model", "llm_timeout_s",
         "llm_context_tokens", "tts_voice", "tts_device", "health_path",
         "idle_sleep_s", "error_sleep_s",
     )
@@ -70,13 +76,19 @@ def _tts_env() -> tuple[dict[str, str], Path, Path, Path]:
 def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntime:
     cfg = load_voice_config(config_path)
     env, alsa, espeak, runtime_root = _tts_env()
-    capture = AlsaCaptureBackend(str(alsa / "usr/bin/arecord"), device=cfg["capture_device"], duration_s=int(cfg["capture_duration_s"]))
-    vad = AdaptiveEnergyVad(
+    stream_vad = StreamingAdaptiveVad(
+        calibration_frames=int(cfg["stream_vad_calibration_frames"]),
+        history_frames=int(cfg["stream_vad_history_frames"]),
         min_rms_threshold=int(cfg["vad_rms_threshold"]), snr_ratio=float(cfg["vad_snr_ratio"]),
-        margin=int(cfg["vad_margin"]), calibration_frames=int(cfg["vad_calibration_frames"]),
-        alpha=float(cfg["vad_alpha"]), frame_ms=int(cfg["vad_frame_ms"]),
-        min_speech_frames=int(cfg["vad_min_speech_frames"]),
-        max_samples=int(cfg["capture_duration_s"]) * 16000,
+        margin=int(cfg["vad_margin"]),
+    )
+    capture = StreamingUtteranceCapture(
+        lambda: open_arecord_pcm(str(alsa / "usr/bin/arecord"), device=cfg["capture_device"], frame_ms=int(cfg["vad_frame_ms"])),
+        stream_vad, frame_ms=int(cfg["vad_frame_ms"]),
+        start_speech_frames=int(cfg["utterance_start_speech_frames"]),
+        trailing_silence_ms=int(cfg["utterance_trailing_silence_ms"]),
+        max_utterance_s=int(cfg["utterance_max_s"]), pre_roll_ms=int(cfg["utterance_pre_roll_ms"]),
+        listen_window_s=int(cfg["utterance_listen_window_s"]),
     )
     stt_runner = SubprocessWhisperRunner(temp_dir=runtime_root / "audio")
     stt = WhisperSttBackend(str(runtime_root / "whisper/build/bin/whisper-cli"), str(_path(cfg["whisper_model"])), runner=stt_runner, timeout_s=float(cfg["whisper_timeout_s"]))
@@ -101,7 +113,7 @@ def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntim
         max_audio_bytes=2_000_000, timeout_s=20.0, env=env,
     )
     transcript_filter = NonSpeechTranscriptFilter()
-    return VoiceRuntime(capture, stt, gate, interaction, tts, vad=vad, transcript_filter=transcript_filter)
+    return VoiceRuntime(capture, stt, gate, interaction, tts, transcript_filter=transcript_filter)
 def main() -> int:
     cfg = load_voice_config()
     runtime = build_runtime()

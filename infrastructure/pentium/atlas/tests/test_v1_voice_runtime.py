@@ -56,3 +56,14 @@ class VoiceRuntimeNoiseFilterTests(unittest.TestCase):
         self.assertEqual([], interaction.calls)
         self.assertEqual([], tts.calls)
         self.assertEqual('non_speech_transcript', result.reason)
+
+class EmptyCapture:
+    def capture_utterance(self): return b''
+
+class VoiceRuntimeEmptyCaptureTests(unittest.TestCase):
+    def test_empty_capture_skips_stt(self):
+        stt, interaction, tts = FakeStt('Atlas, oi'), FakeInteraction(), FakeTts()
+        runtime = VoiceRuntime(EmptyCapture(), stt, WakePhraseGate('Atlas', max_text_chars=256), interaction, tts)
+        result = runtime.run_once()
+        self.assertEqual('no_speech', result.reason)
+        self.assertEqual([], stt.calls)

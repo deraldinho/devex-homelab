@@ -52,3 +52,13 @@ class HumanInteractionFallbackTests(unittest.TestCase):
         gateway = HumanInteractionGateway(FakeLoop(RespLlmDown()), context_provider=lambda: {"mudancas_recentes": []}, max_text_chars=64)
         text = gateway.handle("voce esta me ouvindo?")
         self.assertEqual("Estou ouvindo, mas meu modulo de linguagem esta indisponivel.", text)
+
+class HumanInteractionSourceTests(unittest.TestCase):
+    def test_cli_source_is_preserved_and_unknown_source_rejected(self):
+        loop = FakeLoop(Resp())
+        gateway = HumanInteractionGateway(loop, context_provider=lambda: {"mudancas_recentes": []}, max_text_chars=64)
+        gateway.handle("oi atlas", source="human.cli")
+        stimulus = loop.calls[-1]["dados_contexto"]["mudancas_recentes"][-1]
+        self.assertEqual("human.cli", stimulus.source)
+        with self.assertRaises(ValueError):
+            gateway.handle("oi", source="external.untrusted")
