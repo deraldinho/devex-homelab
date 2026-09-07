@@ -62,8 +62,8 @@ def _unit(unit: str, runner: CommandRunner) -> dict:
     active = runner(["systemctl", "--user", "is-active", unit], 2.0)
     enabled = runner(["systemctl", "--user", "is-enabled", unit], 2.0)
     return {
-        "active": active.stdout.strip() if active.returncode == 0 else "unknown",
-        "enabled": enabled.stdout.strip() if enabled.returncode == 0 else "unknown",
+        "active": active.stdout.strip() or "unknown",
+        "enabled": enabled.stdout.strip() or "unknown",
     }
 
 

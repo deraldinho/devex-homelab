@@ -86,3 +86,15 @@ class CollectorTests(unittest.TestCase):
             cfg = dc.default_config() | {"health_path": str(base / "health.json"), "voice_config_path": str(base / "voice.json"), "deploy_sha_path": str(base / "sha")}
             status = dc.collect_status(cfg, command_runner=lambda *_: dc.CommandResult(1, "", ""))
         self.assertTrue(status["voice"]["whisper_available"])
+
+    def test_collect_status_preserves_disabled_unit_state(self):
+        cfg = dc.default_config()
+        def runner(command, timeout):
+            if command[:3] == ["systemctl", "--user", "is-enabled"]:
+                return dc.CommandResult(1, "disabled\n", "")
+            if command[:3] == ["systemctl", "--user", "is-active"]:
+                return dc.CommandResult(3, "inactive\n", "")
+            return dc.CommandResult(1, "", "")
+        status = dc.collect_status(cfg, command_runner=runner)
+        self.assertEqual(status["services"]["voice"]["enabled"], "disabled")
+        self.assertEqual(status["services"]["voice"]["active"], "inactive")
