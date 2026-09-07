@@ -12,12 +12,13 @@ class LLMBackend(Protocol):
 
 
 class LLMGateway:
-    def __init__(self, backend: LLMBackend, *, max_payload_bytes: int, max_tokens_contexto: int):
+    def __init__(self, backend: LLMBackend, *, max_payload_bytes: int, max_tokens_contexto: int, reasoning_policy=None):
         if max_payload_bytes <= 0 or max_tokens_contexto <= 0:
             raise ValueError("bounds do gateway devem ser > 0")
         self._backend = backend
         self._max_payload_bytes = int(max_payload_bytes)
         self._max_tokens_contexto = int(max_tokens_contexto)
+        self._reasoning_policy = reasoning_policy
 
     def inferir(self, contexto: ContextoCognitivo, tarefa: str) -> ResultadoInferencia:
         if not isinstance(contexto, ContextoCognitivo):
@@ -27,5 +28,6 @@ class LLMGateway:
         payload = json.dumps(contexto.to_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         if len(payload.encode("utf-8")) > self._max_payload_bytes:
             raise ValueError("contexto excede max_payload_bytes")
-        solicitacao = SolicitacaoInferencia(1, tarefa.strip(), payload, self._max_tokens_contexto)
+        mode = self._reasoning_policy.select(contexto, tarefa) if self._reasoning_policy is not None else "off"
+        solicitacao = SolicitacaoInferencia(1, tarefa.strip(), payload, self._max_tokens_contexto, mode)
         return self._backend.inferir(solicitacao)

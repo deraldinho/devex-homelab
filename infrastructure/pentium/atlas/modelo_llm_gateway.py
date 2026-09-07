@@ -25,6 +25,7 @@ class SolicitacaoInferencia:
     tarefa: str
     contexto_json: str
     max_tokens_contexto: int
+    reasoning_mode: str = "off"
 
     def __post_init__(self) -> None:
         if self.versao_schema != 1:
@@ -33,6 +34,8 @@ class SolicitacaoInferencia:
         object.__setattr__(self, "contexto_json", _texto(self.contexto_json, "contexto_json"))
         if not isinstance(self.max_tokens_contexto, int) or self.max_tokens_contexto <= 0:
             raise ValueError("max_tokens_contexto deve ser inteiro > 0")
+        if self.reasoning_mode not in {"off", "auto", "on"}:
+            raise ValueError("reasoning_mode invalido")
 
 
 @dataclass(frozen=True)

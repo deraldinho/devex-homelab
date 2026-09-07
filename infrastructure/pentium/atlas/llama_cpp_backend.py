@@ -43,6 +43,10 @@ class LlamaCppBackend:
             "-m", str(self._model),
             "-c", str(solicitacao.max_tokens_contexto),
             "-n", "256",
+            "--single-turn",
+            "--simple-io",
+            "--reasoning", solicitacao.reasoning_mode,
+            "--no-display-prompt",
             "-p", prompt,
         ]
         try:

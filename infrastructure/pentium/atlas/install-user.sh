@@ -64,6 +64,7 @@ for file in \
   prompt_cognitivo.py \
   llama_cpp_backend.py \
   reaction_loop_cognitivo.py \
+  reasoning_policy.py \
   capability_registry.py \
   policy_capabilities.py \
   saida_cognitiva.py \
@@ -159,6 +160,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/prompt_cognitivo.py" \
   "${TARGET_DIR}/llama_cpp_backend.py" \
   "${TARGET_DIR}/reaction_loop_cognitivo.py" \
+  "${TARGET_DIR}/reasoning_policy.py" \
   "${TARGET_DIR}/capability_registry.py" \
   "${TARGET_DIR}/policy_capabilities.py" \
   "${TARGET_DIR}/saida_cognitiva.py" \

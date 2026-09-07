@@ -74,3 +74,16 @@ class LlamaCppBackendTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LlamaCppBatchModeTests(LlamaCppBackendTests):
+    def test_cli_usa_single_turn_simple_io_e_reasoning_off(self):
+        td, binary, model = self.paths()
+        self.addCleanup(td.cleanup)
+        executor = ExecutorFake()
+        backend = LlamaCppBackend(binary, model, timeout_s=5, max_saida_bytes=1024, executor=executor)
+        backend.inferir(SolicitacaoInferencia(1, "x", "{}", 256))
+        argv, _ = executor.calls[0]
+        self.assertIn("--single-turn", argv)
+        self.assertIn("--simple-io", argv)
+        self.assertEqual(["--reasoning", "off"], argv[argv.index("--reasoning"):argv.index("--reasoning") + 2])

@@ -19,6 +19,7 @@ from .live_tts import LiveTtsBackend
 from .policy_capabilities import PolicyCapabilities
 from .politica_ativacao_cognitiva import ActivationPolicy
 from .reaction_loop_cognitivo import ReactionLoopCognitivo
+from .reasoning_policy import ReasoningPolicy
 from .voice_gate import WakePhraseGate
 from .voice_runtime import VoiceRuntime
 from .whisper_stt import WhisperSttBackend
@@ -79,7 +80,7 @@ def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntim
         timeout_s=float(cfg["llm_timeout_s"]), max_saida_bytes=8192,
     )
     gateway = LLMGateway(llm_backend, max_payload_bytes=cognitive.contexto.max_payload_bytes,
-                         max_tokens_contexto=int(cfg["llm_context_tokens"]))
+                         max_tokens_contexto=int(cfg["llm_context_tokens"]), reasoning_policy=ReasoningPolicy())
     capabilities = PolicyCapabilities(atlas_capability_registry(), read_auto_allow=("get_host_status",), control_allow=())
     cognitive_loop = ReactionLoopCognitivo(activation, builder, gateway, capability_policy=capabilities)
     context_provider = HumanContextProvider(_path(cfg["health_path"]))
