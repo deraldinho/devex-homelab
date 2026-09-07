@@ -10,17 +10,16 @@ from .modelo_llm_gateway import ErroInferencia, ResultadoInferencia, Solicitacao
 from .prompt_cognitivo import construir_prompt_cognitivo
 
 _COGNITIVE_KEYS = {"versao_schema","texto","resumo","intencao","parametros_intencao","confianca","motivo","requer_confirmacao"}
-_COGNITIVE_JSON_SCHEMA = json.dumps({
-    "type":"object","additionalProperties":False,
-    "required":["versao_schema","texto","resumo","intencao","parametros_intencao","confianca","motivo","requer_confirmacao"],
-    "properties":{
-        "versao_schema":{"const":1},
-        "texto":{"type":["string","null"]},"resumo":{"type":["string","null"]},
-        "intencao":{"type":["string","null"]},"parametros_intencao":{"type":"object"},
-        "confianca":{"type":"number","minimum":0,"maximum":1},"motivo":{"type":"string"},
-        "requer_confirmacao":{"type":"boolean"}
-    }
-}, separators=(",", ":"))
+_JSON_GBNF = r'''
+root ::= object
+value ::= object | array | string | number | ("true" | "false" | "null") ws
+object ::= "{" ws (string ":" ws value ("," ws string ":" ws value)*)? "}" ws
+array ::= "[" ws (value ("," ws value)*)? "]" ws
+string ::= "\\\"" char* "\\\"" ws
+char ::= [^"\\\\\x7F\x00-\x1F] | "\\\\" (["\\\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+number ::= "-"? ("0" | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [+-]? [0-9]+)? ws
+ws ::= [ \t\n]*
+'''.strip()
 
 def _extract_cognitive_json(stdout: str) -> str | None:
     decoder = json.JSONDecoder()
@@ -74,7 +73,7 @@ class LlamaCppBackend:
             "--simple-io",
             "--log-disable",
             "--temp", "0",
-            "--json-schema", _COGNITIVE_JSON_SCHEMA,
+            "--grammar", _JSON_GBNF,
             "--reasoning", solicitacao.reasoning_mode,
             "--no-display-prompt",
             "-p", prompt,
