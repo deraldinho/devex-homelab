@@ -87,3 +87,5 @@ class LlamaCppBatchModeTests(LlamaCppBackendTests):
         self.assertIn("--single-turn", argv)
         self.assertIn("--simple-io", argv)
         self.assertEqual(["--reasoning", "off"], argv[argv.index("--reasoning"):argv.index("--reasoning") + 2])
+        self.assertIn("--log-disable", argv)
+        self.assertIn("--no-display-prompt", argv)

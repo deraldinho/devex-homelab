@@ -45,6 +45,7 @@ class LlamaCppBackend:
             "-n", "256",
             "--single-turn",
             "--simple-io",
+            "--log-disable",
             "--reasoning", solicitacao.reasoning_mode,
             "--no-display-prompt",
             "-p", prompt,
