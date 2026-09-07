@@ -27,11 +27,16 @@ class AdaptiveEnergyVad:
         self._min_speech_frames = int(min_speech_frames)
         self._max_samples = int(max_samples)
         self._noise_floor = self._minimum
+        self._noise_peak_floor = self._minimum
         self._observations = 0
 
     @property
     def noise_floor(self) -> float:
         return self._noise_floor
+
+    @property
+    def noise_peak_floor(self) -> float:
+        return self._noise_peak_floor
 
     def _frame_rms(self, audio: bytes) -> list[float] | None:
         try:
@@ -57,12 +62,20 @@ class AdaptiveEnergyVad:
 
     def _observe_noise(self, frame_rms: list[float]) -> None:
         baseline = float(statistics.median(frame_rms))
+        ordered = sorted(frame_rms)
+        peak_index = min(len(ordered) - 1, int((len(ordered) - 1) * 0.99))
+        peak = float(ordered[peak_index])
         if self._observations == 0:
             self._noise_floor = max(self._minimum, baseline)
+            self._noise_peak_floor = max(self._minimum, peak)
         else:
             self._noise_floor = max(
                 self._minimum,
                 (1 - self._alpha) * self._noise_floor + self._alpha * baseline,
+            )
+            self._noise_peak_floor = max(
+                self._minimum,
+                (1 - self._alpha) * self._noise_peak_floor + self._alpha * peak,
             )
         self._observations += 1
 
@@ -74,7 +87,11 @@ class AdaptiveEnergyVad:
             self._observe_noise(values)
             self._remaining -= 1
             return False
-        threshold = max(self._minimum, self._noise_floor * self._ratio + self._margin)
+        threshold = max(
+            self._minimum,
+            self._noise_floor * self._ratio + self._margin,
+            self._noise_peak_floor + self._margin,
+        )
         longest = current = 0
         for rms in values:
             current = current + 1 if rms >= threshold else 0
