@@ -10,6 +10,17 @@ from .modelo_llm_gateway import ErroInferencia, ResultadoInferencia, Solicitacao
 from .prompt_cognitivo import construir_prompt_cognitivo
 
 _COGNITIVE_KEYS = {"versao_schema","texto","resumo","intencao","parametros_intencao","confianca","motivo","requer_confirmacao"}
+_COGNITIVE_JSON_SCHEMA = json.dumps({
+    "type":"object","additionalProperties":False,
+    "required":["versao_schema","texto","resumo","intencao","parametros_intencao","confianca","motivo","requer_confirmacao"],
+    "properties":{
+        "versao_schema":{"const":1},
+        "texto":{"type":["string","null"]},"resumo":{"type":["string","null"]},
+        "intencao":{"type":["string","null"]},"parametros_intencao":{"type":"object"},
+        "confianca":{"type":"number","minimum":0,"maximum":1},"motivo":{"type":"string"},
+        "requer_confirmacao":{"type":"boolean"}
+    }
+}, separators=(",", ":"))
 
 def _extract_cognitive_json(stdout: str) -> str | None:
     decoder = json.JSONDecoder()
@@ -62,6 +73,8 @@ class LlamaCppBackend:
             "--single-turn",
             "--simple-io",
             "--log-disable",
+            "--temp", "0",
+            "--json-schema", _COGNITIVE_JSON_SCHEMA,
             "--reasoning", solicitacao.reasoning_mode,
             "--no-display-prompt",
             "-p", prompt,
