@@ -22,7 +22,7 @@ from .reaction_loop_cognitivo import ReactionLoopCognitivo
 from .reasoning_policy import ReasoningPolicy
 from .voice_gate import WakePhraseGate
 from .voice_runtime import VoiceRuntime
-from .whisper_stt import WhisperSttBackend
+from .whisper_stt import SubprocessWhisperRunner, WhisperSttBackend
 
 
 ROOT = Path(__file__).resolve().parent
@@ -70,7 +70,8 @@ def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntim
     env, alsa, espeak, runtime_root = _tts_env()
     capture = AlsaCaptureBackend(str(alsa / "usr/bin/arecord"), device=cfg["capture_device"], duration_s=int(cfg["capture_duration_s"]))
     vad = EnergyVad(rms_threshold=int(cfg["vad_rms_threshold"]), max_samples=int(cfg["capture_duration_s"]) * 16000)
-    stt = WhisperSttBackend(str(runtime_root / "whisper/build/bin/whisper-cli"), str(_path(cfg["whisper_model"])), timeout_s=float(cfg["whisper_timeout_s"]))
+    stt_runner = SubprocessWhisperRunner(temp_dir=runtime_root / "audio")
+    stt = WhisperSttBackend(str(runtime_root / "whisper/build/bin/whisper-cli"), str(_path(cfg["whisper_model"])), runner=stt_runner, timeout_s=float(cfg["whisper_timeout_s"]))
     gate = WakePhraseGate(cfg["wake_phrase"], max_text_chars=256)
     cognitive = carregar_configuracao_cognitiva(ROOT / "config_cognitiva.json")
     builder = ContextoCognitivoBuilder(cognitive.contexto)

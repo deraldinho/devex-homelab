@@ -3,15 +3,23 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 
 
 class SubprocessWhisperRunner:
+    def __init__(self, *, temp_dir: str | Path | None = None, executor=subprocess.run):
+        self._temp_dir = Path(temp_dir) if temp_dir is not None else None
+        self._executor = executor
+
     def run(self, argv, *, input_bytes: bytes, timeout_s: float, max_output_bytes: int) -> str:
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        if self._temp_dir is not None:
+            self._temp_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            os.chmod(self._temp_dir, 0o700)
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False, dir=self._temp_dir) as tmp:
             tmp.write(input_bytes)
             wav_path = tmp.name
         try:
-            completed = subprocess.run(
+            completed = self._executor(
                 [*argv, wav_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
