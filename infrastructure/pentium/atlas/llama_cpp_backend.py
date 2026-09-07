@@ -11,12 +11,15 @@ from .prompt_cognitivo import construir_prompt_cognitivo
 
 _COGNITIVE_KEYS = {"versao_schema","texto","resumo","intencao","parametros_intencao","confianca","motivo","requer_confirmacao"}
 _JSON_GBNF = r'''
-root ::= object
-value ::= object | array | string | number | ("true" | "false" | "null") ws
+root ::= "{" ws "\"versao_schema\"" ws ":" ws "1" ws "," ws "\"texto\"" ws ":" ws nullable-string "," ws "\"resumo\"" ws ":" ws nullable-string "," ws "\"intencao\"" ws ":" ws nullable-string "," ws "\"parametros_intencao\"" ws ":" ws object "," ws "\"confianca\"" ws ":" ws confidence "," ws "\"motivo\"" ws ":" ws string "," ws "\"requer_confirmacao\"" ws ":" ws boolean "}" ws
+nullable-string ::= string | "null" ws
+boolean ::= ("true" | "false") ws
+confidence ::= ("0" | "1" | "0." [0-9]+) ws
 object ::= "{" ws (string ":" ws value ("," ws string ":" ws value)*)? "}" ws
 array ::= "[" ws (value ("," ws value)*)? "]" ws
-string ::= "\\\"" char* "\\\"" ws
-char ::= [^"\\\\\x7F\x00-\x1F] | "\\\\" (["\\\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+value ::= object | array | string | number | boolean | "null" ws
+string ::= "\"" char* "\"" ws
+char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 number ::= "-"? ("0" | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [+-]? [0-9]+)? ws
 ws ::= [ \t\n]*
 '''.strip()

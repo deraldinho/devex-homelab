@@ -29,9 +29,18 @@ class LlamaGrammarTests(unittest.TestCase):
             self.assertIn("--grammar", argv)
             self.assertNotIn("--json-schema", argv)
             grammar = argv[argv.index("--grammar") + 1]
-            self.assertIn("root ::= object", grammar)
+            self.assertIn("versao_schema", grammar)
             self.assertEqual(["--temp", "0"], argv[argv.index("--temp"):argv.index("--temp") + 2])
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LlamaStrictGrammarTests(unittest.TestCase):
+    def test_grammar_forces_cognitive_fields_and_real_json_quotes(self):
+        from infrastructure.pentium.atlas.llama_cpp_backend import _JSON_GBNF
+        self.assertIn('motivo', _JSON_GBNF)
+        self.assertIn('parametros_intencao', _JSON_GBNF)
+        self.assertIn('string ::= "\\\"" char* "\\\"" ws', _JSON_GBNF)
+        self.assertNotIn('string ::= "\\\\\\\""', _JSON_GBNF)
