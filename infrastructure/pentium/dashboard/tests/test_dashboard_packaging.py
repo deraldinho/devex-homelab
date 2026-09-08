@@ -25,6 +25,10 @@ class DashboardPackagingTests(unittest.TestCase):
         script = (ROOT / "install-user.sh").read_text(encoding="utf-8")
         self.assertIn("systemctl --user restart atlas-dashboard.service", script)
 
+    def test_installer_packages_avatar_renderer_asset(self):
+        script = (ROOT / "install-user.sh").read_text(encoding="utf-8")
+        self.assertIn("atlas-avatar-renderer.js", script)
+
 
 if __name__ == "__main__":
     unittest.main()

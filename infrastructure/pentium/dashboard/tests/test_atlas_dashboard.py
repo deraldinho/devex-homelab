@@ -50,3 +50,12 @@ class HttpContractTests(unittest.TestCase):
     def test_post_is_rejected_with_405(self):
         status, _, _ = self.request("POST", "/api/status")
         self.assertEqual(status, 405)
+
+    def test_avatar_renderer_asset_is_served_read_only(self):
+        status, headers, body = self.request("GET", "/assets/atlas-avatar-renderer.js")
+        self.assertEqual(status, 200)
+        self.assertIn("application/javascript", headers["Content-Type"])
+        self.assertIn(b"AtlasAvatarRenderer", body)
+
+        post_status, _, _ = self.request("POST", "/assets/atlas-avatar-renderer.js")
+        self.assertEqual(post_status, 405)

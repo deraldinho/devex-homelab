@@ -42,6 +42,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(collectors.collect_events(config), ensure_ascii=True).encode()
             self._send(200, "application/json; charset=utf-8", body)
             return
+        if self.path == "/assets/atlas-avatar-renderer.js":
+            body = Path(__file__).with_name("atlas-avatar-renderer.js").read_bytes()
+            self._send(200, "application/javascript; charset=utf-8", body)
+            return
         if self.path == "/":
             body = Path(__file__).with_name("dashboard.html").read_bytes()
             self._send(200, "text/html; charset=utf-8", body)

@@ -16,7 +16,6 @@ class DashboardUiContractTests(unittest.TestCase):
         for forbidden in ("restart", "reboot", "shutdown", "managedcontrolservice", "fetch('/api/control"):
             self.assertNotIn(forbidden, html)
 
-
     def test_ui_preserves_portuguese_copy_without_mojibake(self):
         html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
         for corrupted in ("Presen?a", "Express?o", "intera??o", "Servi?os", "?udio", "t?cnica"):
@@ -29,6 +28,16 @@ class DashboardUiContractTests(unittest.TestCase):
             self.assertIn(token, html)
         self.assertIn("<svg", html)
         self.assertIn("viewBox", html)
+
+    def test_avatar_renderer_is_externalized_behind_stable_boundary(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        renderer = (ROOT / "atlas-avatar-renderer.js").read_text(encoding="utf-8")
+        self.assertIn('src="/assets/atlas-avatar-renderer.js"', html)
+        self.assertIn("AtlasAvatarRenderer.render(status.visual)", html)
+        self.assertNotIn("function renderAvatar", html)
+        self.assertIn("window.AtlasAvatarRenderer", renderer)
+        self.assertIn("function render(visual)", renderer)
+
 
 if __name__ == "__main__":
     unittest.main()
