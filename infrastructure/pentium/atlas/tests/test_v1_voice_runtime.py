@@ -67,3 +67,31 @@ class VoiceRuntimeEmptyCaptureTests(unittest.TestCase):
         result = runtime.run_once()
         self.assertEqual('no_speech', result.reason)
         self.assertEqual([], stt.calls)
+
+
+class VoiceVisualSinkTests(unittest.TestCase):
+    def test_sink_recebe_escuta_processamento_fala_e_retorno(self):
+        estados = []
+        runtime = VoiceRuntime(
+            FakeCapture(), FakeStt("Atlas, status"), WakePhraseGate("Atlas", max_text_chars=256),
+            FakeInteraction(), FakeTts(), vad=FakeVad(), visual_state_sink=estados.append,
+        )
+        runtime.run_once()
+        flags = [(e.ouvindo, e.pensando, e.falando) for e in estados]
+        self.assertIn((True, False, False), flags)
+        self.assertIn((False, True, False), flags)
+        self.assertIn((False, False, True), flags)
+        self.assertEqual((True, False, False), flags[-1])
+
+    def test_falha_do_sink_nao_interrompe_fluxo_de_voz(self):
+        def sink_falho(_estado):
+            raise RuntimeError("visual offline")
+        interaction, tts = FakeInteraction(), FakeTts()
+        runtime = VoiceRuntime(
+            FakeCapture(), FakeStt("Atlas, status"), WakePhraseGate("Atlas", max_text_chars=256),
+            interaction, tts, vad=FakeVad(), visual_state_sink=sink_falho,
+        )
+        result = runtime.run_once()
+        self.assertEqual(VoiceState.LISTENING, result.state)
+        self.assertEqual(["status"], interaction.calls)
+        self.assertEqual(["Estou operacional."], tts.calls)

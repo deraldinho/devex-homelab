@@ -1,0 +1,17 @@
+[Unit]
+Description=Atlas always-on observation and affective runtime
+After=default.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=%h/pentium-agent
+EnvironmentFile=-%h/pentium-agent/atlas/runtime/observation.env
+ExecStart=/usr/bin/python3 -m atlas.observation_daemon
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import dashboard_collectors as dc
+from infrastructure.pentium.atlas.modelo_visual_atlas import EstadoVisualAtlas
+from infrastructure.pentium.atlas.visual_state_publisher import VisualStatePublisher
 
 
 class CollectorTests(unittest.TestCase):
@@ -121,6 +123,21 @@ class CollectorTests(unittest.TestCase):
             cfg = dc.default_config() | {"visual_state_path": str(base / "visual.json")}
             status = dc.collect_status(cfg, command_runner=lambda *_: dc.CommandResult(1, "", ""))
         self.assertEqual(status["visual"], visual)
+
+    def test_collect_status_consumes_published_estado_visual_without_reclassification(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "visual-state.json"
+            estado = EstadoVisualAtlas(
+                modo="CONVERSANDO", expressao="CURIOSO", intensidade_expressao=0.63,
+                foco_visual="core", direcao_olhar="core", gesto_atual="escuta",
+                velocidade_movimento=0.47, intensidade_movimento=0.51,
+                falando=False, ouvindo=True, pensando=False, duvida_identidade=False,
+                transicao_ms=400,
+            )
+            VisualStatePublisher(path).publicar(estado)
+            cfg = dc.default_config() | {"visual_state_path": str(path)}
+            status = dc.collect_status(cfg, command_runner=lambda *_: dc.CommandResult(1, "", ""))
+        self.assertEqual(estado.para_dict(), status["visual"])
 
     def test_collect_status_falls_back_to_neutral_visual_state(self):
         cfg = dc.default_config() | {"visual_state_path": "Z:/missing/visual.json"}
