@@ -58,7 +58,7 @@ jobs:
           dashboard='infrastructure/pentium/dashboard'
           target="$(mktemp)"
           trap 'rm -f "$target"' EXIT
-          "$dashboard/fetch-pixi.sh" "$target"
+          bash "$dashboard/fetch-pixi.sh" "$target"
           test "$(stat -c %s "$target")" -le 1048576
           node --check "$target"
           echo 'DEVEX_HOMELAB_ATLAS_AVATAR_PIXIJS_ASSET_PASS'
