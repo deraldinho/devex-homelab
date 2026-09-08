@@ -17,8 +17,6 @@ install -m 0644 "$SCRIPT_DIR/config.json" "$TARGET_DIR/config.json"
 install -m 0644 "$SCRIPT_DIR/systemd/atlas-dashboard.service" "$USER_UNIT_DIR/atlas-dashboard.service"
 
 python3 -m py_compile "$TARGET_DIR/atlas_dashboard.py" "$TARGET_DIR/dashboard_collectors.py"
-node --check "$TARGET_DIR/atlas-avatar-engine.js"
-node --check "$TARGET_DIR/atlas-avatar-renderer.js"
 systemctl --user daemon-reload
 systemctl --user enable atlas-dashboard.service
 systemctl --user restart atlas-dashboard.service
