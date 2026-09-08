@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           dashboard='infrastructure/pentium/dashboard'
-          target="$(mktemp)"
+          target="$(mktemp --suffix=.js)"
           trap 'rm -f "$target"' EXIT
           bash "$dashboard/fetch-pixi.sh" "$target"
           test "$(stat -c %s "$target")" -le 1048576
