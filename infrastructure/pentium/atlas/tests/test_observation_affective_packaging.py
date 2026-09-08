@@ -2,6 +2,8 @@ import json
 import unittest
 from pathlib import Path
 
+from infrastructure.pentium.atlas.pipeline_afetivo_observacional import carregar_config_observation_affective
+
 ROOT = Path(__file__).resolve().parents[4]
 ATLAS = ROOT / "infrastructure" / "pentium" / "atlas"
 
@@ -25,6 +27,16 @@ class ObservationAffectivePackagingTests(unittest.TestCase):
             self.assertLessEqual(cfg["capacidades"][nome], 4096)
         self.assertGreater(cfg["janela_reincidencia_s"], 0)
         self.assertGreater(cfg["limite_repeticoes"], 0)
+
+    def test_loader_materializa_config_do_pipeline_e_adaptador(self):
+        cfg = carregar_config_observation_affective(ATLAS / "config_observation_affective.json")
+        self.assertEqual(1024, cfg.capacidade_stimulus_ids)
+        self.assertEqual(128, cfg.capacidade_incidentes)
+        self.assertEqual(32, cfg.capacidade_assuntos)
+        self.assertEqual(64, cfg.capacidade_erros)
+        self.assertEqual(86400.0, cfg.janela_reincidencia_s)
+        self.assertEqual(3, cfg.limite_repeticoes)
+        self.assertEqual(1.0, cfg.impacto.gravidades["critical"])
 
     def test_foundation_ci_expoe_gate_dedicado(self):
         workflow = (ROOT / ".github" / "workflows" / "foundation-ci.yml").read_text(encoding="utf-8")

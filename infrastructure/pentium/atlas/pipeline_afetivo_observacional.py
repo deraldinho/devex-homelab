@@ -2,10 +2,68 @@ from __future__ import annotations
 
 from collections import OrderedDict, deque
 from dataclasses import dataclass
+import json
+from pathlib import Path
 
+from .adaptador_impacto_afetivo import ConfigImpactoAfetivo
 from .modelo_contexto_afetivo import ExperienciaOperacional, TipoExperienciaOperacional
 from .modelo_incidente import EstadoRecuperacaoIncidente
 from .stimulus_model import Stimulus
+
+
+@dataclass(frozen=True)
+class ConfigPipelineAfetivoObservacional:
+    capacidade_stimulus_ids: int
+    capacidade_incidentes: int
+    capacidade_assuntos: int
+    capacidade_erros: int
+    janela_reincidencia_s: float
+    limite_repeticoes: int
+    impacto: ConfigImpactoAfetivo
+
+
+def carregar_config_observation_affective(path: Path) -> ConfigPipelineAfetivoObservacional:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if payload.get("schema_version") != 1:
+        raise ValueError("observation affective config schema_version must be 1")
+    capacidades = payload.get("capacidades")
+    ganhos = payload.get("ganhos")
+    gravidades = payload.get("gravidades")
+    if not isinstance(capacidades, dict) or not isinstance(ganhos, dict) or not isinstance(gravidades, dict):
+        raise ValueError("observation affective config sections are required")
+    valores_capacidade = {
+        nome: int(capacidades[nome])
+        for nome in ("stimulus_ids", "incidentes", "assuntos", "erros")
+    }
+    if any(valor <= 0 for valor in valores_capacidade.values()):
+        raise ValueError("observation affective capacities must be > 0")
+    impacto = ConfigImpactoAfetivo(
+        gravidades=gravidades,
+        gravidade_fallback=payload["gravidade_fallback"],
+        peso_operacional_minimo=payload["peso_operacional_minimo"],
+        limiar_critico=payload["limiar_critico"],
+        ganho_estresse_incidente=ganhos["estresse_incidente"],
+        ganho_ativacao_incidente=ganhos["ativacao_incidente"],
+        perda_valencia_incidente=ganhos["perda_valencia_incidente"],
+        ganho_ativacao_insegura=ganhos["ativacao_insegura"],
+        ganho_curiosidade_insegura=ganhos["curiosidade_insegura"],
+        reducao_estresse_recuperacao=ganhos["reducao_estresse_recuperacao"],
+        ganho_valencia_recuperacao=ganhos["valencia_recuperacao"],
+        ganho_confianca_recuperacao=ganhos["confianca_recuperacao"],
+    )
+    janela = float(payload["janela_reincidencia_s"])
+    limite = int(payload["limite_repeticoes"])
+    if janela <= 0 or limite <= 0:
+        raise ValueError("reincidence policy must be > 0")
+    return ConfigPipelineAfetivoObservacional(
+        valores_capacidade["stimulus_ids"],
+        valores_capacidade["incidentes"],
+        valores_capacidade["assuntos"],
+        valores_capacidade["erros"],
+        janela,
+        limite,
+        impacto,
+    )
 
 
 @dataclass(frozen=True)
