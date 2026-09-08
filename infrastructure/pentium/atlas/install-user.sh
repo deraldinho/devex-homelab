@@ -63,6 +63,7 @@ for file in \
   affective_composition.py \
   affective_interaction_ipc.py \
   observation_daemon.py \
+  affective_boot_certification.py \
   modelo_contexto_cognitivo.py \
   configuracao_cognitiva.py \
   contexto_cognitivo.py \
@@ -175,6 +176,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/affective_composition.py" \
   "${TARGET_DIR}/affective_interaction_ipc.py" \
   "${TARGET_DIR}/observation_daemon.py" \
+  "${TARGET_DIR}/affective_boot_certification.py" \
   "${TARGET_DIR}/modelo_contexto_cognitivo.py" \
   "${TARGET_DIR}/configuracao_cognitiva.py" \
   "${TARGET_DIR}/contexto_cognitivo.py" \

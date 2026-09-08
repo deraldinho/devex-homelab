@@ -181,6 +181,7 @@ jobs:
               "$atlas/affective_composition.py" \
               "$atlas/affective_interaction_ipc.py" \
               "$atlas/observation_daemon.py" \
+              "$atlas/affective_boot_certification.py" \
               "$atlas/modelo_contexto_cognitivo.py" \
               "$atlas/configuracao_cognitiva.py" \
               "$atlas/contexto_cognitivo.py" \
