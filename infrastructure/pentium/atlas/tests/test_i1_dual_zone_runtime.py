@@ -42,7 +42,7 @@ def schedules():
 
 
 class DualZoneRuntimeTests(unittest.TestCase):
-    def build(self, wifi, managed):
+    def build(self, wifi, managed, accepted_stimulus_sink=None):
         return build_dual_zone_runtime(
             wifi_source=wifi,
             managed_read_service=managed,
@@ -50,12 +50,20 @@ class DualZoneRuntimeTests(unittest.TestCase):
             bus=StimulusBus(capacity=16),
             journal=lambda stimulus: None,
             schedule=schedules(),
+            accepted_stimulus_sink=accepted_stimulus_sink,
         )
 
     def test_builds_one_runtime_for_both_zones(self):
         runtime = self.build(WifiSource(), ManagedService())
         self.assertIsNotNone(runtime.run_once("wifi.presence"))
         self.assertIsNotNone(runtime.run_once("managed.x99"))
+
+    def test_accepted_sink_is_forwarded_to_single_observation_runtime(self):
+        received = []
+        runtime = self.build(WifiSource(), ManagedService(), received.append)
+        runtime.run_once("managed.x99")
+        self.assertEqual(1, len(received))
+        self.assertEqual("managed.x99", received[0].source)
 
     def test_managed_failure_does_not_block_wifi(self):
         wifi = WifiSource()

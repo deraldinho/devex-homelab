@@ -24,7 +24,7 @@
     },
     "x99": {
       "entidade_id": "x99",
-      "campos_alcance": [],
+      "campos_alcance": ["channel_healthy"],
       "confianca": 0.80
     }
   },
