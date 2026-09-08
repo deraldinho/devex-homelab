@@ -71,6 +71,7 @@ class ResultadoPipelineAfetivoObservacional:
     aceito: bool
     resultado_foco_emocao: object | None = None
     impacto: object | None = None
+    resultado_percepcao: object | None = None
 
 
 class PipelineAfetivoObservacional:
@@ -220,4 +221,5 @@ class PipelineAfetivoObservacional:
             True,
             resultado_foco,
             impacto,
+            resultado,
         )
