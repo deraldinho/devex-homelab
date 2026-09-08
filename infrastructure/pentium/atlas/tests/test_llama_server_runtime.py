@@ -29,3 +29,25 @@ class LlamaCppServerRuntimeTests(unittest.TestCase):
         runtime = LlamaCppServerRuntime(Path('/opt/llama-server'), Path('/models/q.gguf'), Path('/tmp/a.sock'), context_size=2048, cache_reuse=32, starter=lambda argv, **kw: proc)
         runtime.start(); runtime.stop()
         self.assertTrue(proc.terminated)
+
+
+class LlamaCppServerStaleSocketTests(unittest.TestCase):
+    def test_start_remove_socket_stale_before_spawn(self):
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as tmp:
+            socket_path = Path(tmp) / 'atlas-llm.sock'
+            socket_path.write_text('stale', encoding='utf-8')
+            seen = []
+            proc = FakeProcess()
+            runtime = LlamaCppServerRuntime(Path('/opt/llama-server'), Path('/models/q.gguf'), socket_path, context_size=4096, cache_reuse=64, starter=lambda argv, **kw: seen.append(socket_path.exists()) or proc)
+            runtime.start()
+            self.assertEqual([False], seen)
+
+    def test_stop_remove_socket_owned(self):
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as tmp:
+            socket_path = Path(tmp) / 'atlas-llm.sock'
+            proc = FakeProcess()
+            runtime = LlamaCppServerRuntime(Path('/opt/llama-server'), Path('/models/q.gguf'), socket_path, context_size=2048, cache_reuse=32, starter=lambda argv, **kw: proc)
+            runtime.start(); socket_path.write_text('owned', encoding='utf-8'); runtime.stop()
+            self.assertFalse(socket_path.exists())

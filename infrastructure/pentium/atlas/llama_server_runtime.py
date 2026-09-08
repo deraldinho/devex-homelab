@@ -19,14 +19,14 @@ class LlamaCppServerRuntime:
     def start(self):
         if self._proc is not None and self._proc.poll() is None:
             return self._proc
+        self._socket.unlink(missing_ok=True)
         argv = [str(self._binary), "-m", str(self._model), "-c", str(self._context_size), "--host", str(self._socket), "--cache-prompt", "--cache-reuse", str(self._cache_reuse)]
         self._proc = self._starter(argv, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return self._proc
 
     def stop(self):
-        if self._proc is None:
-            return
-        if self._proc.poll() is None:
-            self._proc.terminate()
-            self._proc.wait(timeout=5)
-        self._proc = None
+        proc, self._proc = self._proc, None
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            proc.wait(timeout=5)
+        self._socket.unlink(missing_ok=True)
