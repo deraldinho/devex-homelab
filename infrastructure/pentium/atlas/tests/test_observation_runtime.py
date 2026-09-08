@@ -153,6 +153,16 @@ class ObservationRuntimeTests(unittest.TestCase):
         self.assertEqual(stimulus.kind, "source_error")
         self.assertEqual(stimulus.severity, StimulusSeverity.CRITICAL)
 
+    def test_error_buffer_is_bounded_for_always_on_runtime(self):
+        source = SequenceSource("core", [snapshot("healthy", 1), snapshot("healthy", 2), snapshot("healthy", 3)])
+        runtime = ObservationRuntime(
+            sources=[source], bus=StimulusBus(capacity=16),
+            journal=lambda _stimulus: (_ for _ in ()).throw(OSError("disk")),
+            error_capacity=2,
+        )
+        runtime.run_once("core"); runtime.run_once("core"); runtime.run_once("core")
+        self.assertEqual(2, len(runtime.errors()))
+
     def test_journal_failure_does_not_block_bus_or_advance_twice(self):
         source = SequenceSource("core", [snapshot(), snapshot()])
         calls = []

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import random
+from collections import deque
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -150,6 +151,7 @@ class ObservationRuntime:
         poll_runner: Callable[[StimulusSource, float], SourceSnapshot] | None = None,
         jitter_fn: Callable[[float], float] = lambda maximum: random.uniform(0.0, maximum),
         accepted_stimulus_sink: Callable[[Stimulus], None] | None = None,
+        error_capacity: int = 64,
     ):
         self._sources = {source.name: source for source in sources}
         if len(self._sources) != len(sources):
@@ -194,7 +196,9 @@ class ObservationRuntime:
         self._next_due = {name: 0.0 for name in self._sources}
         self._consecutive_failures = {name: 0 for name in self._sources}
         self._state = {name: _SourceState() for name in self._sources}
-        self._errors: list[str] = []
+        if not isinstance(error_capacity, int) or error_capacity <= 0:
+            raise ValueError("error_capacity must be integer > 0")
+        self._errors = deque(maxlen=error_capacity)
         self._accepted_stimulus_sink = accepted_stimulus_sink
 
     def errors(self) -> tuple[str, ...]:

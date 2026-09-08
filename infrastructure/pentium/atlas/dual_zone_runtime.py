@@ -30,6 +30,7 @@ def build_dual_zone_runtime(
     bus,
     journal,
     schedule: Mapping[str, SourceSchedule],
+    accepted_stimulus_sink=None,
 ) -> ObservationRuntime:
     if not managed_hosts:
         raise ValueError("managed_hosts must be non-empty")
@@ -49,4 +50,5 @@ def build_dual_zone_runtime(
         bus=bus,
         journal=journal,
         schedule=schedule,
+        accepted_stimulus_sink=accepted_stimulus_sink,
     )

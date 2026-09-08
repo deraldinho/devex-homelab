@@ -27,7 +27,8 @@
       "timeout_seconds": 8,
       "max_backoff_seconds": 240,
       "cooldown_seconds": 60,
-      "jitter_seconds": 0
+      "jitter_seconds": 0,
+      "operations": ["uptime", "cpu", "memory"]
     },
     "wifi.presence": {
       "interval_seconds": 60,

@@ -41,6 +41,7 @@ class AffectiveComposition:
     repo_a3: RepositorioPercepcaoCorrelacao
     repo_a4: RepositorioFocoEmocao
     allowed_sources: frozenset[str]
+    restoration: dict[str, str]
     errors_buffer: deque[str]
 
     def errors(self) -> tuple[str, ...]:
@@ -177,7 +178,15 @@ def build_affective_composition(
     ):
         if getattr(result, "erro", None):
             errors.append(f"restore:{origin}:{type(getattr(result, 'erro')).__name__}")
+    restoration = {
+        "a1": getattr(restored_a1.origem, "value", str(restored_a1.origem)),
+        "a2": getattr(restored_a2.origem, "value", str(restored_a2.origem)),
+        "a3": getattr(restored_a3.origem, "value", str(restored_a3.origem)),
+        "a4": str(restored_a4.origem),
+    }
     return AffectiveComposition(
-        pipeline, visual_runtime, perception, restored_a2.contexto, motor,
-        repo_a1, repo_a2, repo_a3, repo_a4, frozenset(source_cfgs), errors,
+        pipeline=pipeline, runtime_visual=visual_runtime, pipeline_percepcao=perception,
+        contexto_afetivo=restored_a2.contexto, motor_afetivo=motor,
+        repo_a1=repo_a1, repo_a2=repo_a2, repo_a3=repo_a3, repo_a4=repo_a4,
+        allowed_sources=frozenset(source_cfgs), restoration=restoration, errors_buffer=errors,
     )
