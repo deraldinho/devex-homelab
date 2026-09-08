@@ -47,23 +47,6 @@ class PipelinePercepcaoCorrelacao:
             id_factory=id_factory,
         )
 
-    def restaurar_estado(self, percepcoes, incidentes) -> None:
-        restauradas = tuple(percepcoes)
-        entidades_validas = {config.entidade_id for config in self._configs.values()}
-        por_entidade = {}
-        for percepcao in restauradas:
-            if percepcao.entidade_id not in entidades_validas:
-                raise ValueError(f"entidade restaurada sem configuracao: {percepcao.entidade_id}")
-            if percepcao.entidade_id in por_entidade:
-                raise ValueError(f"percepcao restaurada duplicada: {percepcao.entidade_id}")
-            por_entidade[percepcao.entidade_id] = percepcao
-        incidentes_restaurados = tuple(incidentes)
-        for incidente in incidentes_restaurados:
-            if incidente.entidade_principal not in entidades_validas:
-                raise ValueError(f"incidente restaurado sem entidade configurada: {incidente.entidade_principal}")
-        self._percepcoes = por_entidade
-        self._correlacionador.restaurar_ativos(incidentes_restaurados)
-
     def processar(self, stimulus: Stimulus) -> ResultadoPipelinePercepcaoCorrelacao:
         config = self._configs.get(stimulus.source)
         if config is None:
