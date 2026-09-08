@@ -3,6 +3,7 @@
 
   const MODES = new Set(["OCIOSO", "OBSERVANDO", "CONVERSANDO", "REAGINDO"]);
   const EXPRESSIONS = new Set(["SERENO", "ENGAJADO", "CURIOSO", "ATENTO", "PREOCUPADO", "SOB_PRESSAO", "RECUPERANDO"]);
+  const MIN_ARCHETYPE_DWELL_MS = 1200;
   const clamp01 = value => Math.max(0, Math.min(1, Number(value) || 0));
   const clampMs = value => Math.max(120, Math.min(1500, Number(value) || 400));
   const byId = id => document.getElementById(id);
@@ -28,6 +29,30 @@
       transicao_ms: clampMs(v.transicao_ms),
       source: v.source === "fallback" ? "fallback" : "canonical",
     });
+  }
+
+  let transitionState = null;
+
+  function isCriticalTransition(v) {
+    return v.modo === "REAGINDO" || v.expressao === "SOB_PRESSAO";
+  }
+
+  function settleVisualState(requested, nowMs = performance.now()) {
+    if (!transitionState) {
+      transitionState = { expression: requested.expressao, changedAt: nowMs };
+      return requested;
+    }
+    if (requested.expressao === transitionState.expression) return requested;
+    const dwellMs = nowMs - transitionState.changedAt;
+    if (!isCriticalTransition(requested) && dwellMs < MIN_ARCHETYPE_DWELL_MS) {
+      return Object.freeze({ ...requested, expressao: transitionState.expression });
+    }
+    transitionState = { expression: requested.expressao, changedAt: nowMs };
+    return requested;
+  }
+
+  function resetTransitionState() {
+    transitionState = null;
   }
 
   function renderSvgFallback(v) {
@@ -69,7 +94,7 @@
   }
 
   function render(visual) {
-    const v = normalize(visual);
+    const v = settleVisualState(normalize(visual));
     renderSvgFallback(v);
     const pixiReady = Boolean(engine?.ready && engine.render(v));
     renderMeta(v, pixiReady);
@@ -81,5 +106,11 @@
     return v;
   }
 
-  window.AtlasAvatarRenderer = Object.freeze({ render, normalize, ensureEngine });
+  window.AtlasAvatarRenderer = Object.freeze({
+    render,
+    normalize,
+    settleVisualState,
+    resetTransitionState,
+    ensureEngine,
+  });
 })();
