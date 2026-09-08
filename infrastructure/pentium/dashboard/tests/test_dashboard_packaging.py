@@ -24,6 +24,7 @@ class DashboardPackagingTests(unittest.TestCase):
     def test_installer_restarts_dashboard_after_install(self):
         script = (ROOT / "install-user.sh").read_text(encoding="utf-8")
         self.assertIn("systemctl --user restart atlas-dashboard.service", script)
+        self.assertIn("cognitive_panel_certification.py", script)
 
     def test_installer_packages_avatar_assets_and_fetches_pixi(self):
         script = (ROOT / "install-user.sh").read_text(encoding="utf-8")
@@ -34,3 +35,9 @@ class DashboardPackagingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class DashboardEncodingTests(unittest.TestCase):
+    def test_config_is_utf8_without_bom(self):
+        raw = (ROOT / "config.json").read_bytes()
+        self.assertFalse(raw.startswith(b"\xef\xbb\xbf"))
+        raw.decode("utf-8")

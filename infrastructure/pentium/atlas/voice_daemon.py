@@ -122,7 +122,16 @@ def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntim
                          max_tokens_contexto=int(cfg["llm_context_tokens"]), reasoning_policy=ReasoningPolicy())
     capabilities = PolicyCapabilities(atlas_capability_registry(), read_auto_allow=("get_host_status",), control_allow=())
     cognitive_loop = ReactionLoopCognitivo(activation, builder, gateway, capability_policy=capabilities)
-    context_provider = HumanContextProvider(_path(cfg["health_path"]))
+    expected_sha = (
+        os.environ.get("ATLAS_EXPECTED_SHA") or None
+        if cognitive.observation_bridge.require_expected_sha else None
+    )
+    context_provider = HumanContextProvider(
+        _path(cfg["health_path"]),
+        _path(cognitive.observation_bridge.snapshot_path),
+        max_snapshot_age_s=cognitive.observation_bridge.max_snapshot_age_s,
+        expected_sha=expected_sha,
+    )
     interaction = HumanInteractionGateway(cognitive_loop, context_provider=context_provider,
                                           max_text_chars=cognitive.contexto.max_string_chars)
     tts = LiveTtsBackend(

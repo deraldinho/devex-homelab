@@ -20,7 +20,7 @@ class V1PackagingTests(unittest.TestCase):
             self.assertIn(name, compile_section)
         self.assertIn("config_voice.json", text)
         self.assertIn("atlas-voice.service", text)
-        self.assertIn("systemctl --user enable atlas-voice.service", text)
+        self.assertNotIn("systemctl --user enable atlas-voice.service", text)
         self.assertIn("ATLAS_V1_ALWAYS_ON_VOICE_INSTALL_PASS", text)
 
 if __name__ == "__main__": unittest.main()

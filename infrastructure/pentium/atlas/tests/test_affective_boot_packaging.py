@@ -15,7 +15,7 @@ class AffectiveBootPackagingTests(unittest.TestCase):
         self.assertNotIn("x99", service.lower())
         self.assertNotIn("atlas-voice.service", service)
 
-    def test_installer_packages_runtime_and_enables_both_services(self):
+    def test_installer_packages_runtime_and_preserves_voice_enable_state(self):
         text = (ATLAS / "install-user.sh").read_text(encoding="utf-8")
         for name in (
             "affective_composition.py", "affective_interaction_ipc.py",
@@ -24,7 +24,7 @@ class AffectiveBootPackagingTests(unittest.TestCase):
         ):
             self.assertIn(name, text)
         self.assertIn("enable atlas-observation.service", text)
-        self.assertIn("enable atlas-voice.service", text)
+        self.assertNotIn("enable atlas-voice.service", text)
 
     def test_foundation_ci_compiles_and_exposes_boot_gate(self):
         text = WORKFLOW.read_text(encoding="utf-8")

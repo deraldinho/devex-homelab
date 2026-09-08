@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 
+from .human_context import CognitiveContextUnavailable
 from .stimulus_model import Stimulus, StimulusSeverity
 
 
@@ -33,7 +34,10 @@ class HumanInteractionGateway:
             timestamp=now, payload={"text": clean}, novelty=1.0,
             correlation_id=f"human-{fingerprint[:16]}",
         )
-        context = dict(self._context_provider())
+        try:
+            context = dict(self._context_provider())
+        except CognitiveContextUnavailable:
+            return "Meu contexto observacional esta indisponivel no momento."
         recent = list(context.get("mudancas_recentes", ()))
         recent.append(stimulus)
         context["mudancas_recentes"] = recent

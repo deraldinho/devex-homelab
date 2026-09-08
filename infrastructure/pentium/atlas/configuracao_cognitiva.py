@@ -42,10 +42,26 @@ class PoliticaAtivacaoCognitiva:
             raise ValueError("max_ativacoes_autonomas_janela deve ser inteiro > 0")
 
 @dataclass(frozen=True)
+class PoliticaObservationBridge:
+    snapshot_path: str
+    max_snapshot_age_s: float
+    require_expected_sha: bool
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.snapshot_path, str) or not self.snapshot_path.strip():
+            raise ValueError("snapshot_path deve ser string nao vazia")
+        if float(self.max_snapshot_age_s) <= 0:
+            raise ValueError("max_snapshot_age_s deve ser > 0")
+        if not isinstance(self.require_expected_sha, bool):
+            raise ValueError("require_expected_sha deve ser booleano")
+
+
+@dataclass(frozen=True)
 class ConfiguracaoCognitiva:
     schema_version: int
     contexto: PoliticaContextoCognitivo
     ativacao: PoliticaAtivacaoCognitiva
+    observation_bridge: PoliticaObservationBridge
 
 
 def carregar_configuracao_cognitiva(path: str | Path) -> ConfiguracaoCognitiva:
@@ -54,10 +70,12 @@ def carregar_configuracao_cognitiva(path: str | Path) -> ConfiguracaoCognitiva:
         raise ValueError("schema_version cognitivo deve ser 1")
     contexto = payload.get("contexto")
     ativacao = payload.get("ativacao")
-    if not isinstance(contexto, dict) or not isinstance(ativacao, dict):
-        raise ValueError("contexto e ativacao sao obrigatorios")
+    observation_bridge = payload.get("observation_bridge")
+    if not isinstance(contexto, dict) or not isinstance(ativacao, dict) or not isinstance(observation_bridge, dict):
+        raise ValueError("contexto, ativacao e observation_bridge sao obrigatorios")
     return ConfiguracaoCognitiva(
         schema_version=1,
         contexto=PoliticaContextoCognitivo(**contexto),
         ativacao=PoliticaAtivacaoCognitiva(**ativacao),
+        observation_bridge=PoliticaObservationBridge(**observation_bridge),
     )

@@ -49,3 +49,15 @@ class DashboardUiContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class DashboardCognitivePanelUiTests(unittest.TestCase):
+    def test_ui_contains_mind_panel_contract(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        for token in ("Mente do Atlas", "cognitionStatus", "cognitionPipeline", "a1Metrics", "a3Perception", "a4Emotion", "cognitionChanges", "renderCognition", "status.cognition"):
+            self.assertIn(token, html)
+
+    def test_ui_contains_cognition_states_without_controls(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        for token in ("available", "stale", "unavailable", "CONTEXTO INDISPONÍVEL"):
+            self.assertIn(token, html)
+        self.assertNotIn("/api/cognition/control", html)

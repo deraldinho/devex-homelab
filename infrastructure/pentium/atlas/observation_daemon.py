@@ -118,6 +118,7 @@ def build_observation_context(
         state_dir=state_dir,
         now=_utc_now,
         id_factory=lambda: str(uuid.uuid4()),
+        expected_sha=expected_sha,
     )
     bus = StimulusBus(capacity=128)
     journal_path = state_dir / "stimulus.jsonl"
@@ -151,7 +152,9 @@ def _health_payload(context: ObservationDaemonContext) -> dict:
     runtime_errors = context.runtime.errors()
     composition_errors = context.composition.errors()
     interaction_errors = context.interaction_listener.errors()
-    status = "degraded" if runtime_errors or composition_errors or interaction_errors else "healthy"
+    bridge_status = context.composition.cognitive_bridge_status()
+    bridge_error = bridge_status["current_error"]
+    status = "degraded" if runtime_errors or composition_errors or interaction_errors or bridge_error else "healthy"
     return {
         "schema_version": 1,
         "status": status,
@@ -163,10 +166,13 @@ def _health_payload(context: ObservationDaemonContext) -> dict:
             "observation": list(runtime_errors[-16:]),
             "affective": list(composition_errors[-16:]),
             "interaction": list(interaction_errors[-16:]),
+            "cognitive_bridge": [bridge_error] if bridge_error else [],
         },
         "diagnostics": {
             "affective": list(context.composition.diagnostics()[-16:]),
+            "cognitive_bridge": list(context.composition.cognitive_bridge_diagnostics()[-16:]),
         },
+        "cognitive_bridge": bridge_status,
         "visual_present": (context.health_path.parent / "visual-state.json").is_file(),
     }
 
