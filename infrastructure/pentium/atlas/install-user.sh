@@ -66,6 +66,7 @@ for file in \
   affective_boot_certification.py \
   cognitive_observation_projection.py \
   cognitive_context_bridge_certification.py \
+  cognitive_daemon.py \
   modelo_contexto_cognitivo.py \
   configuracao_cognitiva.py \
   contexto_cognitivo.py \
@@ -181,6 +182,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/affective_boot_certification.py" \
   "${TARGET_DIR}/cognitive_observation_projection.py" \
   "${TARGET_DIR}/cognitive_context_bridge_certification.py" \
+  "${TARGET_DIR}/cognitive_daemon.py" \
   "${TARGET_DIR}/modelo_contexto_cognitivo.py" \
   "${TARGET_DIR}/configuracao_cognitiva.py" \
   "${TARGET_DIR}/contexto_cognitivo.py" \
@@ -273,11 +275,16 @@ echo "ATLAS_COGNITIVE_CACHE_K2_INSTALL_PASS"
 echo "ATLAS_I1_OBSERVATION_INTEGRATION_INSTALL_PASS"
 install -d -m 0755 "${HOME}/.config/systemd/user"
 install -m 0644 "${SOURCE_DIR}/atlas-observation.service" "${HOME}/.config/systemd/user/atlas-observation.service"
+install -m 0644 "${SOURCE_DIR}/atlas-cognitive.service" "${HOME}/.config/systemd/user/atlas-cognitive.service"
 install -m 0644 "${SOURCE_DIR}/atlas-voice.service" "${HOME}/.config/systemd/user/atlas-voice.service"
 if systemctl --user show-environment >/dev/null 2>&1; then
   systemctl --user daemon-reload
   systemctl --user enable atlas-observation.service
+  systemctl --user enable atlas-cognitive.service
+  systemctl --user restart atlas-observation.service
+  systemctl --user restart atlas-cognitive.service
 fi
 
+echo "ATLAS_COGNITIVE_RUNTIME_INSTALL_PASS"
 echo "ATLAS_V1_ALWAYS_ON_VOICE_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"

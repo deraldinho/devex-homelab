@@ -51,6 +51,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         assets = {
             "/assets/pixi.min.js": "pixi.min.js",
+            "/assets/atlas-avatar-motion.js": "atlas-avatar-motion.js",
             "/assets/atlas-avatar-engine.js": "atlas-avatar-engine.js",
             "/assets/atlas-avatar-renderer.js": "atlas-avatar-renderer.js",
         }

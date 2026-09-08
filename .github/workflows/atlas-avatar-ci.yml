@@ -44,11 +44,13 @@ jobs:
           set -euo pipefail
           dashboard='infrastructure/pentium/dashboard'
           python3 -m py_compile "$dashboard/atlas_dashboard.py" "$dashboard/dashboard_collectors.py"
+          node --check "$dashboard/atlas-avatar-motion.js"
           node --check "$dashboard/atlas-avatar-engine.js"
           node --check "$dashboard/atlas-avatar-renderer.js"
           bash -n "$dashboard/install-user.sh"
           bash -n "$dashboard/fetch-pixi.sh"
           python3 -m unittest discover -s "$dashboard/tests" -p 'test_*.py' -v
+          echo 'DEVEX_HOMELAB_ATLAS_AVATAR_MOTION_V12_PASS'
           echo 'DEVEX_HOMELAB_ATLAS_AVATAR_CONTRACT_PASS'
 
       - name: Validar bundle oficial PixiJS

@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import socket
 import threading
 import uuid
 
@@ -57,6 +58,7 @@ class ObservationDaemonContext:
     bus: StimulusBus
     composition: AffectiveComposition
     interaction_listener: object
+    cognitive_interaction_listener: object
     health_path: Path
     expected_sha: str | None
     last_cycle_at: str | None = None
@@ -65,7 +67,25 @@ class ObservationDaemonContext:
         try:
             self.interaction_listener.close()
         finally:
-            self.runtime.close()
+            try:
+                self.cognitive_interaction_listener.close()
+            finally:
+                self.runtime.close()
+
+
+
+class _NullInteractionListener:
+    def run_once(self, *, timeout_s: float = 0.2) -> bool:
+        return False
+    def errors(self) -> tuple[str, ...]:
+        return ()
+    def close(self) -> None:
+        return None
+
+def _listener_or_null(path: Path, sink):
+    if not hasattr(socket, "AF_UNIX"):
+        return _NullInteractionListener()
+    return InteractionDatagramListener(path, sink)
 
 def _managed_service(agent_config_path: Path):
     payload = load_agent_config(agent_config_path)
@@ -82,6 +102,7 @@ def build_observation_context(
     managed_read_service=None,
     scanner=None,
     interaction_listener=None,
+    cognitive_interaction_listener=None,
     expected_sha: str | None = None,
 ) -> ObservationDaemonContext:
     config_root = Path(config_root)
@@ -137,8 +158,12 @@ def build_observation_context(
         state_dir / "affective-interaction.sock",
         composition.runtime_visual.atualizar_interacao,
     )
+    cognitive_listener = cognitive_interaction_listener or _listener_or_null(
+        state_dir / "cognitive-interaction.sock",
+        composition.runtime_visual.atualizar_cognicao,
+    )
     return ObservationDaemonContext(
-        runtime, bus, composition, listener,
+        runtime, bus, composition, listener, cognitive_listener,
         state_dir / "observation-affective-health.json",
         expected_sha,
     )
@@ -152,9 +177,10 @@ def _health_payload(context: ObservationDaemonContext) -> dict:
     runtime_errors = context.runtime.errors()
     composition_errors = context.composition.errors()
     interaction_errors = context.interaction_listener.errors()
+    cognitive_interaction_errors = context.cognitive_interaction_listener.errors()
     bridge_status = context.composition.cognitive_bridge_status()
     bridge_error = bridge_status["current_error"]
-    status = "degraded" if runtime_errors or composition_errors or interaction_errors or bridge_error else "healthy"
+    status = "degraded" if runtime_errors or composition_errors or interaction_errors or cognitive_interaction_errors or bridge_error else "healthy"
     return {
         "schema_version": 1,
         "status": status,
@@ -166,6 +192,7 @@ def _health_payload(context: ObservationDaemonContext) -> dict:
             "observation": list(runtime_errors[-16:]),
             "affective": list(composition_errors[-16:]),
             "interaction": list(interaction_errors[-16:]),
+            "cognitive_interaction": list(cognitive_interaction_errors[-16:]),
             "cognitive_bridge": [bridge_error] if bridge_error else [],
         },
         "diagnostics": {
@@ -181,6 +208,7 @@ def run_daemon_cycle(context: ObservationDaemonContext) -> float:
     delay = context.runtime.run_scheduled_cycle()
     timeout = min(1.0, max(0.01, float(delay)))
     context.interaction_listener.run_once(timeout_s=timeout)
+    context.cognitive_interaction_listener.run_once(timeout_s=0.01)
     _drain_bus(context.bus)
     context.last_cycle_at = _utc_now()
     _atomic_json(context.health_path, _health_payload(context))

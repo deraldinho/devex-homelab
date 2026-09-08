@@ -58,6 +58,6 @@ class DashboardCognitivePanelUiTests(unittest.TestCase):
 
     def test_ui_contains_cognition_states_without_controls(self):
         html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
-        for token in ("available", "stale", "unavailable", "CONTEXTO INDISPONÍVEL"):
+        for token in ("available", "stale", "unavailable", "CONTEXTO INDISPON&Iacute;VEL"):
             self.assertIn(token, html)
         self.assertNotIn("/api/cognition/control", html)

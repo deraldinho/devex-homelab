@@ -36,6 +36,7 @@ def default_config() -> dict:
         "visual_state_path": "~/pentium-agent/atlas/runtime/visual-state.json",
         "cognitive_snapshot_path": "~/pentium-agent/atlas/runtime/cognitive-observation-context.json",
         "cognitive_health_path": "~/pentium-agent/atlas/runtime/observation-affective-health.json",
+        "cognitive_runtime_path": "~/pentium-agent/atlas/runtime/cognitive-runtime.json",
         "cognitive_max_age_s": 180,
     }
 
@@ -233,6 +234,25 @@ def collect_cognition(config: dict, *, now=lambda: datetime.now(timezone.utc)) -
         "bridge": {"current_error": ((health or {}).get("cognitive_bridge") or {}).get("current_error")},
     }
 
+
+
+def collect_cognitive_runtime(config: dict) -> dict:
+    payload = _read_json(config["cognitive_runtime_path"])
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        return {"status": "unavailable"}
+    return {
+        "status": "available",
+        "generated_at": payload.get("generated_at"),
+        "source_stimulus_id": payload.get("source_stimulus_id"),
+        "activated": bool(payload.get("activated", False)),
+        "reason": payload.get("reason"),
+        "motivo": payload.get("motivo"),
+        "backend": payload.get("backend"),
+        "duration_ms": payload.get("duracao_ms"),
+        "confidence": payload.get("confianca"),
+        "requires_confirmation": bool(payload.get("requer_confirmacao", False)),
+    }
+
 def collect_status(config: dict, *, command_runner: CommandRunner = run_command, meminfo_text: str | None = None, uptime_text: str | None = None, cognition_now=lambda: datetime.now(timezone.utc)) -> dict:
     import shutil
 
@@ -264,11 +284,13 @@ def collect_status(config: dict, *, command_runner: CommandRunner = run_command,
     return {
         "visual": _visual_state(config),
         "cognition": collect_cognition(config, now=cognition_now),
+        "cognitive_runtime": collect_cognitive_runtime(config),
         "atlas": {"sha": _read_text(config["deploy_sha_path"]), "health": health.get("status", "unknown")},
         "services": {
             "agent": _unit("pentium-agent.service", command_runner),
             "heartbeat": _unit("pentium-heartbeat.timer", command_runner),
             "voice": voice_unit,
+            "cognitive": _unit("atlas-cognitive.service", command_runner),
             "dashboard": _unit("atlas-dashboard.service", command_runner),
         },
         "voice": {

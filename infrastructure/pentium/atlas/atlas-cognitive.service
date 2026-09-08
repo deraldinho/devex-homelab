@@ -1,0 +1,21 @@
+[Unit]
+Description=Atlas always-on cognitive runtime
+After=network-online.target atlas-observation.service
+Wants=network-online.target atlas-observation.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/pentium-agent
+ExecStart=/usr/bin/python3 -m atlas.cognitive_daemon
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/pentium-agent/atlas/runtime /run/user/%U
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=default.target

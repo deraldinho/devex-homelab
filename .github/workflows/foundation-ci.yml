@@ -184,6 +184,7 @@ jobs:
               "$atlas/affective_boot_certification.py" \
               "$atlas/cognitive_observation_projection.py" \
               "$atlas/cognitive_context_bridge_certification.py" \
+              "$atlas/cognitive_daemon.py" \
               "$atlas/modelo_contexto_cognitivo.py" \
               "$atlas/configuracao_cognitiva.py" \
               "$atlas/contexto_cognitivo.py" \
@@ -250,7 +251,7 @@ jobs:
             python3 -c "import json,pathlib; h=json.loads(pathlib.Path('/tmp/atlas-healthy.json').read_text()); c=json.loads(pathlib.Path('/tmp/atlas-critical.json').read_text()); assert h['assessment']['state']=='healthy'; assert c['assessment']['state']=='critical'; assert c['reaction']['reaction_id']=='critical.canonical'"
             bash -n "$atlas/install-user.sh"
             if command -v systemd-analyze >/dev/null 2>&1; then
-              systemd-analyze verify "$atlas/atlas-observation.service" "$atlas/atlas-voice.service"
+              systemd-analyze verify "$atlas/atlas-observation.service" "$atlas/atlas-cognitive.service" "$atlas/atlas-voice.service"
             fi
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
@@ -267,6 +268,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_AFFECTIVE_PIPELINE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFFECTIVE_BOOT_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CONTEXT_BRIDGE_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_RUNTIME_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C3_PASS'
