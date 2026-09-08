@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import dashboard_collectors
 
@@ -38,14 +39,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         collectors = self.server.collectors
         config = self.server.config
-        if self.path == "/healthz":
+        request_path = urlsplit(self.path).path
+        if request_path == "/healthz":
             self._send(200, "application/json; charset=utf-8", b'{"status":"ok"}')
             return
-        if self.path == "/api/status":
+        if request_path == "/api/status":
             body = json.dumps(collectors.collect_status(config), ensure_ascii=True).encode()
             self._send(200, "application/json; charset=utf-8", body)
             return
-        if self.path == "/api/events":
+        if request_path == "/api/events":
             body = json.dumps(collectors.collect_events(config), ensure_ascii=True).encode()
             self._send(200, "application/json; charset=utf-8", body)
             return
@@ -55,10 +57,10 @@ class Handler(BaseHTTPRequestHandler):
             "/assets/atlas-avatar-engine.js": "atlas-avatar-engine.js",
             "/assets/atlas-avatar-renderer.js": "atlas-avatar-renderer.js",
         }
-        if self.path in assets:
-            self._send_asset(assets[self.path])
+        if request_path in assets:
+            self._send_asset(assets[request_path])
             return
-        if self.path == "/":
+        if request_path == "/":
             body = Path(__file__).with_name("dashboard.html").read_bytes()
             self._send(200, "text/html; charset=utf-8", body)
             return

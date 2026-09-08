@@ -47,6 +47,17 @@ class HttpContractTests(unittest.TestCase):
         self.assertIn("application/json", headers["Content-Type"])
         self.assertEqual(json.loads(body)["atlas"]["health"], "healthy")
 
+    def test_query_string_does_not_change_route_resolution(self):
+        status, headers, body = self.request("GET", "/?v=eab9893")
+        self.assertEqual(status, 200)
+        self.assertIn("text/html", headers["Content-Type"])
+        self.assertIn(b"Atlas Observability Dashboard", body)
+
+        status, headers, body = self.request("GET", "/assets/atlas-avatar-engine.js?v=eab9893")
+        self.assertEqual(status, 200)
+        self.assertIn("application/javascript", headers["Content-Type"])
+        self.assertIn(b"AtlasAvatarEngine", body)
+
     def test_post_is_rejected_with_405(self):
         status, _, _ = self.request("POST", "/api/status")
         self.assertEqual(status, 405)
