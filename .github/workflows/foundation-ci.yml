@@ -172,6 +172,10 @@ jobs:
               "$atlas/emocao_derivada.py" \
               "$atlas/contexto_foco_emocao.py" \
               "$atlas/persistencia_foco_emocao.py" \
+              "$atlas/modelo_visual_atlas.py" \
+              "$atlas/compositor_visual_afetivo.py" \
+              "$atlas/visual_state_publisher.py" \
+              "$atlas/affective_runtime.py" \
               "$atlas/modelo_contexto_cognitivo.py" \
               "$atlas/configuracao_cognitiva.py" \
               "$atlas/contexto_cognitivo.py" \
@@ -219,6 +223,7 @@ jobs:
             python3 -m json.tool "$atlas/config_afetiva.json" >/dev/null
             python3 -m json.tool "$atlas/config_percepcao.json" >/dev/null
             python3 -m json.tool "$atlas/config_foco_emocao.json" >/dev/null
+            python3 -m json.tool "$atlas/config_affective_runtime.json" >/dev/null
             python3 -m json.tool "$atlas/config_cognitiva.json" >/dev/null
             python3 -m json.tool "$atlas/config_llm.json" >/dev/null
             python3 -m json.tool "$atlas/config_memory.json" >/dev/null
@@ -246,6 +251,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A4_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_AFFECTIVE_RUNTIME_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C3_PASS'

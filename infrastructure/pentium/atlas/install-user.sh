@@ -54,6 +54,10 @@ for file in \
   emocao_derivada.py \
   contexto_foco_emocao.py \
   persistencia_foco_emocao.py \
+  modelo_visual_atlas.py \
+  compositor_visual_afetivo.py \
+  visual_state_publisher.py \
+  affective_runtime.py \
   modelo_contexto_cognitivo.py \
   configuracao_cognitiva.py \
   contexto_cognitivo.py \
@@ -107,7 +111,7 @@ for file in \
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
 
-for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_cognitiva.json config_llm.json config_memory.json config_cache.json config_llama_server.json config_fast_router.json config_voice.json; do
+for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_affective_runtime.json config_cognitiva.json config_llm.json config_memory.json config_cache.json config_llama_server.json config_fast_router.json config_voice.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
 
@@ -157,6 +161,10 @@ python3 -m py_compile \
   "${TARGET_DIR}/emocao_derivada.py" \
   "${TARGET_DIR}/contexto_foco_emocao.py" \
   "${TARGET_DIR}/persistencia_foco_emocao.py" \
+  "${TARGET_DIR}/modelo_visual_atlas.py" \
+  "${TARGET_DIR}/compositor_visual_afetivo.py" \
+  "${TARGET_DIR}/visual_state_publisher.py" \
+  "${TARGET_DIR}/affective_runtime.py" \
   "${TARGET_DIR}/modelo_contexto_cognitivo.py" \
   "${TARGET_DIR}/configuracao_cognitiva.py" \
   "${TARGET_DIR}/contexto_cognitivo.py" \
@@ -213,6 +221,7 @@ python3 -m json.tool "${TARGET_DIR}/observation_config.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_afetiva.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_percepcao.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_foco_emocao.json" >/dev/null
+python3 -m json.tool "${TARGET_DIR}/config_affective_runtime.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_cognitiva.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_llm.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_memory.json" >/dev/null
@@ -231,6 +240,7 @@ echo "ATLAS_AFETIVO_A1_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A2_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A3_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A4_INSTALL_PASS"
+echo "ATLAS_AFFECTIVE_RUNTIME_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C1_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C2_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C3_INSTALL_PASS"
