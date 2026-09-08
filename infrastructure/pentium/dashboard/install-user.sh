@@ -10,9 +10,10 @@ install -m 0755 "$SCRIPT_DIR/atlas_dashboard.py" "$TARGET_DIR/atlas_dashboard.py
 install -m 0644 "$SCRIPT_DIR/dashboard_collectors.py" "$TARGET_DIR/dashboard_collectors.py"
 install -m 0644 "$SCRIPT_DIR/dashboard.html" "$TARGET_DIR/dashboard.html"
 install -m 0644 "$SCRIPT_DIR/config.json" "$TARGET_DIR/config.json"
+install -m 0644 "$SCRIPT_DIR/cognitive_panel_certification.py" "$TARGET_DIR/cognitive_panel_certification.py"
 install -m 0644 "$SCRIPT_DIR/systemd/atlas-dashboard.service" "$USER_UNIT_DIR/atlas-dashboard.service"
 
-python3 -m py_compile "$TARGET_DIR/atlas_dashboard.py" "$TARGET_DIR/dashboard_collectors.py"
+python3 -m py_compile "$TARGET_DIR/atlas_dashboard.py" "$TARGET_DIR/dashboard_collectors.py" "$TARGET_DIR/cognitive_panel_certification.py"
 systemctl --user daemon-reload
 systemctl --user enable atlas-dashboard.service
 systemctl --user restart atlas-dashboard.service

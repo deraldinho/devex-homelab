@@ -24,6 +24,7 @@ class DashboardPackagingTests(unittest.TestCase):
     def test_installer_restarts_dashboard_after_install(self):
         script = (ROOT / "install-user.sh").read_text(encoding="utf-8")
         self.assertIn("systemctl --user restart atlas-dashboard.service", script)
+        self.assertIn("cognitive_panel_certification.py", script)
 
 
 if __name__ == "__main__":
