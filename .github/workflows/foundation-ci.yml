@@ -39,7 +39,7 @@ jobs:
             git diff --check HEAD^ HEAD || git diff --check
           fi
 
-      - name: Validar scripts e conteúdo sensível
+      - name: Validar scripts e conteÃºdo sensÃ­vel
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
           done < <(git ls-files '*.sh')
           workflow='.github/workflows/foundation-ci.yml'
           if git grep -n -E 'github_pat_|ghp_|tskey-|BEGIN (OPENSSH )?PRIVATE KEY' -- . ":(exclude)$workflow"; then
-            echo 'Padrão de secret encontrado em arquivo versionado.' >&2
+            echo 'PadrÃ£o de secret encontrado em arquivo versionado.' >&2
             exit 1
           fi
           if git grep -n -E 'TODO|TBD' -- . ":(exclude)$workflow"; then
@@ -71,7 +71,7 @@ jobs:
             echo 'NETWORK_CONTRACT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
-      - name: Validar heartbeat do Pentium quando disponível
+      - name: Validar heartbeat do Pentium quando disponÃ­vel
         shell: bash
         run: |
           set -euo pipefail
@@ -93,7 +93,7 @@ jobs:
             echo 'PENTIUM_HEARTBEAT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
-      - name: Validar Pentium Agent quando disponível
+      - name: Validar Pentium Agent quando disponÃ­vel
         shell: bash
         run: |
           set -euo pipefail
@@ -182,6 +182,8 @@ jobs:
               "$atlas/affective_interaction_ipc.py" \
               "$atlas/observation_daemon.py" \
               "$atlas/affective_boot_certification.py" \
+              "$atlas/cognitive_observation_projection.py" \
+              "$atlas/cognitive_context_bridge_certification.py" \
               "$atlas/modelo_contexto_cognitivo.py" \
               "$atlas/configuracao_cognitiva.py" \
               "$atlas/contexto_cognitivo.py" \
@@ -264,6 +266,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_AFFECTIVE_RUNTIME_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_AFFECTIVE_PIPELINE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFFECTIVE_BOOT_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CONTEXT_BRIDGE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C3_PASS'
@@ -279,7 +282,7 @@ jobs:
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
-      - name: Validar simulação quando disponível
+      - name: Validar simulaÃ§Ã£o quando disponÃ­vel
         shell: bash
         run: |
           set -euo pipefail
@@ -290,7 +293,7 @@ jobs:
             echo 'SIMULATION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
-      - name: Registrar evidência
+      - name: Registrar evidÃªncia
         shell: bash
         run: |
           set -euo pipefail
