@@ -5,6 +5,7 @@ from typing import Mapping
 class Evidence:
     expected_sha: str
     observed_sha: str
+    cognitive_expected_sha: str
     dashboard_service_state: str
     observation_service_state: str
     voice_service_state: str
@@ -28,7 +29,7 @@ def certify(evidence: Evidence) -> Result:
     cognition=evidence.status.get('cognition') if isinstance(evidence.status, Mapping) else None
     if not isinstance(cognition, Mapping) or cognition.get('status') != 'available': failures.append('cognition_not_available')
     else:
-        if cognition.get('observed_sha') != evidence.expected_sha: failures.append('cognition_sha_mismatch')
+        if cognition.get('observed_sha') != evidence.cognitive_expected_sha: failures.append('cognition_sha_mismatch')
         if cognition.get('entity_id') != 'x99': failures.append('cognition_entity_mismatch')
     if any(code != 405 for code in evidence.write_methods.values()): failures.append('write_method_accepted')
     passed=not failures
