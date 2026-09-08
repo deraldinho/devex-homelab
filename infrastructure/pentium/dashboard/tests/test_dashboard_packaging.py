@@ -29,7 +29,7 @@ class DashboardPackagingTests(unittest.TestCase):
         script = (ROOT / "install-user.sh").read_text(encoding="utf-8")
         for name in ("atlas-avatar-engine.js", "atlas-avatar-renderer.js", "fetch-pixi.sh", "pixi.min.js"):
             self.assertIn(name, script)
-        self.assertIn("node --check", script)
+        self.assertNotIn("node --check", script)
 
 
 if __name__ == "__main__":
