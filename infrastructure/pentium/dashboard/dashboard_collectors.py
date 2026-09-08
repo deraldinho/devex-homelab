@@ -151,7 +151,7 @@ def parse_ip_brief(text: str) -> dict[str, str]:
     return result
 
 
-def collect_status(config: dict, *, command_runner: CommandRunner = run_command) -> dict:
+def collect_status(config: dict, *, command_runner: CommandRunner = run_command, meminfo_text: str | None = None, uptime_text: str | None = None) -> dict:
     import shutil
 
     health = _read_json(config["health_path"]) or {}
@@ -165,8 +165,9 @@ def collect_status(config: dict, *, command_runner: CommandRunner = run_command)
 
     system = {"pid": os.getpid(), "uptime_s": None, "load_1m": None}
     try:
-        system.update(parse_meminfo(Path("/proc/meminfo").read_text(encoding="utf-8")))
-        system["uptime_s"] = round(float(Path("/proc/uptime").read_text().split()[0]), 1)
+        system.update(parse_meminfo(meminfo_text if meminfo_text is not None else Path("/proc/meminfo").read_text(encoding="utf-8")))
+        uptime_raw = uptime_text if uptime_text is not None else Path("/proc/uptime").read_text(encoding="utf-8")
+        system["uptime_s"] = int(float(uptime_raw.split()[0]))
         system["load_1m"] = round(float(Path("/proc/loadavg").read_text().split()[0]), 2)
     except (OSError, ValueError, IndexError):
         pass

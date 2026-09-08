@@ -98,3 +98,17 @@ class CollectorTests(unittest.TestCase):
         status = dc.collect_status(cfg, command_runner=runner)
         self.assertEqual(status["services"]["voice"]["enabled"], "disabled")
         self.assertEqual(status["services"]["voice"]["active"], "inactive")
+
+    def test_collect_status_uses_audio_system_and_network_sources(self):
+        def runner(command, timeout):
+            if command[:2] == ["arecord", "-l"]:
+                return dc.CommandResult(0, "card 0: Intel [HDA Intel], device 0: ALC272 Analog [ALC272 Analog]\ncard 1: Device [USB Composite Device], device 0: USB Audio [USB Audio]\n", "")
+            if command[:4] == ["ip", "-4", "-br", "addr"]:
+                return dc.CommandResult(0, "enp4s0 UP 192.168.88.3/24\nwlp1s0 UP 192.168.1.105/24\ntailscale0 UNKNOWN 100.107.230.78/32\n", "")
+            return dc.CommandResult(1, "", "unavailable")
+        cfg = dc.default_config()
+        status = dc.collect_status(cfg, command_runner=runner, meminfo_text="MemTotal: 2621440 kB\nMemAvailable: 524288 kB\nSwapTotal: 3145728 kB\nSwapFree: 2097152 kB\n", uptime_text="123.5 0.0")
+        self.assertEqual(len(status["audio"]["devices"]), 2)
+        self.assertEqual(status["system"]["memory_available_mb"], 512)
+        self.assertEqual(status["system"]["uptime_s"], 123)
+        self.assertEqual(status["network"]["lan"], "192.168.88.3/24")
