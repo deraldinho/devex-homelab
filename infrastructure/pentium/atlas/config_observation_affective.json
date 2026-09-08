@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "capacidades": {
+    "stimulus_ids": 1024,
+    "incidentes": 128,
+    "assuntos": 32,
+    "erros": 64
+  },
+  "janela_reincidencia_s": 86400,
+  "limite_repeticoes": 3,
+  "gravidades": {
+    "info": 0.15,
+    "notice": 0.30,
+    "warning": 0.60,
+    "critical": 1.0
+  },
+  "gravidade_fallback": 0.20,
+  "peso_operacional_minimo": 0.20,
+  "limiar_critico": 0.80,
+  "ganhos": {
+    "estresse_incidente": 0.50,
+    "ativacao_incidente": 0.40,
+    "perda_valencia_incidente": 0.30,
+    "ativacao_insegura": 0.20,
+    "curiosidade_insegura": 0.15,
+    "reducao_estresse_recuperacao": 0.50,
+    "valencia_recuperacao": 0.30,
+    "confianca_recuperacao": 0.20
+  }
+}
