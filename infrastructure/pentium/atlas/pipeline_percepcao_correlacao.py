@@ -84,3 +84,13 @@ class PipelinePercepcaoCorrelacao:
 
     def incidentes_ativos(self) -> tuple[IncidenteTecnico, ...]:
         return self._correlacionador.incidentes_ativos()
+
+    def restaurar(self, percepcoes, incidentes) -> None:
+        restauradas = tuple(percepcoes)
+        if len(restauradas) > len(self._configs):
+            raise OverflowError("percepcoes restauradas excedem fontes configuradas")
+        conhecidas = {config.entidade_id for config in self._configs.values()}
+        if any(item.entidade_id not in conhecidas for item in restauradas):
+            raise ValueError("percepcao restaurada possui entidade nao configurada")
+        self._percepcoes = {item.entidade_id: item for item in restauradas}
+        self._correlacionador.restaurar_ativos(incidentes)
