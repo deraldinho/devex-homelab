@@ -10,6 +10,8 @@ from .adaptador_impacto_afetivo import AdaptadorImpactoAfetivo
 from .affective_runtime import AffectiveRuntime
 from .compositor_visual_afetivo import CompositorVisualAfetivo
 from .configuracao_afetiva import carregar_configuracao_afetiva
+from .configuracao_cognitiva import carregar_configuracao_cognitiva
+from .cognitive_observation_projection import CognitiveObservationPublisher
 from .contexto_foco_emocao import ContextoFocoEmocao
 from .grafo_dependencias import GrafoDependencias
 from .modelo_foco import PoliticaFoco
@@ -44,12 +46,28 @@ class AffectiveComposition:
     restoration: dict[str, str]
     errors_buffer: deque[str]
     diagnostics_buffer: deque[str]
+    cognitive_publisher: object
+    recent_changes_buffer: deque[Stimulus]
+    cognitive_bridge_errors_buffer: deque[str]
+    bridge_last_publish_at: str | None = None
+    bridge_last_publish_stimulus_id: str | None = None
+    bridge_current_error: str | None = None
 
     def errors(self) -> tuple[str, ...]:
         return tuple(self.errors_buffer)
 
     def diagnostics(self) -> tuple[str, ...]:
         return tuple(self.diagnostics_buffer)
+
+    def cognitive_bridge_diagnostics(self) -> tuple[str, ...]:
+        return tuple(self.cognitive_bridge_errors_buffer)
+
+    def cognitive_bridge_status(self) -> dict[str, str | None]:
+        return {
+            "last_publish_at": self.bridge_last_publish_at,
+            "last_publish_stimulus_id": self.bridge_last_publish_stimulus_id,
+            "current_error": self.bridge_current_error,
+        }
 
     def _normalizar(self, stimulus: Stimulus) -> Stimulus | None:
         source = stimulus.source
@@ -77,6 +95,24 @@ class AffectiveComposition:
             except Exception as exc:
                 self.errors_buffer.append(f"persist:{name}:{type(exc).__name__}")
 
+    def _publicar_contexto_cognitivo(self, stimulus: Stimulus, resultado) -> None:
+        self.recent_changes_buffer.append(stimulus)
+        try:
+            self.cognitive_publisher.publish(
+                stimulus,
+                resultado.resultado_percepcao,
+                resultado.impacto,
+                resultado.resultado_foco_emocao,
+                tuple(self.recent_changes_buffer),
+            )
+            self.bridge_last_publish_at = stimulus.timestamp
+            self.bridge_last_publish_stimulus_id = stimulus.stimulus_id
+            self.bridge_current_error = None
+        except Exception as exc:
+            error = f"publish:{type(exc).__name__}"
+            self.bridge_current_error = error
+            self.cognitive_bridge_errors_buffer.append(error)
+
     def processar(self, stimulus: Stimulus):
         routed = self._normalizar(stimulus)
         if routed is None:
@@ -84,6 +120,7 @@ class AffectiveComposition:
         resultado = self.pipeline.processar(routed)
         if resultado.aceito:
             self._persistir(resultado)
+            self._publicar_contexto_cognitivo(routed, resultado)
         return resultado
 
 def _load_perception(path: Path):
@@ -119,11 +156,13 @@ def build_affective_composition(
     state_dir: Path,
     now: Callable[[], str],
     id_factory: Callable[[], str],
+    expected_sha: str | None = None,
 ) -> AffectiveComposition:
     config_root = Path(config_root)
     state_dir = Path(state_dir)
     instant = now()
     affective_cfg = carregar_configuracao_afetiva(config_root / "config_afetiva.json")
+    cognitive_cfg = carregar_configuracao_cognitiva(config_root / "config_cognitiva.json")
     pipeline_cfg = carregar_config_observation_affective(config_root / "config_observation_affective.json")
     source_cfgs, perception_policy, perception_caps, graph = _load_perception(config_root / "config_percepcao.json")
     focus_policy, nuance_capacity = _load_focus(config_root / "config_foco_emocao.json")
@@ -178,6 +217,13 @@ def build_affective_composition(
     )
     errors = deque(maxlen=pipeline_cfg.capacidade_erros)
     diagnostics = deque(maxlen=pipeline_cfg.capacidade_erros)
+    bridge_errors = deque(maxlen=pipeline_cfg.capacidade_erros)
+    recent_changes = deque(maxlen=cognitive_cfg.contexto.max_mudancas_recentes)
+    cognitive_publisher = CognitiveObservationPublisher(
+        state_dir / "cognitive-observation-context.json",
+        cognitive_cfg.contexto,
+        expected_sha=expected_sha or "",
+    )
     for origin, result in (
         ("a1", restored_a1), ("a2", restored_a2), ("a3", restored_a3), ("a4", restored_a4),
     ):
@@ -195,4 +241,7 @@ def build_affective_composition(
         repo_a1=repo_a1, repo_a2=repo_a2, repo_a3=repo_a3, repo_a4=repo_a4,
         allowed_sources=frozenset(source_cfgs), restoration=restoration,
         errors_buffer=errors, diagnostics_buffer=diagnostics,
+        cognitive_publisher=cognitive_publisher,
+        recent_changes_buffer=recent_changes,
+        cognitive_bridge_errors_buffer=bridge_errors,
     )
