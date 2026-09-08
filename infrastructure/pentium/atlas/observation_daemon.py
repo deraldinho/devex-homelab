@@ -164,6 +164,9 @@ def _health_payload(context: ObservationDaemonContext) -> dict:
             "affective": list(composition_errors[-16:]),
             "interaction": list(interaction_errors[-16:]),
         },
+        "diagnostics": {
+            "affective": list(context.composition.diagnostics()[-16:]),
+        },
         "visual_present": (context.health_path.parent / "visual-state.json").is_file(),
     }
 

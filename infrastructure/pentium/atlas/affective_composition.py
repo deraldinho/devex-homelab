@@ -43,9 +43,13 @@ class AffectiveComposition:
     allowed_sources: frozenset[str]
     restoration: dict[str, str]
     errors_buffer: deque[str]
+    diagnostics_buffer: deque[str]
 
     def errors(self) -> tuple[str, ...]:
         return tuple(self.errors_buffer)
+
+    def diagnostics(self) -> tuple[str, ...]:
+        return tuple(self.diagnostics_buffer)
 
     def _normalizar(self, stimulus: Stimulus) -> Stimulus | None:
         source = stimulus.source
@@ -57,7 +61,7 @@ class AffectiveComposition:
                 payload = dict(stimulus.payload)
                 payload["channel_healthy"] = payload.get("channel_status") == "healthy"
                 return replace(stimulus, source=target, payload=payload)
-        self.errors_buffer.append(f"ignored_source:{source}")
+        self.diagnostics_buffer.append(f"ignored_source:{source}")
         return None
 
     def _persistir(self, resultado) -> None:
@@ -173,6 +177,7 @@ def build_affective_composition(
         limite_repeticoes=pipeline_cfg.limite_repeticoes,
     )
     errors = deque(maxlen=pipeline_cfg.capacidade_erros)
+    diagnostics = deque(maxlen=pipeline_cfg.capacidade_erros)
     for origin, result in (
         ("a1", restored_a1), ("a2", restored_a2), ("a3", restored_a3), ("a4", restored_a4),
     ):
@@ -188,5 +193,6 @@ def build_affective_composition(
         pipeline=pipeline, runtime_visual=visual_runtime, pipeline_percepcao=perception,
         contexto_afetivo=restored_a2.contexto, motor_afetivo=motor,
         repo_a1=repo_a1, repo_a2=repo_a2, repo_a3=repo_a3, repo_a4=repo_a4,
-        allowed_sources=frozenset(source_cfgs), restoration=restoration, errors_buffer=errors,
+        allowed_sources=frozenset(source_cfgs), restoration=restoration,
+        errors_buffer=errors, diagnostics_buffer=diagnostics,
     )

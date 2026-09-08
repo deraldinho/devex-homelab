@@ -52,7 +52,8 @@ class AffectiveCompositionTests(unittest.TestCase):
             self.assertIsNone(ignored)
             self.assertTrue(accepted.aceito)
             self.assertEqual("x99", accepted.resultado_foco_emocao.foco.principal.entidade_id)
-            self.assertIn("ignored_source:wifi.presence", comp.errors())
+            self.assertIn("ignored_source:wifi.presence", comp.diagnostics())
+            self.assertEqual((), comp.errors())
 
     def test_managed_x99_degraded_is_uncertain_not_healthy(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -100,6 +100,18 @@ class ObservationDaemonTests(unittest.TestCase):
             run_observation_daemon(context, StopAfterOne())
             self.assertTrue(listener.closed)
 
+    def test_expected_ignored_source_is_diagnostic_not_health_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            context, _ = self.build(tmp)
+            try:
+                run_daemon_cycle(context)
+                health = json.loads((Path(tmp) / "observation-affective-health.json").read_text(encoding="utf-8"))
+                self.assertEqual("healthy", health["status"])
+                self.assertIn("ignored_source:wifi.presence", health["diagnostics"]["affective"])
+                self.assertEqual([], health["errors"]["affective"])
+            finally:
+                context.close()
+
     def test_close_closes_runtime_and_listener(self):
         with tempfile.TemporaryDirectory() as tmp:
             context, listener = self.build(tmp)
