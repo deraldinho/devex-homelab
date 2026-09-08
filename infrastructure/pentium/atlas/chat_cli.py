@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 
 
@@ -49,7 +50,17 @@ def _build_gateway():
     loop = ReactionLoopCognitivo(ActivationPolicy(cognitive.ativacao), ContextoCognitivoBuilder(cognitive.contexto),
                                  gateway, capability_policy=PolicyCapabilities(atlas_capability_registry(),
                                  read_auto_allow=('get_host_status',), control_allow=()))
-    return HumanInteractionGateway(loop, context_provider=HumanContextProvider(_path(cfg['health_path'])),
+    expected_sha = (
+        os.environ.get('ATLAS_EXPECTED_SHA') or None
+        if cognitive.observation_bridge.require_expected_sha else None
+    )
+    context_provider = HumanContextProvider(
+        _path(cfg['health_path']),
+        _path(cognitive.observation_bridge.snapshot_path),
+        max_snapshot_age_s=cognitive.observation_bridge.max_snapshot_age_s,
+        expected_sha=expected_sha,
+    )
+    return HumanInteractionGateway(loop, context_provider=context_provider,
                                    max_text_chars=cognitive.contexto.max_string_chars)
 
 def main() -> int:
