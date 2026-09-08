@@ -24,7 +24,7 @@ class DashboardUiContractTests(unittest.TestCase):
 
     def test_ui_renders_cognitive_avatar_from_visual_contract(self):
         html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
-        for token in ("atlasAvatar", "avatarMode", "avatarExpression", "avatarFocus", "status.visual", "data-mode", "data-expression"):
+        for token in ("atlasAvatar", "atlasPixiStage", "avatarMode", "avatarExpression", "avatarFocus", "status.visual", "data-mode", "data-expression"):
             self.assertIn(token, html)
         self.assertIn("<svg", html)
         self.assertIn("viewBox", html)
@@ -32,11 +32,19 @@ class DashboardUiContractTests(unittest.TestCase):
     def test_avatar_renderer_is_externalized_behind_stable_boundary(self):
         html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
         renderer = (ROOT / "atlas-avatar-renderer.js").read_text(encoding="utf-8")
-        self.assertIn('src="/assets/atlas-avatar-renderer.js"', html)
+        for asset in ("/assets/pixi.min.js", "/assets/atlas-avatar-engine.js", "/assets/atlas-avatar-renderer.js"):
+            self.assertIn(f'src="{asset}"', html)
         self.assertIn("AtlasAvatarRenderer.render(status.visual)", html)
         self.assertNotIn("function renderAvatar", html)
         self.assertIn("window.AtlasAvatarRenderer", renderer)
         self.assertIn("function render(visual)", renderer)
+        self.assertIn("fallback SVG", renderer)
+
+    def test_svg_remains_as_visual_fallback(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn('id="atlasAvatar"', html)
+        self.assertIn("pixi-ready + #atlasAvatar", html)
+        self.assertIn("prefers-reduced-motion", html)
 
 
 if __name__ == "__main__":
