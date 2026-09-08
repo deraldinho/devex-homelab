@@ -21,6 +21,10 @@ class DashboardPackagingTests(unittest.TestCase):
         unit = (ROOT / "systemd" / "atlas-dashboard.service").read_text(encoding="utf-8")
         self.assertIn("RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6", unit)
 
+    def test_installer_restarts_dashboard_after_install(self):
+        script = (ROOT / "install-user.sh").read_text(encoding="utf-8")
+        self.assertIn("systemctl --user restart atlas-dashboard.service", script)
+
 
 if __name__ == "__main__":
     unittest.main()

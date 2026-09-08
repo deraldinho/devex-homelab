@@ -14,6 +14,7 @@ install -m 0644 "$SCRIPT_DIR/systemd/atlas-dashboard.service" "$USER_UNIT_DIR/at
 
 python3 -m py_compile "$TARGET_DIR/atlas_dashboard.py" "$TARGET_DIR/dashboard_collectors.py"
 systemctl --user daemon-reload
-systemctl --user enable --now atlas-dashboard.service
+systemctl --user enable atlas-dashboard.service
+systemctl --user restart atlas-dashboard.service
 systemctl --user is-enabled atlas-dashboard.service
 systemctl --user is-active atlas-dashboard.service
