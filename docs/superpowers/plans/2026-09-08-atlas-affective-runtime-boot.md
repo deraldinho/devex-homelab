@@ -2,81 +2,99 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Executar continuamente no Pentium o pipeline observacional afetivo com restauração A1/A2/A3/A4, single-writer visual e interação efêmera da voz via IPC local bounded.
+**Goal:** Colocar o pipeline observacional afetivo em operação contínua no Pentium com restauração/persistência A1-A4, IPC efêmero de voz e certificação física no SHA exato.
 
-**Architecture:** `atlas-observation.service` possui o único processo que aplica impulsos e persiste A1/A2/A3/A4. `atlas-voice.service` permanece separado e envia somente flags efêmeras por Unix datagram; `AffectiveRuntime` no processo observacional continua único writer de `visual-state.json`.
+**Architecture:** `atlas-observation.service` mantém o único `ObservationRuntime` e o único writer afetivo/visual. `affective_composition.py` monta/restaura A1/A2/A3/A4 e persiste após cada evento; `voice_daemon` envia somente flags efêmeras por Unix datagram para o processo observacional.
 
-**Tech Stack:** Python stdlib, `dataclasses`, Unix datagram sockets, JSON atômico, `unittest`, systemd user services, Foundation CI.
+**Tech Stack:** Python stdlib, dataclasses, Unix datagram sockets, systemd user services, unittest, JSON versionado, GitHub Actions.
 
 **Spec:** `docs/superpowers/specs/2026-09-08-atlas-affective-runtime-boot-design.md`
 
 ## Global Constraints
 - Base funcional: `07a082c768a9f61033a7090a485f8fd24fdc1f54`.
-- `atlas-observation.service` é o único owner de A1/A2/A3/A4 mutáveis.
-- Voice/LLM nunca aplica `ImpulsoAfetivo`.
-- `visual-state.json` tem single-writer no processo observacional.
-- `wifi.presence` não entra no pipeline afetivo sem mapping explícito.
-- `managed.x99` deve ser roteado explicitamente para a entidade/fonte afetiva `x99`.
-- IPC não carrega áudio, transcript, comandos ou payload arbitrário.
-- Nenhuma fila/cache/socket aceita crescimento ilimitado.
-- CONTROL permanece fora do polling e default-deny.
-- Nenhuma dependência operacional do x99 após deploy.
+- `atlas-observation.service` é o único processo que aplica `ImpulsoAfetivo` e persiste A1/A2/A3/A4.
+- `atlas-voice.service` não altera A1/A2/A3/A4 e não escreve `visual-state.json` diretamente.
+- Não criar segundo `ObservationRuntime`, segundo scheduler ou supervisor global.
+- `wifi.presence` não entra no afeto sem mapping explícito; `managed.x99` mapeia explicitamente para `x99`.
+- IPC local aceita somente schema bounded de flags efêmeras, sem áudio/transcript/comandos.
+- Nenhum PASS físico pode ser inferido de CI ou simulação local.
+- Nenhuma dependência operacional do x99; nenhuma mudança em L2jToren.
 
 ---
-### Task 1: Restauração A3 e composition factory
+### Task 1: Restauracao A3 explicita e bounded
 
 **Files:**
-- Modify: `infrastructure/pentium/atlas/correlacionador_incidentes.py`
 - Modify: `infrastructure/pentium/atlas/pipeline_percepcao_correlacao.py`
+- Modify: `infrastructure/pentium/atlas/correlacionador_incidentes.py`
+- Test: `infrastructure/pentium/atlas/tests/test_pipeline_percepcao_restauracao.py`
+
+**Interfaces:**
+- Produces: `PipelinePercepcaoCorrelacao.restaurar_estado(percepcoes, incidentes) -> None`.
+- Produces: `CorrelacionadorIncidentes.restaurar_incidentes(incidentes) -> None`.
+- Restauracao não adiciona stimulus IDs e não chama A1/A4.
+
+- [ ] Escrever testes que restauram percepção/incidente válido, rejeitam entidade incompatível, respeitam capacities e não tratam estado restaurado como novo estímulo.
+- [ ] Rodar somente os novos testes e observar RED por ausência das APIs.
+- [ ] Implementar restauração mínima validando entidades configuradas, unicidade e limites atuais.
+- [ ] Rodar novos testes + regressão de percepção/correlação e obter GREEN.
+- [ ] Commit: `feat(atlas): restaurar estado de percepcao correlacionada`.
+
+### Task 2: Composition factory afetivo e persistencia pos-evento
+
+**Files:**
 - Create: `infrastructure/pentium/atlas/affective_composition.py`
 - Test: `infrastructure/pentium/atlas/tests/test_affective_composition.py`
 
 **Interfaces:**
-- Produces: `restaurar(percepcoes, incidentes)` em A3, sem replay de estímulos.
-- Produces: `build_affective_composition(...) -> AffectiveComposition`.
-- `AffectiveComposition.processar(stimulus)` roteia allowlist, persiste A3→A2→A1→A4 e atualiza health bounded.
+- Produces: `build_affective_composition(paths, now, incident_id_factory) -> AffectiveComposition`.
+- `AffectiveComposition.processar(stimulus) -> ResultadoPipelineAfetivoObservacional | None` filtra fontes sem mapping.
+- `AffectiveComposition.persistir() -> tuple[str, ...]` persiste A3 -> A2 -> A1 -> A4 e retorna diagnósticos bounded.
 
-- [ ] Escrever testes falhos para restauração A3, mapping `managed.x99 -> x99`, ignore de `wifi.presence`, restauração A1/A2/A4 e persistência pós-evento.
-- [ ] Rodar testes e confirmar RED pelas APIs ausentes.
-- [ ] Implementar APIs mínimas de restauração e factory.
-- [ ] Rodar testes focados + regressão A1/A2/A3/A4.
-- [ ] Commitar `feat(atlas): montar composition afetiva persistente`.
-
-### Task 2: IPC efêmero single-writer
+- [ ] Testar RED para restore A1/A2/A3/A4, `managed.x99 -> x99`, ignore de `wifi.presence`, persistência após evento e corrupção fail-safe.
+- [ ] Implementar factory usando os loaders/repositórios existentes e o novo restore A3.
+- [ ] Garantir que `managed.x99` seja normalizado sem promover falha SSH isolada a host offline.
+- [ ] Rodar testes da composition + pipeline observacional afetivo e obter GREEN.
+- [ ] Commit: `feat(atlas): montar composicao afetiva persistente`.
+### Task 3: IPC efemero de interacao da voz
 
 **Files:**
 - Create: `infrastructure/pentium/atlas/affective_interaction_ipc.py`
 - Modify: `infrastructure/pentium/atlas/voice_daemon.py`
 - Test: `infrastructure/pentium/atlas/tests/test_affective_interaction_ipc.py`
-- Test: `infrastructure/pentium/atlas/tests/test_voice_daemon_visual_ipc.py`
+- Test: `infrastructure/pentium/atlas/tests/test_voice_daemon_affective_ipc.py`
 
 **Interfaces:**
-- Produces: `InteractionDatagramClient.send(EstadoInteracaoVisual) -> bool` fail-safe.
-- Produces: `InteractionDatagramListener.run_once(timeout_s) -> bool`.
-- Voice passa o client como `visual_state_sink`; listener é o único lado que chama `AffectiveRuntime.atualizar_interacao`.
+- Produces: `AffectiveInteractionServer(path, runtime_visual, ...)` com `serve_once(timeout_s)` e `close()`.
+- Produces: `AffectiveInteractionClient(path, max_bytes=...)` com `publish(**flags) -> bool` fail-safe.
+- Payload schema 1: somente `ouvindo`, `pensando`, `falando`, `duvida_identidade`, `timestamp`.
 
-- [ ] RED para schema/tamanho/socket stale, mensagens inválidas e indisponibilidade fail-safe.
-- [ ] RED para `voice_daemon.build_runtime()` usar sink IPC sem writer visual próprio.
-- [ ] Implementar client/listener Unix datagram bounded.
-- [ ] Rodar IPC + voice regressão e commit.
-### Task 3: Daemon observacional always-on
+- [ ] Escrever RED para datagrama válido, schema/tamanho inválido, socket stale-safe, cleanup e indisponibilidade fail-safe no client.
+- [ ] Implementar server/client Unix datagram bounded sem fila ilimitada.
+- [ ] Escrever RED provando que `voice_daemon` publica transições efêmeras mas continua funcionando com socket ausente.
+- [ ] Integrar o client ao runtime de voz sem permitir acesso a `ImpulsoAfetivo` ou persistência.
+- [ ] Rodar testes IPC + voz e obter GREEN.
+- [ ] Commit: `feat(atlas): integrar interacao efemera da voz`.
+
+### Task 4: Daemon observacional always-on e wiring do dual-zone
 
 **Files:**
-- Create: `infrastructure/pentium/atlas/observation_daemon.py`
 - Modify: `infrastructure/pentium/atlas/dual_zone_runtime.py`
-- Test: `infrastructure/pentium/atlas/tests/test_observation_daemon.py`
+- Create: `infrastructure/pentium/atlas/observation_daemon.py`
 - Test: `infrastructure/pentium/atlas/tests/test_i1_dual_zone_runtime.py`
+- Test: `infrastructure/pentium/atlas/tests/test_observation_daemon.py`
 
 **Interfaces:**
-- `build_dual_zone_runtime(..., accepted_stimulus_sink=None)` encaminha o sink ao único `ObservationRuntime`.
-- `observation_daemon.build_runtime()` monta inventory/read service, Wi-Fi, bus/journal, schedules, composition e IPC listener.
-- `main()` mantém scheduler + listener bounded, health atômico e shutdown SIGTERM/SIGINT.
+- `build_dual_zone_runtime(..., accepted_stimulus_sink=None)` encaminha o callback para o único `ObservationRuntime`.
+- `build_observation_daemon(...) -> ObservationDaemon` monta composition, dual-zone e IPC server.
+- Health JSON schema 1 registra readiness, SHA esperado, último ciclo, restaurações e diagnósticos bounded.
 
-- [ ] RED para sink no dual-zone, config real, health schema, shutdown e ausência de segundo ObservationRuntime.
-- [ ] Implementar montagem mínima e health/readiness atômico.
-- [ ] Rodar daemon/I1 regressão e commit.
-
-### Task 4: Systemd, packaging e CI
+- [ ] Escrever RED para callback no dual-zone, single runtime/scheduler, shutdown limpo e health versionado.
+- [ ] Implementar callback opcional preservando compatibilidade I1.
+- [ ] Implementar daemon com SIGTERM/SIGINT, listener IPC com timeout bounded e scheduler existente.
+- [ ] Testar que erro afetivo/IPC não invalida journal/coleta e que `wifi.presence` sem mapping não derruba o daemon.
+- [ ] Rodar testes de observation runtime/I1/daemon e obter GREEN.
+- [ ] Commit: `feat(atlas): executar runtime afetivo observacional always-on`.
+### Task 5: Systemd, installer, CI e certificacao local
 
 **Files:**
 - Create: `infrastructure/pentium/atlas/atlas-observation.service`
@@ -84,19 +102,38 @@
 - Modify: `.github/workflows/foundation-ci.yml`
 - Test: `infrastructure/pentium/atlas/tests/test_affective_boot_packaging.py`
 
-- [ ] RED para módulos/unit/config/gate ausentes.
-- [ ] Instalar/compilar observation daemon, composition e IPC; instalar/habilitar os dois user services.
-- [ ] Validar unit files e emitir `DEVEX_HOMELAB_ATLAS_AFFECTIVE_BOOT_PASS`.
-- [ ] Rodar packaging tests e commit.
+**Interfaces:**
+- User service: `python3 -m atlas.observation_daemon` em `%h/pentium-agent`.
+- Gate CI: `DEVEX_HOMELAB_ATLAS_AFFECTIVE_BOOT_PASS`.
+- Installer marker: `ATLAS_AFFECTIVE_BOOT_INSTALL_PASS`.
 
-### Task 5: Certificação local e física
+- [ ] Escrever RED exigindo novos módulos/configs/unit file no installer e gate dedicado no Foundation CI.
+- [ ] Implementar unit file, instalação/compilação/config parsing e enable/restart seguro sem tornar x99 dependência.
+- [ ] Rodar `python -m unittest discover` Atlas e dashboard, `py_compile`, JSON, Git Bash `bash -n`, `git diff --check` e guard UTF-8.
+- [ ] Commit: `ci(atlas): certificar boot do runtime afetivo`.
+
+### Task 6: Deploy e certificacao fisica Pentium
 
 **Files:**
-- Create: `infrastructure/pentium/atlas/affective_boot_certification.py`
-- Test: `infrastructure/pentium/atlas/tests/test_affective_boot_certification.py`
+- Evidence only; não alterar código para fazer o teste passar no host.
 
-- [ ] RED para certificador que exige SHA, health, serviços, visual, IPC e restauração.
-- [ ] Implementar coleta sem fabricar PASS físico.
-- [ ] Rodar Atlas completo + dashboard + py_compile + JSON + bash -n + diff-check + UTF-8.
-- [ ] Deploy no Pentium, restart, smoke, restart de restauração e certificação no SHA exato.
-- [ ] Somente após evidência física emitir marcador `ATLAS_AFFECTIVE_BOOT_PHYSICAL_PASS` e checkpoint da PR.
+**Interfaces:**
+- Expected SHA = HEAD final da branch após Task 5.
+- Evidência física deve incluir serviço, health, visual, persistência/restart e IPC efêmero.
+
+- [ ] Publicar/transferir o HEAD exato para o Pentium pelo fluxo de deploy já autorizado do homelab.
+- [ ] Executar installer e confirmar `ATLAS_AFFECTIVE_BOOT_INSTALL_PASS` no SHA exato.
+- [ ] Verificar `atlas-observation.service` active, PID estável e health schema 1 sem fatal.
+- [ ] Confirmar evento real do próprio Pentium/infra entra no único ObservationRuntime e atualiza `visual-state.json`.
+- [ ] Enviar um payload IPC efêmero válido e confirmar alteração visual sem mutação de A1 persistido.
+- [ ] Reiniciar observation service e confirmar restauração A1/A2/A3/A4 e continuidade visual.
+- [ ] Verificar que ausência/desligamento do x99 não impede boot/operação do Pentium.
+- [ ] Registrar evidência física com HEAD exato; só então afirmar always-on operacional.
+
+### Final verification
+- [ ] `git status --short --branch` limpo.
+- [ ] `git diff --check 07a082c768a9f61033a7090a485f8fd24fdc1f54...HEAD` limpo.
+- [ ] Suite Atlas e dashboard GREEN no HEAD exato.
+- [ ] CI/checks do HEAD exato GREEN quando disponíveis.
+- [ ] Certificação física pertence ao mesmo HEAD exato.
+- [ ] Preparar checkpoint `/checkpoint` da PR com implementação, evidências, gates e próximos passos.
