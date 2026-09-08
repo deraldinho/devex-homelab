@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -33,6 +34,9 @@ def default_config() -> dict:
         "voice_config_path": "~/pentium-agent/atlas/config_voice.json",
         "deploy_sha_path": "~/pentium-agent/runtime/deploy/current-sha",
         "visual_state_path": "~/pentium-agent/atlas/runtime/visual-state.json",
+        "cognitive_snapshot_path": "~/pentium-agent/atlas/runtime/cognitive-observation-context.json",
+        "cognitive_health_path": "~/pentium-agent/atlas/runtime/observation-affective-health.json",
+        "cognitive_max_age_s": 180,
     }
 
 
@@ -186,7 +190,50 @@ def _visual_state(config: dict) -> dict:
     return snapshot
 
 
-def collect_status(config: dict, *, command_runner: CommandRunner = run_command, meminfo_text: str | None = None, uptime_text: str | None = None) -> dict:
+def _unavailable(reason: str) -> dict:
+    return {"status": "unavailable", "reason": reason}
+
+
+def collect_cognition(config: dict, *, now=lambda: datetime.now(timezone.utc)) -> dict:
+    snapshot = _read_json(config["cognitive_snapshot_path"])
+    health = _read_json(config["cognitive_health_path"])
+    if not isinstance(snapshot, dict):
+        return _unavailable("snapshot_unavailable")
+    if snapshot.get("schema_version") != 1:
+        return _unavailable("schema_invalid")
+    expected_sha = config.get("cognitive_expected_sha") or (health or {}).get("expected_sha")
+    if expected_sha and snapshot.get("expected_sha") != expected_sha:
+        return _unavailable("sha_mismatch")
+    try:
+        generated_at = datetime.fromisoformat(str(snapshot["generated_at"]).replace("Z", "+00:00"))
+        if generated_at.tzinfo is None:
+            generated_at = generated_at.replace(tzinfo=timezone.utc)
+        age_s = max(0.0, (now() - generated_at.astimezone(timezone.utc)).total_seconds())
+    except (KeyError, TypeError, ValueError):
+        return _unavailable("generated_at_invalid")
+    if age_s > float(config.get("cognitive_max_age_s", 180)):
+        return {"status": "stale", "reason": "snapshot_stale", "age_s": round(age_s, 3), "generated_at": snapshot.get("generated_at")}
+    perception = snapshot.get("perception") if isinstance(snapshot.get("perception"), dict) else {}
+    affective = snapshot.get("affective_state") if isinstance(snapshot.get("affective_state"), dict) else {}
+    emotion = snapshot.get("emotion") if isinstance(snapshot.get("emotion"), dict) else {}
+    focus = snapshot.get("focus") if isinstance(snapshot.get("focus"), dict) else {}
+    def pct(value):
+        return round(max(0.0, min(1.0, float(value or 0))) * 100)
+    recent = []
+    for item in snapshot.get("recent_changes", [])[-8:]:
+        if isinstance(item, dict):
+            recent.append({key: item.get(key) for key in ("timestamp", "source", "kind", "severity", "stimulus_id")})
+    return {
+        "status": "available", "age_s": round(age_s, 3), "generated_at": snapshot.get("generated_at"),
+        "expected_sha": expected_sha, "observed_sha": snapshot.get("expected_sha"), "entity_id": snapshot.get("entity_id"),
+        "source_stimulus_id": snapshot.get("source_stimulus_id"),
+        "perception": {**perception, "confidence_percent": pct(perception.get("confianca"))},
+        "affective_state": {**affective, "valence_percent": pct(affective.get("valencia")), "activation_percent": pct(affective.get("ativacao")), "stress_percent": pct(affective.get("estresse")), "confidence_percent": pct(affective.get("confianca")), "engagement_percent": pct(affective.get("engajamento")), "curiosity_percent": pct(affective.get("curiosidade"))},
+        "emotion": emotion, "focus": focus, "incident": snapshot.get("incident"), "recent_changes": recent,
+        "bridge": {"current_error": ((health or {}).get("cognitive_bridge") or {}).get("current_error")},
+    }
+
+def collect_status(config: dict, *, command_runner: CommandRunner = run_command, meminfo_text: str | None = None, uptime_text: str | None = None, cognition_now=lambda: datetime.now(timezone.utc)) -> dict:
     import shutil
 
     health = _read_json(config["health_path"]) or {}
@@ -216,6 +263,7 @@ def collect_status(config: dict, *, command_runner: CommandRunner = run_command,
     anc_reason = None if anc_enabled else "disabled by configuration"
     return {
         "visual": _visual_state(config),
+        "cognition": collect_cognition(config, now=cognition_now),
         "atlas": {"sha": _read_text(config["deploy_sha_path"]), "health": health.get("status", "unknown")},
         "services": {
             "agent": _unit("pentium-agent.service", command_runner),
