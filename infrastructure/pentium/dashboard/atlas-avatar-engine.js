@@ -50,7 +50,13 @@
 
     #buildRig() {
       const root = new PIXI.Container();
-      root.position.set(170, 310);
+      root.position.set(170, 316);
+      const legL = new PIXI.Container(); legL.position.set(-25, 28);
+      legL.addChild(new PIXI.Graphics().roundRect(-16, 0, 29, 105, 13).fill(0x172238));
+      legL.addChild(new PIXI.Graphics().roundRect(-20, 91, 36, 20, 8).fill(0x0c111b));
+      const legR = new PIXI.Container(); legR.position.set(25, 28);
+      legR.addChild(new PIXI.Graphics().roundRect(-13, 0, 29, 105, 13).fill(0x172238));
+      legR.addChild(new PIXI.Graphics().roundRect(-16, 91, 36, 20, 8).fill(0x0c111b));
       const body = new PIXI.Graphics().roundRect(-52, -112, 104, 150, 28).fill(0x14253f).stroke({ color: 0x273d60, width: 3 });
       const shirt = new PIXI.Graphics().poly([-28,-95, 28,-95, 42,15, -42,15]).fill(0xf2f4f8);
       const hairBack = new PIXI.Graphics().ellipse(0, -154, 74, 92).fill(0x49376e).stroke({ color: 0x7d61ad, width: 3 });
@@ -70,13 +76,12 @@
       const browL = new PIXI.Graphics().roundRect(-30, -22, 21, 3, 2).fill(0x4a3658);
       const browR = new PIXI.Graphics().roundRect(9, -22, 21, 3, 2).fill(0x4a3658);
       head.addChild(face, fringe, browL, browR, eyeL, eyeR, mouth);
-
-      const armL = new PIXI.Container(); armL.position.set(-49, -82); armL.pivot.set(0, 0);
+      const armL = new PIXI.Container(); armL.position.set(-49, -82);
       armL.addChild(new PIXI.Graphics().roundRect(-15, 0, 25, 105, 12).fill(0x14253f));
-      const armR = new PIXI.Container(); armR.position.set(49, -82); armR.pivot.set(0, 0);
+      const armR = new PIXI.Container(); armR.position.set(49, -82);
       armR.addChild(new PIXI.Graphics().roundRect(-10, 0, 25, 105, 12).fill(0x14253f));
-      root.addChild(hairBack, body, shirt, armL, armR, head);
-      return { root, head, eyeL, eyeR, mouth, browL, browR, armL, armR };
+      root.addChild(legL, legR, hairBack, body, shirt, armL, armR, head);
+      return { root, head, eyeL, eyeR, mouth, browL, browR, armL, armR, legL, legR };
     }
 
     #applyState() {
@@ -88,13 +93,15 @@
       const lookY = look === "cima" ? -2 : look === "baixo" ? 2 : 0;
       for (const eye of [r.eyeL, r.eyeR]) eye.getChildByName("iris").position.set(lookX, lookY);
       r.head.rotation = s.expressao === "CURIOSO" || s.duvida_identidade ? 0.08 + intensity * 0.06 : 0;
-      r.armL.rotation = s.gesto_atual === "ACENO" ? -0.72 : s.gesto_atual === "DUVIDA" ? -0.28 : 0.08;
-      r.armR.rotation = s.gesto_atual === "ESCUTA" ? 0.48 : s.gesto_atual === "ABERTO" ? 0.22 : -0.08;
+      r.armL.rotation = s.gesto_atual === "ACENO" ? -0.72 : s.gesto_atual === "DUVIDA" ? -0.28 : s.gesto_atual === "FECHADO" ? 0.2 : 0.08;
+      r.armR.rotation = s.gesto_atual === "ESCUTA" ? 0.48 : s.gesto_atual === "ABERTO" ? 0.22 : s.gesto_atual === "SURPRESA" ? -0.34 : -0.08;
       r.mouth.scale.y = s.falando ? 2.4 : (s.expressao === "SERENO" || s.expressao === "RECUPERANDO" ? 0.7 : 1);
       const pressure = s.expressao === "SOB_PRESSAO" || s.expressao === "PREOCUPADO";
       r.browL.rotation = pressure ? -0.12 : 0;
       r.browR.rotation = pressure ? 0.12 : 0;
       r.root.scale.set(s.modo === "REAGINDO" ? 1.025 : 1);
+      r.legL.rotation = s.gesto_atual === "ALIVIO" ? -0.015 : 0;
+      r.legR.rotation = s.gesto_atual === "ALIVIO" ? 0.015 : 0;
     }
 
     #tick(deltaMs) {
@@ -103,7 +110,7 @@
       const motion = this.reducedMotion ? 0 : s.intensidade_movimento;
       const t = (performance.now() - this.startedAt) / 1000;
       const idle = s.modo === "OCIOSO" ? Math.sin(t * (0.8 + s.velocidade_movimento)) * 2.5 * motion : 0;
-      this.rig.root.y = 310 + idle;
+      this.rig.root.y = 316 + idle;
       if (s.falando && motion > 0) this.rig.mouth.scale.y = 1.2 + Math.abs(Math.sin(t * 9)) * 1.6;
       const blink = !this.reducedMotion && (Math.floor(t * 10) % 43 === 0);
       this.rig.eyeL.scale.y = blink ? 0.15 : 1;
