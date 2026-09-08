@@ -16,8 +16,8 @@ class DashboardServer(ThreadingHTTPServer):
 class Handler(BaseHTTPRequestHandler):
     server_version = "AtlasDashboard/1"
 
-    def _send(self, status: int, content_type: str, body: bytes) -> None:
-        if len(body) > 262144:
+    def _send(self, status: int, content_type: str, body: bytes, *, max_bytes: int = 262144) -> None:
+        if len(body) > max_bytes:
             body = b'{"error":"response_too_large"}'
             status = 503
             content_type = "application/json; charset=utf-8"
@@ -27,6 +27,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_asset(self, filename: str) -> None:
+        path = Path(__file__).with_name(filename)
+        if not path.is_file():
+            self._send(404, "application/json; charset=utf-8", b'{"error":"asset_not_found"}')
+            return
+        self._send(200, "application/javascript; charset=utf-8", path.read_bytes(), max_bytes=1048576)
 
     def do_GET(self) -> None:
         collectors = self.server.collectors
@@ -42,9 +49,13 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(collectors.collect_events(config), ensure_ascii=True).encode()
             self._send(200, "application/json; charset=utf-8", body)
             return
-        if self.path == "/assets/atlas-avatar-renderer.js":
-            body = Path(__file__).with_name("atlas-avatar-renderer.js").read_bytes()
-            self._send(200, "application/javascript; charset=utf-8", body)
+        assets = {
+            "/assets/pixi.min.js": "pixi.min.js",
+            "/assets/atlas-avatar-engine.js": "atlas-avatar-engine.js",
+            "/assets/atlas-avatar-renderer.js": "atlas-avatar-renderer.js",
+        }
+        if self.path in assets:
+            self._send_asset(assets[self.path])
             return
         if self.path == "/":
             body = Path(__file__).with_name("dashboard.html").read_bytes()
