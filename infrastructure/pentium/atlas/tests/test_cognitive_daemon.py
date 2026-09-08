@@ -45,6 +45,7 @@ class CognitiveDaemonPackagingTests(unittest.TestCase):
             self.assertIn(token,source)
         self.assertIn('atlas-cognitive.service',install); self.assertIn('python3 -m atlas.cognitive_daemon',unit)
         self.assertIn('restart atlas-cognitive.service',install); self.assertNotIn('restart atlas-voice.service',install)
+        self.assertIn('EnvironmentFile=-%h/pentium-agent/atlas/runtime/observation.env',unit)
 
     def test_repository_llm_config_points_to_installed_runtime_model(self):
         import json
