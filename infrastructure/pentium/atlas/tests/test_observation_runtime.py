@@ -36,7 +36,7 @@ def snapshot(status="healthy", value=1):
     return SourceSnapshot("core", status, severity, {"status": status, "value": value})
 
 
-def runtime_for(source, *, clock=None, journal=None):
+def runtime_for(source, *, clock=None, journal=None, accepted_stimulus_sink=None):
     ids = itertools.count()
     bus = StimulusBus(capacity=16)
     runtime = ObservationRuntime(
@@ -46,6 +46,7 @@ def runtime_for(source, *, clock=None, journal=None):
         clock=clock or FakeClock(),
         id_factory=lambda: f"id-{next(ids)}",
         failure_cooldown_seconds=60.0,
+        accepted_stimulus_sink=accepted_stimulus_sink,
     )
     return runtime, bus
 
@@ -167,6 +168,41 @@ class ObservationRuntimeTests(unittest.TestCase):
         self.assertEqual(bus.poll().stimulus_id, first.stimulus_id)
         self.assertEqual(len(calls), 1)
         self.assertTrue(any("journal" in item for item in runtime.errors()))
+
+    def test_accepted_stimulus_sink_receives_only_accepted_stimulus(self):
+        source = SequenceSource("core", [snapshot(), snapshot()])
+        received = []
+        runtime, _ = runtime_for(source, accepted_stimulus_sink=received.append)
+        first = runtime.run_once("core")
+        second = runtime.run_once("core")
+        self.assertIsNone(second)
+        self.assertEqual([first.stimulus_id], [item.stimulus_id for item in received])
+
+    def test_rejected_stimulus_does_not_reach_accepted_sink(self):
+        source = SequenceSource("core", [snapshot()])
+        bus = StimulusBus(capacity=1)
+        from infrastructure.pentium.atlas.stimulus_model import Stimulus
+        bus.publish(Stimulus("critical", "seed", "seed", StimulusSeverity.CRITICAL, "2026-09-08T00:00:00+00:00", {}, 1.0, "c", None, "f"))
+        received = []
+        runtime = ObservationRuntime(
+            sources=[source], bus=bus, journal=lambda stimulus: None,
+            accepted_stimulus_sink=received.append,
+        )
+        runtime.run_once("core")
+        self.assertEqual([], received)
+
+    def test_accepted_sink_failure_is_isolated_and_journal_still_runs(self):
+        source = SequenceSource("core", [snapshot()])
+        journaled = []
+        def fail_sink(stimulus):
+            raise RuntimeError("affective unavailable")
+        runtime, _ = runtime_for(
+            source, journal=lambda stimulus: journaled.append(stimulus.stimulus_id),
+            accepted_stimulus_sink=fail_sink,
+        )
+        stimulus = runtime.run_once("core")
+        self.assertEqual([stimulus.stimulus_id], journaled)
+        self.assertIn("accepted_sink:RuntimeError", runtime.errors())
 
 
 if __name__ == "__main__":

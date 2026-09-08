@@ -149,6 +149,7 @@ class ObservationRuntime:
         sleeper: Callable[[float], None] = time.sleep,
         poll_runner: Callable[[StimulusSource, float], SourceSnapshot] | None = None,
         jitter_fn: Callable[[float], float] = lambda maximum: random.uniform(0.0, maximum),
+        accepted_stimulus_sink: Callable[[Stimulus], None] | None = None,
     ):
         self._sources = {source.name: source for source in sources}
         if len(self._sources) != len(sources):
@@ -194,6 +195,7 @@ class ObservationRuntime:
         self._consecutive_failures = {name: 0 for name in self._sources}
         self._state = {name: _SourceState() for name in self._sources}
         self._errors: list[str] = []
+        self._accepted_stimulus_sink = accepted_stimulus_sink
 
     def errors(self) -> tuple[str, ...]:
         return tuple(self._errors)
@@ -209,6 +211,11 @@ class ObservationRuntime:
             self._journal(stimulus)
         except Exception as exc:
             self._errors.append(f"journal:{type(exc).__name__}")
+        if self._accepted_stimulus_sink is not None:
+            try:
+                self._accepted_stimulus_sink(stimulus)
+            except Exception as exc:
+                self._errors.append(f"accepted_sink:{type(exc).__name__}")
 
     def _make_stimulus(
         self,
