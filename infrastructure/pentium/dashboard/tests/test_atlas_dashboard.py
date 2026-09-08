@@ -51,11 +51,27 @@ class HttpContractTests(unittest.TestCase):
         status, _, _ = self.request("POST", "/api/status")
         self.assertEqual(status, 405)
 
-    def test_avatar_renderer_asset_is_served_read_only(self):
-        status, headers, body = self.request("GET", "/assets/atlas-avatar-renderer.js")
-        self.assertEqual(status, 200)
-        self.assertIn("application/javascript", headers["Content-Type"])
-        self.assertIn(b"AtlasAvatarRenderer", body)
+    def test_repository_avatar_assets_are_served_read_only(self):
+        for path, marker in (
+            ("/assets/atlas-avatar-engine.js", b"AtlasAvatarEngine"),
+            ("/assets/atlas-avatar-renderer.js", b"AtlasAvatarRenderer"),
+        ):
+            status, headers, body = self.request("GET", path)
+            self.assertEqual(status, 200, path)
+            self.assertIn("application/javascript", headers["Content-Type"])
+            self.assertIn(marker, body)
+            post_status, _, _ = self.request("POST", path)
+            self.assertEqual(post_status, 405, path)
 
-        post_status, _, _ = self.request("POST", "/assets/atlas-avatar-renderer.js")
-        self.assertEqual(post_status, 405)
+    def test_missing_runtime_pixi_asset_degrades_to_404(self):
+        pixi = ROOT / "pixi.min.js"
+        if pixi.exists():
+            self.skipTest("pixi runtime asset already provisioned")
+        status, headers, body = self.request("GET", "/assets/pixi.min.js")
+        self.assertEqual(status, 404)
+        self.assertIn("application/json", headers["Content-Type"])
+        self.assertEqual(json.loads(body)["error"], "asset_not_found")
+
+
+if __name__ == "__main__":
+    unittest.main()
