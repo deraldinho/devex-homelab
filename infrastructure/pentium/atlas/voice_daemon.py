@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from .alsa_capture import AlsaCaptureBackend
+from .affective_interaction_ipc import InteractionDatagramClient
 from .alsa_stream import open_arecord_pcm
 from .adaptive_noise_canceller import AdaptiveNoiseCancelledFrameSource
 from .capability_registry import atlas_capability_registry
@@ -31,6 +32,11 @@ from .whisper_stt import SubprocessWhisperRunner, WhisperSttBackend
 
 
 ROOT = Path(__file__).resolve().parent
+DEFAULT_INTERACTION_SOCKET = Path.home() / "pentium-agent" / "atlas" / "runtime" / "affective-interaction.sock"
+
+def build_visual_state_sink(path: Path = DEFAULT_INTERACTION_SOCKET):
+    return InteractionDatagramClient(path).send
+
 def load_voice_config(path: Path = ROOT / "config_voice.json") -> dict:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if payload.get("schema_version") != 1:
@@ -125,7 +131,8 @@ def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntim
         max_audio_bytes=2_000_000, timeout_s=20.0, env=env,
     )
     transcript_filter = NonSpeechTranscriptFilter()
-    return VoiceRuntime(capture, stt, gate, interaction, tts, transcript_filter=transcript_filter)
+    return VoiceRuntime(capture, stt, gate, interaction, tts, transcript_filter=transcript_filter,
+                        visual_state_sink=build_visual_state_sink())
 def main() -> int:
     cfg = load_voice_config()
     runtime = build_runtime()
