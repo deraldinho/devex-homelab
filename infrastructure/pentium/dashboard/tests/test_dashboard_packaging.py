@@ -17,6 +17,10 @@ class DashboardPackagingTests(unittest.TestCase):
         self.assertNotIn("enable --now atlas-voice.service", script)
         self.assertNotIn("start atlas-voice.service", script)
 
+    def test_systemd_allows_unix_socket_for_read_only_systemd_queries(self):
+        unit = (ROOT / "systemd" / "atlas-dashboard.service").read_text(encoding="utf-8")
+        self.assertIn("RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6", unit)
+
 
 if __name__ == "__main__":
     unittest.main()
