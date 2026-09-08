@@ -1,4 +1,4 @@
-﻿import json
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -145,4 +145,3 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(status["visual"]["modo"], "OCIOSO")
         self.assertEqual(status["visual"]["expressao"], "SERENO")
         self.assertEqual(status["visual"]["source"], "fallback")
-
