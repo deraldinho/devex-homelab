@@ -32,6 +32,7 @@ def default_config() -> dict:
         "health_path": "~/pentium-agent/data/health/latest.json",
         "voice_config_path": "~/pentium-agent/atlas/config_voice.json",
         "deploy_sha_path": "~/pentium-agent/runtime/deploy/current-sha",
+        "visual_state_path": "~/pentium-agent/atlas/runtime/visual-state.json",
     }
 
 
@@ -151,6 +152,40 @@ def parse_ip_brief(text: str) -> dict[str, str]:
     return result
 
 
+def _fallback_visual_state() -> dict:
+    return {
+        "versao_avatar": 1,
+        "modo": "OCIOSO",
+        "expressao": "SERENO",
+        "intensidade_expressao": 0.25,
+        "foco_visual": "neutro",
+        "direcao_olhar": "frente",
+        "gesto_atual": "nenhum",
+        "velocidade_movimento": 0.2,
+        "intensidade_movimento": 0.2,
+        "falando": False,
+        "ouvindo": False,
+        "pensando": False,
+        "duvida_identidade": False,
+        "transicao_ms": 400,
+        "source": "fallback",
+    }
+
+
+def _visual_state(config: dict) -> dict:
+    snapshot = _read_json(config["visual_state_path"])
+    if not isinstance(snapshot, dict) or snapshot.get("versao_avatar") != 1:
+        return _fallback_visual_state()
+    required = {
+        "modo", "expressao", "intensidade_expressao", "foco_visual", "direcao_olhar",
+        "gesto_atual", "velocidade_movimento", "intensidade_movimento", "falando",
+        "ouvindo", "pensando", "duvida_identidade", "transicao_ms",
+    }
+    if not required.issubset(snapshot):
+        return _fallback_visual_state()
+    return snapshot
+
+
 def collect_status(config: dict, *, command_runner: CommandRunner = run_command, meminfo_text: str | None = None, uptime_text: str | None = None) -> dict:
     import shutil
 
@@ -180,6 +215,7 @@ def collect_status(config: dict, *, command_runner: CommandRunner = run_command,
     anc_enabled = bool(voice_cfg.get("anc_enabled", False))
     anc_reason = None if anc_enabled else "disabled by configuration"
     return {
+        "visual": _visual_state(config),
         "atlas": {"sha": _read_text(config["deploy_sha_path"]), "health": health.get("status", "unknown")},
         "services": {
             "agent": _unit("pentium-agent.service", command_runner),

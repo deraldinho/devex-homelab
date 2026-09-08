@@ -17,5 +17,18 @@ class DashboardUiContractTests(unittest.TestCase):
             self.assertNotIn(forbidden, html)
 
 
+    def test_ui_preserves_portuguese_copy_without_mojibake(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        for corrupted in ("Presen?a", "Express?o", "intera??o", "Servi?os", "?udio", "t?cnica"):
+            self.assertNotIn(corrupted, html)
+        self.assertIn("Presen&ccedil;a cognitiva", html)
+
+    def test_ui_renders_cognitive_avatar_from_visual_contract(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        for token in ("atlasAvatar", "avatarMode", "avatarExpression", "avatarFocus", "status.visual", "data-mode", "data-expression"):
+            self.assertIn(token, html)
+        self.assertIn("<svg", html)
+        self.assertIn("viewBox", html)
+
 if __name__ == "__main__":
     unittest.main()

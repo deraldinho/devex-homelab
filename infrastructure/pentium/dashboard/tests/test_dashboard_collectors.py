@@ -22,7 +22,7 @@ class CollectorTests(unittest.TestCase):
     def test_collect_status_always_has_stable_groups(self):
         cfg = dc.default_config()
         status = dc.collect_status(cfg, command_runner=lambda *_: dc.CommandResult(1, "", "x"))
-        self.assertEqual(set(status), {"atlas", "services", "voice", "audio", "anc", "system", "network"})
+        self.assertEqual(set(status), {"atlas", "services", "voice", "audio", "anc", "system", "network", "visual"})
 
     def test_parse_arecord_lists_internal_and_usb_capture_devices(self):
         text = """card 0: Intel [HDA Intel], device 0: ALC272 Analog [ALC272 Analog]\ncard 1: Device [USB Composite Device], device 0: USB Audio [USB Audio]\n"""
@@ -112,3 +112,19 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(status["system"]["memory_available_mb"], 512)
         self.assertEqual(status["system"]["uptime_s"], 123)
         self.assertEqual(status["network"]["lan"], "192.168.88.3/24")
+
+    def test_collect_status_exposes_visual_snapshot_without_reclassifying_it(self):
+        with TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            visual = {"versao_avatar": 1, "modo": "CONVERSANDO", "expressao": "ATENTO", "intensidade_expressao": 0.72, "foco_visual": "Deraldinho", "direcao_olhar": "frente", "gesto_atual": "nenhum", "velocidade_movimento": 0.4, "intensidade_movimento": 0.5, "falando": False, "ouvindo": True, "pensando": False, "duvida_identidade": False, "transicao_ms": 400}
+            (base / "visual.json").write_text(json.dumps(visual), encoding="utf-8")
+            cfg = dc.default_config() | {"visual_state_path": str(base / "visual.json")}
+            status = dc.collect_status(cfg, command_runner=lambda *_: dc.CommandResult(1, "", ""))
+        self.assertEqual(status["visual"], visual)
+
+    def test_collect_status_falls_back_to_neutral_visual_state(self):
+        cfg = dc.default_config() | {"visual_state_path": "Z:/missing/visual.json"}
+        status = dc.collect_status(cfg, command_runner=lambda *_: dc.CommandResult(1, "", ""))
+        self.assertEqual(status["visual"]["modo"], "OCIOSO")
+        self.assertEqual(status["visual"]["expressao"], "SERENO")
+        self.assertEqual(status["visual"]["source"], "fallback")

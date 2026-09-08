@@ -4,5 +4,6 @@
   "bind_port": 8765,
   "health_path": "~/pentium-agent/data/health/latest.json",
   "voice_config_path": "~/pentium-agent/atlas/config_voice.json",
-  "deploy_sha_path": "~/pentium-agent/runtime/deploy/current-sha"
+  "deploy_sha_path": "~/pentium-agent/runtime/deploy/current-sha",
+  "visual_state_path": "~/pentium-agent/atlas/runtime/visual-state.json"
 }
