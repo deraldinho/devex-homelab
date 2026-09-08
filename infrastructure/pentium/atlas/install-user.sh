@@ -60,6 +60,9 @@ for file in \
   affective_runtime.py \
   adaptador_impacto_afetivo.py \
   pipeline_afetivo_observacional.py \
+  affective_composition.py \
+  affective_interaction_ipc.py \
+  observation_daemon.py \
   modelo_contexto_cognitivo.py \
   configuracao_cognitiva.py \
   contexto_cognitivo.py \
@@ -169,6 +172,9 @@ python3 -m py_compile \
   "${TARGET_DIR}/affective_runtime.py" \
   "${TARGET_DIR}/adaptador_impacto_afetivo.py" \
   "${TARGET_DIR}/pipeline_afetivo_observacional.py" \
+  "${TARGET_DIR}/affective_composition.py" \
+  "${TARGET_DIR}/affective_interaction_ipc.py" \
+  "${TARGET_DIR}/observation_daemon.py" \
   "${TARGET_DIR}/modelo_contexto_cognitivo.py" \
   "${TARGET_DIR}/configuracao_cognitiva.py" \
   "${TARGET_DIR}/contexto_cognitivo.py" \
@@ -247,6 +253,7 @@ echo "ATLAS_AFETIVO_A3_INSTALL_PASS"
 echo "ATLAS_AFETIVO_A4_INSTALL_PASS"
 echo "ATLAS_AFFECTIVE_RUNTIME_INSTALL_PASS"
 echo "ATLAS_OBSERVATION_AFFECTIVE_PIPELINE_INSTALL_PASS"
+echo "ATLAS_AFFECTIVE_BOOT_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C1_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C2_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C3_INSTALL_PASS"
@@ -258,9 +265,11 @@ echo "ATLAS_COGNITIVE_CACHE_K1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K2_INSTALL_PASS"
 echo "ATLAS_I1_OBSERVATION_INTEGRATION_INSTALL_PASS"
 install -d -m 0755 "${HOME}/.config/systemd/user"
+install -m 0644 "${SOURCE_DIR}/atlas-observation.service" "${HOME}/.config/systemd/user/atlas-observation.service"
 install -m 0644 "${SOURCE_DIR}/atlas-voice.service" "${HOME}/.config/systemd/user/atlas-voice.service"
 if systemctl --user show-environment >/dev/null 2>&1; then
   systemctl --user daemon-reload
+  systemctl --user enable atlas-observation.service
   systemctl --user enable atlas-voice.service
 fi
 
