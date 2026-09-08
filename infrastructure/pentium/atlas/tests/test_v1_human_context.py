@@ -1,27 +1,31 @@
-import json, tempfile, unittest
+import tempfile
+import unittest
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timezone
 
-from infrastructure.pentium.atlas.human_context import HumanContextProvider
+from infrastructure.pentium.atlas.human_context import CognitiveContextUnavailable, HumanContextProvider
+from infrastructure.pentium.atlas.tests.test_human_context_observation_bridge import HumanContextObservationBridgeTest
 
 
 class HumanContextProviderTests(unittest.TestCase):
-    def test_healthy_heartbeat_becomes_observed_neutral_context(self):
-        now = datetime(2026, 9, 6, 23, 30, tzinfo=timezone.utc)
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "latest.json"
-            path.write_text(json.dumps({"schema_version": 1, "checked_at": now.isoformat(), "status": "healthy"}), encoding="utf-8")
-            ctx = HumanContextProvider(path, now=lambda: now)()
-        self.assertEqual("healthy", ctx["assessment"].state.value)
-        self.assertEqual("observado", ctx["percepcao"].estado.value)
-        self.assertEqual("calmo", ctx["emocao"].principal)
-        self.assertEqual([], ctx["mudancas_recentes"])
+    def test_missing_health_is_degraded_but_keeps_real_observation_context(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            helper = HumanContextObservationBridgeTest()
+            snapshot = helper.build_snapshot(root)
+            provider = HumanContextProvider(
+                root / "missing-health.json", snapshot, max_snapshot_age_s=180,
+                expected_sha="abc", now=lambda: datetime.fromisoformat("2026-09-08T11:01:00+00:00"))
+            ctx = provider()
+            self.assertEqual("degraded", ctx["assessment"].state.value)
+            self.assertEqual("x99", ctx["percepcao"].entidade_id)
+            self.assertEqual("curioso", ctx["emocao"].principal)
 
-    def test_missing_health_file_fails_closed_as_degraded_unknown(self):
-        now = datetime(2026, 9, 6, 23, 30, tzinfo=timezone.utc)
-        ctx = HumanContextProvider(Path("Z:/missing/latest.json"), now=lambda: now)()
-        self.assertEqual("degraded", ctx["assessment"].state.value)
-        self.assertEqual("desconhecido", ctx["percepcao"].estado.value)
+    def test_missing_observation_snapshot_never_synthesizes_affect(self):
+        with self.assertRaises(CognitiveContextUnavailable):
+            HumanContextProvider(Path("missing-health"), Path("missing-snapshot"),
+                                 max_snapshot_age_s=180)()
 
 
-if __name__ == "__main__": unittest.main()
+if __name__ == "__main__":
+    unittest.main()

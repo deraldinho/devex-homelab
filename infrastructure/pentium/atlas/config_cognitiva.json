@@ -13,5 +13,10 @@
     "cooldown_s": 120,
     "janela_orcamento_s": 300,
     "max_ativacoes_autonomas_janela": 4
+  },
+  "observation_bridge": {
+    "snapshot_path": "~/pentium-agent/atlas/runtime/cognitive-observation-context.json",
+    "max_snapshot_age_s": 180,
+    "require_expected_sha": true
   }
 }
