@@ -5,24 +5,19 @@ ROOT = Path(__file__).resolve().parents[4]
 
 
 class C5PhysicalOrchestratorContractTests(unittest.TestCase):
-    def test_orquestrador_e_python_sem_shell_e_exige_sha_modelo_binario(self):
+    def test_orquestrador_usa_hermes_sem_llama_local(self):
         texto = (ROOT / "infrastructure/pentium/atlas/c5_physical_orchestrator.py").read_text(encoding="utf-8")
-        self.assertIn("--expected-sha", texto)
-        self.assertIn("--llama-server", texto)
-        self.assertIn("--model", texto)
-        self.assertIn("--heartbeat-state", texto)
-        self.assertIn("--soak-iterations", texto)
-        self.assertIn("LlamaCppServerRuntime", texto)
-        self.assertIn("c5_physical_runner", texto)
-        self.assertIn("C5ObservationProbe", texto)
-        self.assertIn("executar_campanha_c5", texto)
-        self.assertIn("get_json_unix", texto)
-        self.assertIn('"/health"', texto)
+        for token in ("--expected-sha", "--hermes-config", "--heartbeat-state", "--soak-iterations",
+                      "HermesAdapter", "load_hermes_config", "c5_physical_runner",
+                      "C5ObservationProbe", "executar_campanha_c5"):
+            self.assertIn(token, texto)
+        for legado in ("--llama-server", "--model", "--socket", "LlamaCppServerRuntime", "get_json_unix", '"/health"'):
+            self.assertNotIn(legado, texto)
         self.assertNotIn("shell=True", texto)
         self.assertNotIn("os.system", texto)
         self.assertNotIn("ssh ", texto)
 
-    def test_orquestrador_nao_baixa_modelo_nem_emite_physical_pass(self):
+    def test_orquestrador_nao_baixa_backend_nem_emite_physical_pass(self):
         texto = (ROOT / "infrastructure/pentium/atlas/c5_physical_orchestrator.py").read_text(encoding="utf-8")
         self.assertNotIn("http://", texto)
         self.assertNotIn("https://", texto)
