@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from dataclasses import dataclass
@@ -38,15 +39,20 @@ class HermesPreflight:
             return HermesPreflightResult(False, "profile_unavailable", None)
 
         prompt_size = self._run([
-            self._config.binary, "-p", self._config.profile, "prompt-size",
+            self._config.binary, "-p", self._config.profile, "prompt-size", "--json",
         ])
         if prompt_size is None or prompt_size.returncode != 0:
             return HermesPreflightResult(False, "prompt_size_unavailable", None)
 
-        match = _TOOL_COUNT.search(prompt_size.stdout or "")
-        if match is None:
-            return HermesPreflightResult(False, "tool_count_unparseable", None)
-        tool_count = int(match.group(1))
+        output = prompt_size.stdout or ""
+        try:
+            payload = json.loads(output)
+            tool_count = int(payload["tools"]["count"])
+        except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+            match = _TOOL_COUNT.search(output)
+            if match is None:
+                return HermesPreflightResult(False, "tool_count_unparseable", None)
+            tool_count = int(match.group(1))
         if tool_count != 0:
             return HermesPreflightResult(False, "tools_enabled", tool_count)
         return HermesPreflightResult(True, None, tool_count)

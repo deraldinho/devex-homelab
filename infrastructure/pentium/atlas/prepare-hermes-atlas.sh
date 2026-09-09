@@ -13,10 +13,10 @@ fi
 hermes -p atlas skills opt-out --remove --yes >/dev/null
 
 TOOLSETS=(
-  web search browser terminal file code_execution vision image_gen video tts
-  skills memory session_search delegation cronjob clarify messaging todo kanban
+  web search browser terminal file code_execution vision image_gen video video_gen x_search tts stt
+  skills memory context_engine session_search connections delegation cronjob clarify messaging todo kanban
   debugging safe spotify homeassistant discord discord_admin feishu_doc feishu_drive
-  yuanbao rl
+  yuanbao rl computer_use a2a
 )
 
 for toolset in "${TOOLSETS[@]}"; do

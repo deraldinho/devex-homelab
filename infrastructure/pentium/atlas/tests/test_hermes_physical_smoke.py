@@ -61,7 +61,7 @@ class HermesPhysicalSmokeOutputTests(unittest.TestCase):
                 return subprocess.CompletedProcess(command, 3, "inactive\n", "")
             if command[1:3] == ["profile", "show"]:
                 return subprocess.CompletedProcess(command, 0, "Profile: atlas\n", "")
-            if command[-1:] == ["prompt-size"]:
+            if "prompt-size" in command:
                 return subprocess.CompletedProcess(command, 0, "Tool schemas : 2 B (0 tools)\n", "")
             if "-z" in command:
                 return subprocess.CompletedProcess(command, 0, valid, "oauth_token=secret")
