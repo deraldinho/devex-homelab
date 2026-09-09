@@ -66,6 +66,24 @@ A timeline operacional continua mostrando estímulo, inferência, decisão, plan
 
 Chat continua sendo o canal oficial do usuário para a Atlas. Uma mensagem enviada pelo dashboard entra na mesma inbox bounded, passa pelo runtime cognitivo Hermes e gera `PlanoAcaoAtlas` antes de qualquer ação semântica.
 
+## Discord como segundo canal oficial
+
+Discord será o segundo canal humano oficial da Atlas, ao lado do dashboard/API. O Discord não conversa diretamente com Hermes: ele entra na mesma fila bounded e no mesmo runtime cognitivo da Atlas.
+
+Fluxo canônico:
+
+Discord Bot -> AtlasDiscordGateway -> ChatInbox -> AtlasCognitiveRuntime -> HermesAdapter -> PlanoAcaoAtlas -> ActionPolicy -> resposta -> Discord
+
+O adapter preserva a origem human.discord e identificadores sanitizados de conversa/canal suficientes para correlacionar resposta e timeline. O histórico no dashboard indica a origem dashboard ou discord.
+
+O bot opera por allowlist de usuários/canais configurada fora do código. Mensagens de bots, webhooks não autorizados e DMs/canais fora da allowlist são ignorados. Tamanho, fila, tentativas e idempotência seguem os mesmos limites do ChatInbox.
+
+O token Discord nunca é armazenado em Git, JSON de runtime, logs, eventos ou dashboard. O serviço lê DISCORD_BOT_TOKEN de ambiente ou arquivo protegido no Pentium. O installer cria apenas o contrato de configuração; o segredo é provisionado manualmente após deploy.
+
+A resposta ao Discord é publicada somente depois de o resultado cognitivo e o lifecycle do plano estarem persistidos. Falha de envio gera evento operacional retryable e não reexecuta a cognição nem duplica ações concluídas.
+
+O dashboard mostra estado do canal Discord, última atividade sanitizada e erros sem expor credenciais ou headers.
+
 ## Instalação e autenticação
 
 O installer da Atlas deve instalar/validar Hermes sem registrar credenciais. A autenticação ChatGPT/Codex é executada manualmente pelo usuário no Pentium após a instalação, via device code.
