@@ -6,6 +6,7 @@ import signal
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 from .capability_registry import atlas_capability_registry
 from .action_executors import ActionExecutorRegistry
@@ -24,6 +25,8 @@ from .configuracao_llm import carregar_configuracao_llm
 from .contexto_cognitivo import ContextoCognitivoBuilder
 from .cognitive_observation_projection import load_cognitive_observation_snapshot
 from .human_context import HumanContextProvider
+from .human_interaction import build_human_stimulus
+from .chat_inbox import ChatInbox
 from .llama_cpp_backend import LlamaCppBackend
 from .llama_cpp_resident_backend import LlamaCppResidentBackend
 from .llama_server_runtime import LlamaCppServerRuntime
@@ -69,11 +72,11 @@ class CognitiveResultPublisher:
 
 
 class CognitiveDaemon:
-    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None):
+    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None,chat_inbox=None):
         if reflection_interval_s<=0: raise ValueError("reflection_interval_s must be > 0")
         self._snapshot_loader=snapshot_loader;self._context_provider=context_provider;self._loop=loop;self._publisher=publisher
         self._reflection_interval_s=float(reflection_interval_s);self._clock=clock;self._last_id=None;self._last_at=None;self._last_affective=None;self._visual_state_sink=visual_state_sink
-        self._planner=planner;self._action_policy=action_policy;self._action_executor=action_executor;self._action_store=action_store;self._event_sink=event_sink
+        self._planner=planner;self._action_policy=action_policy;self._action_executor=action_executor;self._action_store=action_store;self._event_sink=event_sink;self._chat_inbox=chat_inbox
     def _delta(self,current):
         keys=("valencia","ativacao","estresse","confianca","engajamento","curiosidade")
         if self._last_affective is None:return 0.0
@@ -86,7 +89,7 @@ class CognitiveDaemon:
         if self._event_sink is not None:
             self._event_sink(event_type,dict(payload))
 
-    def _process_action_plan(self,snapshot,response):
+    def _process_action_plan(self,snapshot,response,*,trigger_kind="observation"):
         if getattr(response,"razao",None) is not None:
             return None
         required=(self._planner,self._action_policy,self._action_executor,self._action_store)
@@ -95,7 +98,7 @@ class CognitiveDaemon:
         terminal={ActionStatus.COMPLETED,ActionStatus.BLOCKED,ActionStatus.FAILED,ActionStatus.CANCELLED}
         visual_types={ActionType.LOOK_AT,ActionType.SET_EXPRESSION,ActionType.SET_GESTURE,ActionType.SET_POSTURE}
         try:
-            plan=self._planner.plan(snapshot.source_stimulus_id,getattr(snapshot,"entity_id",None),response)
+            plan=self._planner.plan(snapshot.source_stimulus_id,getattr(snapshot,"entity_id",None),response,trigger_kind=trigger_kind)
             self._action_store.save_current(plan)
             self._emit_action_event("plan_created",{"plan_id":plan.plan_id,"stimulus_id":plan.stimulus_id,"objective":plan.objective,"confidence":plan.confidence})
             authorized=self._action_policy.authorize(plan,voice_enabled=False)
@@ -121,22 +124,36 @@ class CognitiveDaemon:
             return None
 
     def run_once(self):
-        snapshot=self._snapshot_loader();now=self._clock();reflection=self._last_id==snapshot.source_stimulus_id and self._last_at is not None and now-self._last_at>=self._reflection_interval_s
-        if snapshot.source_stimulus_id==self._last_id and not reflection:return None
+        envelope=self._chat_inbox.claim_next() if self._chat_inbox is not None else None
+        base_snapshot=self._snapshot_loader(); now=self._clock()
+        trigger_kind="human_interaction" if envelope is not None else "observation"
+        snapshot=base_snapshot
+        if envelope is not None:
+            snapshot=SimpleNamespace(source_stimulus_id=envelope.stimulus_id,entity_id=getattr(base_snapshot,"entity_id",None),generated_at=envelope.created_at,recent_changes=getattr(base_snapshot,"recent_changes",()),affective_state=getattr(base_snapshot,"affective_state",{}))
+        reflection=envelope is None and self._last_id==snapshot.source_stimulus_id and self._last_at is not None and now-self._last_at>=self._reflection_interval_s
+        if envelope is None and snapshot.source_stimulus_id==self._last_id and not reflection:return None
         thinking=False
         if hasattr(self._publisher,"publish_phase"):
             self._publisher.publish_phase(snapshot,state="ANALISANDO",activity="avaliando_estimulo")
         try:
-            context=self._context_provider();signals=self._signals(snapshot,reflection=reflection)
+            context=dict(self._context_provider()); signals=self._signals(snapshot,reflection=reflection)
+            if envelope is not None:
+                stimulus=build_human_stimulus(envelope.message,source="human.dashboard",stimulus_id=envelope.stimulus_id,timestamp=envelope.created_at,max_text_chars=512)
+                recent=list(context.get("mudancas_recentes",()))
+                recent.append(stimulus); context["mudancas_recentes"]=recent
+                signals["interacao_humana"]=True
             if hasattr(self._publisher,"publish_phase"):
                 self._publisher.publish_phase(snapshot,state="INFERINDO",activity="executando_ciclo_cognitivo",task="formular_resposta_cognitiva")
             if self._visual_state_sink is not None:
                 self._visual_state_sink(EstadoInteracaoVisual(pensando=True, atualizado_em=_utc_now()));thinking=True
             response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context)
-            self._process_action_plan(snapshot,response)
-            self._publisher.publish(snapshot,response);self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
+            self._process_action_plan(snapshot,response,trigger_kind=trigger_kind)
+            self._publisher.publish(snapshot,response)
+            if envelope is not None:self._chat_inbox.ack(envelope.message_id)
+            self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
             return response
         except Exception as exc:
+            if envelope is not None:self._emit_action_event("runtime_error",{"stimulus_id":envelope.stimulus_id,"message_id":envelope.message_id,"error":type(exc).__name__})
             if hasattr(self._publisher,"publish_phase"):
                 self._publisher.publish_phase(snapshot,state="DEGRADADA",activity="erro_cognitivo",detail=type(exc).__name__)
             raise
@@ -178,7 +195,8 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     action_planner=ActionPlanner()
     action_policy=ActionPolicy(capabilities)
     action_executor=ActionExecutorRegistry()
-    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish)
+    chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512)
+    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox)
     return CognitiveRuntimeOwner(daemon,server,memory_store),socket_path
 
 

@@ -42,7 +42,7 @@ def _plan_dict(plan: PlanoAcaoAtlas) -> dict:
         "created_at": plan.created_at, "objective": plan.objective,
         "confidence": plan.confidence, "response_text": plan.response_text,
         "requires_confirmation": plan.requires_confirmation,
-        "policy_decision": plan.policy_decision,
+        "policy_decision": plan.policy_decision, "trigger_kind": plan.trigger_kind,
         "actions": [_action_dict(action) for action in plan.actions],
     }
 
@@ -71,7 +71,7 @@ def _plan_from_dict(data: dict) -> PlanoAcaoAtlas:
         confidence=float(data["confidence"]), response_text=data.get("response_text"),
         actions=tuple(_action_from_dict(item) for item in data["actions"]),
         requires_confirmation=bool(data.get("requires_confirmation", False)),
-        policy_decision=data.get("policy_decision"),
+        policy_decision=data.get("policy_decision"), trigger_kind=str(data.get("trigger_kind", "observation")),
     )
 
 

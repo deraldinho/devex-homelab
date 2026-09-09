@@ -129,6 +129,7 @@ class PlanoAcaoAtlas:
     actions: tuple[AtlasAction, ...]
     requires_confirmation: bool = False
     policy_decision: str | None = None
+    trigger_kind: str = "observation"
 
     def __post_init__(self) -> None:
         _uuid_text(self.plan_id, "plan_id")
@@ -150,7 +151,7 @@ class PlanoAcaoAtlas:
             "schema_version": 1, "plan_id": self.plan_id, "stimulus_id": self.stimulus_id,
             "created_at": self.created_at, "objective": self.objective,
             "confidence": self.confidence, "response_text": self.response_text,
-            "requires_confirmation": self.requires_confirmation, "policy_decision": self.policy_decision,
+            "requires_confirmation": self.requires_confirmation, "policy_decision": self.policy_decision, "trigger_kind": self.trigger_kind,
             "actions": [{"action_id": a.action_id, "type": a.type.value, "target": a.target,
                          "parameters": dict(a.parameters), "status": a.status.value, "reason": a.reason,
                          "created_at": a.created_at, "authorized_at": a.authorized_at,
@@ -159,9 +160,9 @@ class PlanoAcaoAtlas:
 
     @classmethod
     def create(cls, *, stimulus_id: str, objective: str, confidence: float,
-               response_text: str | None, actions) -> "PlanoAcaoAtlas":
+               response_text: str | None, actions, trigger_kind: str = "observation") -> "PlanoAcaoAtlas":
         return cls(str(uuid4()), stimulus_id, _now(), objective, confidence,
-                   response_text, tuple(actions))
+                   response_text, tuple(actions), False, None, str(trigger_kind))
 
 
 def transition_action(action: AtlasAction, target_status: ActionStatus | str, *,

@@ -29,7 +29,7 @@ class ActionPlanner:
         return AtlasAction.create(ActionType.CAPABILITY_REQUEST,target=entity_id,
             parameters={"capability":name,"arguments":params})
 
-    def plan(self,stimulus_id,entity_id,response)->PlanoAcaoAtlas:
+    def plan(self,stimulus_id,entity_id,response,*,trigger_kind="observation")->PlanoAcaoAtlas:
         actions=[]
         text=getattr(response,"texto",None)
         if text:
@@ -52,4 +52,4 @@ class ActionPlanner:
         objective=(getattr(response,"resumo",None) or text or "processar estimulo")
         confidence=getattr(response,"confianca",None)
         return PlanoAcaoAtlas.create(stimulus_id=str(stimulus_id),objective=str(objective),
-            confidence=0.0 if confidence is None else float(confidence),response_text=text,actions=actions)
+            confidence=0.0 if confidence is None else float(confidence),response_text=text,actions=actions,trigger_kind=trigger_kind)
