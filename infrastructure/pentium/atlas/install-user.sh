@@ -5,6 +5,8 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_ROOT="${HOME}/pentium-agent"
 TARGET_DIR="${TARGET_ROOT}/atlas"
 
+command -v hermes >/dev/null 2>&1 || { echo "Hermes CLI nao encontrado no PATH" >&2; exit 2; }
+
 install -d -m 0755 "${TARGET_DIR}"
 
 for file in \
@@ -80,6 +82,7 @@ for file in \
   politica_ativacao_cognitiva.py \
   modelo_llm_gateway.py \
   config_hermes.py \
+  hermes_preflight.py \
   hermes_adapter.py \
   llm_gateway.py \
   prompt_cognitivo.py \
@@ -127,6 +130,8 @@ done
 for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_affective_runtime.json config_observation_affective.json config_cognitiva.json config_hermes.json config_memory.json config_cache.json config_fast_router.json config_voice.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
+
+install -m 0755 "${SOURCE_DIR}/prepare-hermes-atlas.sh" "${TARGET_DIR}/prepare-hermes-atlas.sh"
 
 python3 -m py_compile \
   "${TARGET_DIR}/state_model.py" \
@@ -200,6 +205,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/politica_ativacao_cognitiva.py" \
   "${TARGET_DIR}/modelo_llm_gateway.py" \
   "${TARGET_DIR}/config_hermes.py" \
+  "${TARGET_DIR}/hermes_preflight.py" \
   "${TARGET_DIR}/hermes_adapter.py" \
   "${TARGET_DIR}/llm_gateway.py" \
   "${TARGET_DIR}/prompt_cognitivo.py" \
