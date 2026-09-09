@@ -19,17 +19,14 @@ from .cognitive_cache import CognitiveCache
 from .cognitive_observability import CognitiveObservablePublisher, CognitiveActionEventPublisher
 from .config_cache import load_cache_config
 from .config_memory import load_memory_config
-from .config_llama_server import carregar_configuracao_llama_server
+from .config_hermes import load_hermes_config
 from .configuracao_cognitiva import carregar_configuracao_cognitiva
-from .configuracao_llm import carregar_configuracao_llm
 from .contexto_cognitivo import ContextoCognitivoBuilder
 from .cognitive_observation_projection import load_cognitive_observation_snapshot
 from .human_context import HumanContextProvider
 from .human_interaction import build_human_stimulus
 from .chat_inbox import ChatInbox
-from .llama_cpp_backend import LlamaCppBackend
-from .llama_cpp_resident_backend import LlamaCppResidentBackend
-from .llama_server_runtime import LlamaCppServerRuntime
+from .hermes_adapter import HermesAdapter
 from .llm_gateway import LLMGateway
 from .memory_retriever import MemoryRetriever
 from .memory_store import MemoryStore
@@ -167,25 +164,18 @@ class CognitiveDaemon:
 
 
 class CognitiveRuntimeOwner:
-    def __init__(self,daemon,server,memory_store,*,poll_interval_s=.5,startup_timeout_s=15.0,sleeper=time.sleep):
-        self.daemon=daemon;self.server=server;self.memory_store=memory_store;self.poll_interval_s=float(poll_interval_s);self.startup_timeout_s=float(startup_timeout_s);self.sleeper=sleeper
-    def start(self,socket_path:Path):
-        self.server.start();deadline=time.monotonic()+self.startup_timeout_s
-        while not Path(socket_path).exists():
-            if time.monotonic()>=deadline: raise TimeoutError("atlas llama-server socket startup timeout")
-            self.sleeper(.1)
+    def __init__(self,daemon,memory_store,*,poll_interval_s=.5,sleeper=time.sleep):
+        self.daemon=daemon;self.memory_store=memory_store;self.poll_interval_s=float(poll_interval_s);self.sleeper=sleeper
+    def start(self):
+        return None
     def close(self):
-        try:self.server.stop()
-        finally:self.memory_store.close()
+        self.memory_store.close()
 
 
 def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
-    config_root=Path(config_root);state_dir=Path(state_dir);cognitive=carregar_configuracao_cognitiva(config_root/"config_cognitiva.json");llm=carregar_configuracao_llm(config_root/"config_llm.json");server_cfg=carregar_configuracao_llama_server(config_root/"config_llama_server.json")
-    runtime_root=AGENT_ROOT/"runtime";model_path=(AGENT_ROOT/llm.modelo_path).resolve();binary=runtime_root/"llama"/"build"/"bin"/"llama-server";cli=runtime_root/"llama"/"build"/"bin"/"llama-cli";socket_path=Path(server_cfg.socket_path)
-    server=LlamaCppServerRuntime(binary,model_path,socket_path,context_size=server_cfg.context_size,cache_reuse=server_cfg.cache_reuse)
-    fallback=LlamaCppBackend(cli,model_path,timeout_s=llm.timeout_s,max_saida_bytes=llm.max_saida_bytes)
-    backend=LlamaCppResidentBackend(socket_path,cache_reuse=server_cfg.cache_reuse,timeout_s=llm.timeout_s,max_response_bytes=server_cfg.max_response_bytes,fallback=fallback)
-    gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=llm.max_tokens_contexto,reasoning_policy=ReasoningPolicy())
+    config_root=Path(config_root);state_dir=Path(state_dir);cognitive=carregar_configuracao_cognitiva(config_root/"config_cognitiva.json");hermes=load_hermes_config(config_root/"config_hermes.json")
+    backend=HermesAdapter(hermes)
+    gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=hermes.max_context_tokens,reasoning_policy=ReasoningPolicy())
     memory_cfg=load_memory_config(config_root/"config_memory.json");memory_store=MemoryStore(state_dir/"memory.sqlite3");retriever=MemoryRetriever(memory_store,max_items=memory_cfg.retriever_max_items,max_bytes=memory_cfg.retriever_max_bytes)
     cache=CognitiveCache(load_cache_config(config_root/"config_cache.json"));policy=ActivationPolicy(cognitive.ativacao);builder=ContextoCognitivoBuilder(cognitive.contexto);capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status",),control_allow=())
     loop=ReactionLoopCognitivo(policy,builder,gateway,capability_policy=capabilities,memory_retriever=retriever,cognitive_cache=cache)
@@ -200,16 +190,16 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     action_executor=ActionExecutorRegistry()
     chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512)
     daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox)
-    return CognitiveRuntimeOwner(daemon,server,memory_store),socket_path
+    return CognitiveRuntimeOwner(daemon,memory_store)
 
 
 def main()->int:
-    owner,socket_path=build_owner();stop=False
+    owner=build_owner();stop=False
     def request_stop(*_):
         nonlocal stop;stop=True
     signal.signal(signal.SIGTERM,request_stop);signal.signal(signal.SIGINT,request_stop)
     try:
-        owner.start(socket_path);print("ATLAS_COGNITIVE_DAEMON_READY",flush=True)
+        owner.start();print("ATLAS_COGNITIVE_DAEMON_READY",flush=True)
         while not stop:
             try: owner.daemon.run_once()
             except FileNotFoundError: pass

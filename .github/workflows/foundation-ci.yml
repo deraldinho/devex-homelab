@@ -197,10 +197,10 @@ jobs:
               "$atlas/contexto_cognitivo.py" \
               "$atlas/politica_ativacao_cognitiva.py" \
               "$atlas/modelo_llm_gateway.py" \
-              "$atlas/configuracao_llm.py" \
+              "$atlas/config_hermes.py" \
+              "$atlas/hermes_adapter.py" \
               "$atlas/llm_gateway.py" \
               "$atlas/prompt_cognitivo.py" \
-              "$atlas/llama_cpp_backend.py" \
               "$atlas/reaction_loop_cognitivo.py" \
               "$atlas/capability_registry.py" \
               "$atlas/policy_capabilities.py" \
@@ -220,9 +220,6 @@ jobs:
               "$atlas/config_memory.py" \
               "$atlas/cognitive_cache.py" \
               "$atlas/config_cache.py" \
-              "$atlas/config_llama_server.py" \
-              "$atlas/llama_server_runtime.py" \
-              "$atlas/llama_cpp_resident_backend.py" \
               "$atlas/unix_http.py" \
               "$atlas/voice_gate.py" \
               "$atlas/live_tts.py" \
@@ -242,10 +239,9 @@ jobs:
             python3 -m json.tool "$atlas/config_affective_runtime.json" >/dev/null
             python3 -m json.tool "$atlas/config_observation_affective.json" >/dev/null
             python3 -m json.tool "$atlas/config_cognitiva.json" >/dev/null
-            python3 -m json.tool "$atlas/config_llm.json" >/dev/null
+            python3 -m json.tool "$atlas/config_hermes.json" >/dev/null
             python3 -m json.tool "$atlas/config_memory.json" >/dev/null
             python3 -m json.tool "$atlas/config_cache.json" >/dev/null
-            python3 -m json.tool "$atlas/config_llama_server.json" >/dev/null
             python3 -m json.tool "$atlas/config_fast_router.json" >/dev/null
             python3 -m json.tool "$atlas/config_voice.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v

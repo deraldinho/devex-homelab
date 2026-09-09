@@ -63,21 +63,24 @@ class CognitiveDaemonTests(unittest.TestCase):
         self.assertEqual("RuntimeError",pub.phases[-1]["detail"])
 
 class CognitiveDaemonPackagingTests(unittest.TestCase):
-    def test_daemon_wires_resident_llama_server_and_service(self):
+    def test_daemon_wires_hermes_without_llama_server_owner(self):
         root=Path(__file__).resolve().parents[1]
         source=(root/'cognitive_daemon.py').read_text(encoding='utf-8')
         install=(root/'install-user.sh').read_text(encoding='utf-8')
         unit=(root/'atlas-cognitive.service').read_text(encoding='utf-8')
-        for token in ('LlamaCppServerRuntime','LlamaCppResidentBackend','ReactionLoopCognitivo','HumanContextProvider'):
+        for token in ('HermesAdapter','load_hermes_config','ReactionLoopCognitivo','HumanContextProvider'):
             self.assertIn(token,source)
+        for token in ('LlamaCppServerRuntime','LlamaCppResidentBackend','LlamaCppBackend','config_llama_server'):
+            self.assertNotIn(token,source)
         self.assertIn('atlas-cognitive.service',install); self.assertIn('python3 -m atlas.cognitive_daemon',unit)
         self.assertIn('restart atlas-cognitive.service',install); self.assertNotIn('restart atlas-voice.service',install)
         self.assertIn('EnvironmentFile=-%h/pentium-agent/atlas/runtime/observation.env',unit)
 
-    def test_repository_llm_config_points_to_installed_runtime_model(self):
+    def test_repository_hermes_config_uses_codex_profile(self):
         import json
         root=Path(__file__).resolve().parents[1]
-        cfg=json.loads((root/'config_llm.json').read_text(encoding='utf-8'))
-        self.assertEqual('runtime/llama/models/Qwen3-0.6B-Q4_0.gguf',cfg['modelo_path'])
+        cfg=json.loads((root/'config_hermes.json').read_text(encoding='utf-8'))
+        self.assertEqual('openai-codex',cfg['provider'])
+        self.assertEqual('atlas',cfg['profile'])
 
 if __name__=='__main__': unittest.main()
