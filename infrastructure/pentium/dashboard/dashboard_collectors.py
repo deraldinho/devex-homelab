@@ -38,6 +38,9 @@ def default_config() -> dict:
         "cognitive_health_path": "~/pentium-agent/atlas/runtime/observation-affective-health.json",
         "cognitive_runtime_path": "~/pentium-agent/atlas/runtime/cognitive-runtime.json",
         "cognitive_activity_path": "~/pentium-agent/atlas/runtime/cognitive-activity.jsonl",
+        "action_plan_path": "~/pentium-agent/atlas/runtime/action-plan-current.json",
+        "dashboard_events_path": "~/pentium-agent/atlas/runtime/dashboard-events.jsonl",
+        "chat_inbox_path": "~/pentium-agent/atlas/runtime/chat-inbox.json",
         "cognitive_max_age_s": 180,
     }
 
@@ -243,17 +246,17 @@ def collect_cognitive_runtime(config: dict) -> dict:
         return {"status": "unavailable"}
     schema = payload.get("schema_version")
     if schema == 1:
-        return {
+        return _enrich_runtime({
             "status":"available","schema_version":1,"generated_at":payload.get("generated_at"),
             "source_stimulus_id":payload.get("source_stimulus_id"),"activated":bool(payload.get("activated",False)),
             "reason":payload.get("reason"),"motivo":payload.get("motivo"),"backend":payload.get("backend"),
             "duration_ms":payload.get("duracao_ms"),"confidence":payload.get("confianca"),
             "requires_confirmation":bool(payload.get("requer_confirmacao",False)),
-        }
+        },config)
     if schema != 2:
         return {"status":"unavailable"}
     result = payload.get("last_result") if isinstance(payload.get("last_result"),dict) else {}
-    return {
+    return _enrich_runtime({
         "status":"available","schema_version":2,"generated_at":payload.get("generated_at"),
         "source_stimulus_id":payload.get("source_stimulus_id"),"entity_id":payload.get("entity_id"),
         "state":payload.get("state"),"activity":payload.get("activity"),"task":payload.get("task"),
@@ -264,8 +267,43 @@ def collect_cognitive_runtime(config: dict) -> dict:
         "backend":result.get("backend"),"duration_ms":result.get("duration_ms"),
         "requires_confirmation":bool(result.get("requires_confirmation",False)),
         "intention_authorized":bool(result.get("intention_authorized",False)),
-    }
+    },config)
 
+
+def _collect_action_plan(config: dict) -> dict | None:
+    payload=_read_json(config.get("action_plan_path",""))
+    if not isinstance(payload,dict) or payload.get("schema_version")!=1:return None
+    allowed_plan=("plan_id","stimulus_id","created_at","objective","confidence","response_text","requires_confirmation","policy_decision","trigger_kind")
+    actions=[]
+    for item in payload.get("actions",[])[:16]:
+        if not isinstance(item,dict):continue
+        params=item.get("parameters") if isinstance(item.get("parameters"),dict) else {}
+        safe_params={k:v for k,v in params.items() if str(k) in {"direction","expression","intensity","gesture","arm","posture","duration_ms","capability"}}
+        actions.append({k:item.get(k) for k in ("action_id","type","target","status","reason","created_at","authorized_at","started_at","finished_at")}|{"parameters":safe_params})
+    return {k:payload.get(k) for k in allowed_plan}|{"actions":actions}
+
+
+def _collect_operational_events(config: dict, limit: int = 64) -> list[dict]:
+    path=Path(config.get("dashboard_events_path","")).expanduser()
+    try: lines=path.read_text(encoding="utf-8").splitlines()[-max(1,min(128,int(limit))):]
+    except OSError:return []
+    out=[]
+    payload_keys={"plan_id","stimulus_id","message_id","action_id","type","status","reason","target","role","message","objective","confidence","error"}
+    for line in lines:
+        try:item=json.loads(line)
+        except json.JSONDecodeError:continue
+        if not isinstance(item,dict):continue
+        raw=item.get("payload") if isinstance(item.get("payload"),dict) else {}
+        out.append({"id":item.get("id"),"timestamp":item.get("timestamp"),"type":item.get("type"),"payload":{k:raw.get(k) for k in payload_keys if k in raw}})
+    return out
+
+
+def _enrich_runtime(runtime: dict, config: dict) -> dict:
+    events=_collect_operational_events(config)
+    runtime=dict(runtime);runtime["action_plan"]=_collect_action_plan(config)
+    runtime["operational_timeline"]=events
+    runtime["chat_history"]=[e for e in events if e.get("type")=="chat_message"][-32:]
+    return runtime
 
 def collect_cognitive_activity(config: dict, limit: int = 40) -> list[dict]:
     path=Path(config["cognitive_activity_path"]).expanduser()

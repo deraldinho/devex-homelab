@@ -114,6 +114,8 @@ class CognitiveDaemon:
                     self._emit_action_event("action_status",payload)
                     if after.type in visual_types:
                         self._emit_action_event("visual_action",payload)
+                    if after.type is ActionType.CHAT_REPLY and after.status is ActionStatus.COMPLETED:
+                        self._emit_action_event("chat_message",{"plan_id":plan.plan_id,"stimulus_id":plan.stimulus_id,"role":"atlas","message":plan.response_text or ""})
             if all(action.status in terminal for action in executed.actions):
                 self._action_store.append_terminal(executed)
             return executed
@@ -138,6 +140,7 @@ class CognitiveDaemon:
         try:
             context=dict(self._context_provider()); signals=self._signals(snapshot,reflection=reflection)
             if envelope is not None:
+                self._emit_action_event("chat_message",{"message_id":envelope.message_id,"stimulus_id":envelope.stimulus_id,"role":"user","message":envelope.message})
                 stimulus=build_human_stimulus(envelope.message,source="human.dashboard",stimulus_id=envelope.stimulus_id,timestamp=envelope.created_at,max_text_chars=512)
                 recent=list(context.get("mudancas_recentes",()))
                 recent.append(stimulus); context["mudancas_recentes"]=recent
