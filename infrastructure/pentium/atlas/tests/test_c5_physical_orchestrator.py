@@ -26,3 +26,11 @@ class C5PhysicalOrchestratorContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class C5HermesPreflightContractTests(unittest.TestCase):
+    def test_orchestrator_requires_zero_tools_preflight_before_campaign(self):
+        texto = (ROOT / "infrastructure/pentium/atlas/c5_physical_orchestrator.py").read_text(encoding="utf-8")
+        self.assertIn("HermesPreflight", texto)
+        self.assertIn("preflight.ok", texto)
+        self.assertLess(texto.index("HermesPreflight"), texto.index("executar_campanha_c5("))

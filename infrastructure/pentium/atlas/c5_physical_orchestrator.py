@@ -11,6 +11,7 @@ from .c5_observation_probe import C5ObservationProbe
 from .c5_physical_campaign import executar_campanha_c5
 from .config_hermes import load_hermes_config
 from .hermes_adapter import HermesAdapter
+from .hermes_preflight import HermesPreflight
 
 
 def _sha_local(repo_root: Path) -> str:
@@ -45,6 +46,9 @@ def executar(args: argparse.Namespace) -> dict[str, object]:
     if not args.heartbeat_state.expanduser().is_file():
         raise FileNotFoundError("heartbeat state nao encontrado")
     config = load_hermes_config(args.hermes_config)
+    preflight = HermesPreflight(config).check()
+    if not preflight.ok:
+        raise RuntimeError(f"Hermes preflight falhou: {preflight.reason}")
     HermesAdapter(config)
     observation_probe = C5ObservationProbe(
         args.heartbeat_state,

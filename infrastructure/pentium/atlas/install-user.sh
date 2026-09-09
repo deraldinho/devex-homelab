@@ -83,6 +83,7 @@ for file in \
   modelo_llm_gateway.py \
   config_hermes.py \
   hermes_preflight.py \
+  hermes_physical_smoke.py \
   hermes_adapter.py \
   llm_gateway.py \
   prompt_cognitivo.py \
@@ -206,6 +207,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/modelo_llm_gateway.py" \
   "${TARGET_DIR}/config_hermes.py" \
   "${TARGET_DIR}/hermes_preflight.py" \
+  "${TARGET_DIR}/hermes_physical_smoke.py" \
   "${TARGET_DIR}/hermes_adapter.py" \
   "${TARGET_DIR}/llm_gateway.py" \
   "${TARGET_DIR}/prompt_cognitivo.py" \

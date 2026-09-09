@@ -32,3 +32,10 @@ class HermesFoundationPackagingTests(unittest.TestCase):
         self.assertIn("hermes_preflight.py", workflow)
         self.assertIn("prepare-hermes-atlas.sh", workflow)
         self.assertIn("bash -n", workflow)
+
+class HermesPhysicalSmokePackagingTests(unittest.TestCase):
+    def test_installer_and_ci_package_physical_smoke(self):
+        installer = (ROOT / "install-user.sh").read_text(encoding="utf-8")
+        workflow = (ROOT.parents[2] / ".github/workflows/foundation-ci.yml").read_text(encoding="utf-8")
+        self.assertIn("hermes_physical_smoke.py", installer)
+        self.assertIn("hermes_physical_smoke.py", workflow)

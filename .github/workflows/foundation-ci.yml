@@ -199,6 +199,7 @@ jobs:
               "$atlas/modelo_llm_gateway.py" \
               "$atlas/config_hermes.py" \
               "$atlas/hermes_preflight.py" \
+              "$atlas/hermes_physical_smoke.py" \
               "$atlas/hermes_adapter.py" \
               "$atlas/llm_gateway.py" \
               "$atlas/prompt_cognitivo.py" \
