@@ -46,15 +46,21 @@
     #applyState(){
       const s=this.state,r=this.rig,i=s.intensidade_expressao;
       const curious=s.expressao==='CURIOSO'||s.duvida_identidade;r.head._targetRotation=curious?.08+i*.06:0;
-      const g=String(s.gesto_atual||'NENHUM').toUpperCase();r.armL._targetRotation=g==='ACENO'?-.72:g==='DUVIDA'?-.28:g==='FECHADO'?.2:.08;r.armR._targetRotation=g==='ESCUTA'?.48:g==='ABERTO'?.22:g==='SURPRESA'?-.34:-.08;
-      r.forearmL._targetRotation=g==='ACENO'?-.45:g==='DUVIDA'?-.2:0;r.forearmR._targetRotation=g==='ESCUTA'?-.62:g==='ABERTO'?.12:g==='SURPRESA'?.28:0;
+      const g=String(s.gesto_atual||'NENHUM').toUpperCase();const side=String(s.lado_gesto||'none').toLowerCase();
+      const semanticPosture=String(s.postura_atual||'NEUTRO').toUpperCase();
+      const leftGesture=side==='left'||side==='both'||side==='none';const rightGesture=side==='right'||side==='both'||side==='none';
+      r.armL._targetRotation=leftGesture?(g==='ACENO'?-.72:g==='DUVIDA'?-.28:g==='FECHADO'?.2:.08):.08;
+      r.armR._targetRotation=rightGesture?(g==='ESCUTA'?.48:g==='ABERTO'?.22:g==='SURPRESA'?-.34:g==='ACENO'?.58:-.08):-.08;
+      r.forearmL._targetRotation=leftGesture?(g==='ACENO'?-.45:g==='DUVIDA'?-.2:0):0;
+      r.forearmR._targetRotation=rightGesture?(g==='ESCUTA'?-.62:g==='ABERTO'?.12:g==='SURPRESA'?.28:g==='ACENO'?-.36:0):0;
+      r.torso._semanticRotation=semanticPosture==='ABERTO'?-.015:semanticPosture==='FECHADO'?.025:0;
       const pressure=s.expressao==='SOB_PRESSAO'||s.expressao==='PREOCUPADO';r.browL._targetRotation=pressure?-.12:0;r.browR._targetRotation=pressure?.12:0;
-      r.root._targetScale=s.modo==='REAGINDO'?1.025:1;r.legL._targetRotation=g==='ALIVIO'?-.015:0;r.legR._targetRotation=g==='ALIVIO'?.015:0;
+      r.root._targetScale=s.modo==='REAGINDO'?1.025:semanticPosture==='ABERTO'?1.012:1;r.legL._targetRotation=g==='ALIVIO'?-.015:0;r.legR._targetRotation=g==='ALIVIO'?.015:0;
     }
 
     #tick(deltaMs){
       if(!this.ready||!this.state||this.hidden)return;const s=this.state,r=this.rig,dt=Math.min(.05,Math.max(0,deltaMs/1000));const t=(performance.now()-this.startedAt)/1000;const motion=this.reducedMotion?0:s.intensidade_movimento;
-      const alive=this.motion.step({...s,intensidade_movimento:motion},dt,t);r.root.y=280+alive.breath;r.root.x=170+alive.weightShift*.22;r.torso.rotation=M.smoothExp(r.torso.rotation,alive.weightShift*.0025,dt,5);r.hairBack.rotation=alive.hairLag;
+      const alive=this.motion.step({...s,intensidade_movimento:motion},dt,t);r.root.y=280+alive.breath;r.root.x=170+alive.weightShift*.22;r.torso.rotation=M.smoothExp(r.torso.rotation,(r.torso._semanticRotation||0)+alive.weightShift*.0025,dt,5);r.hairBack.rotation=alive.hairLag;
       r.head.rotation=M.smoothExp(r.head.rotation,(r.head._targetRotation||0)+alive.headMicro,dt,9);r.armL.rotation=M.smoothExp(r.armL.rotation,r.armL._targetRotation||0,dt,7);r.armR.rotation=M.smoothExp(r.armR.rotation,r.armR._targetRotation||0,dt,7);r.forearmL.rotation=M.smoothExp(r.forearmL.rotation,r.forearmL._targetRotation||0,dt,8);r.forearmR.rotation=M.smoothExp(r.forearmR.rotation,r.forearmR._targetRotation||0,dt,8);
       r.browL.rotation=M.smoothExp(r.browL.rotation,r.browL._targetRotation||0,dt,10);r.browR.rotation=M.smoothExp(r.browR.rotation,r.browR._targetRotation||0,dt,10);r.legL.rotation=M.smoothExp(r.legL.rotation,r.legL._targetRotation||0,dt,6);r.legR.rotation=M.smoothExp(r.legR.rotation,r.legR._targetRotation||0,dt,6);
       const sc=r.root._targetScale||1;r.root.scale.x=M.smoothExp(r.root.scale.x,sc,dt,7);r.root.scale.y=M.smoothExp(r.root.scale.y,sc,dt,7);
