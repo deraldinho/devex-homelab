@@ -27,7 +27,7 @@ class HermesPreflight:
         try:
             return self._runner(
                 command, capture_output=True, text=True, encoding="utf-8",
-                errors="strict", timeout=10.0, check=False,
+                errors="strict", timeout=20.0, check=False,
             )
         except (OSError, UnicodeError, subprocess.TimeoutExpired):
             return None
