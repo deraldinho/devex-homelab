@@ -64,14 +64,14 @@ const $ = id => document.getElementById(id); const esc = value => String(value ?
 function kv(target,obj){target.innerHTML=Object.entries(obj||{}).map(([k,v])=>`<div class="muted">${esc(k)}</div><div>${esc(typeof v==='object'?JSON.stringify(v):v)}</div>`).join('')||'<div class="muted">sem dados</div>';}
 function renderCognition(cognition){
   const c=cognition||{status:'unavailable'}; const state=String(c.status||'unavailable');
-  $('cognitionStatus').textContent=state==='available'?'CONTEXTO DISPONÃVEL':state==='stale'?'CONTEXTO STALE':'CONTEXTO INDISPONÃVEL';
-  $('cognitionDetail').textContent=state==='available'?`${c.entity_id||'unknown'} Â· ${Math.round(Number(c.age_s)||0)}s Â· ${c.source_stimulus_id||'sem estÃ­mulo'}`:(c.reason||state);
-  if(state!=='available'){kv($('a1Metrics'),{});kv($('a3Perception'),{});kv($('a4Emotion'),{});$('cognitionChanges').innerHTML='<div class="muted">sem contexto cognitivo confiÃ¡vel</div>';return;}
+  $('cognitionStatus').textContent=state==='available'?'CONTEXTO DISPON\u00cdVEL':state==='stale'?'CONTEXTO STALE':'CONTEXTO INDISPON\u00cdVEL';
+  $('cognitionDetail').textContent=state==='available'?`${c.entity_id||'unknown'} \u00b7 ${Math.round(Number(c.age_s)||0)}s \u00b7 ${c.source_stimulus_id||'sem est\u00edmulo'}`:(c.reason||state);
+  if(state!=='available'){kv($('a1Metrics'),{});kv($('a3Perception'),{});kv($('a4Emotion'),{});$('cognitionChanges').innerHTML='<div class="muted">sem contexto cognitivo confi\u00e1vel</div>';return;}
   const a=c.affective_state||{}, p=c.perception||{}, e=c.emotion||{}, f=c.focus||{};
-  kv($('a1Metrics'),{valÃªncia:`${a.valence_percent??0}%`,ativaÃ§Ã£o:`${a.activation_percent??0}%`,estresse:`${a.stress_percent??0}%`,confianÃ§a:`${a.confidence_percent??0}%`,engajamento:`${a.engagement_percent??0}%`,curiosidade:`${a.curiosity_percent??0}%`});
-  kv($('a3Perception'),{entidade:c.entity_id,estado:p.estado,confianÃ§a:`${p.confidence_percent??0}%`,conflito:p.conflito_evidencias?'sim':'nÃ£o'});
-  kv($('a4Emotion'),{emoÃ§Ã£o:e.principal,nuances:(e.nuances||[]).join(', '),foco:f.principal?.assunto_id||'nenhum'});
-  $('cognitionChanges').innerHTML=(c.recent_changes||[]).slice().reverse().map(x=>`<div class="event"><b>${esc(x.severity)}</b> Â· ${esc(x.source)} Â· ${esc(x.kind)} Â· ${esc(x.stimulus_id)}</div>`).join('')||'<div class="muted">sem mudanÃ§as recentes</div>';
+  kv($('a1Metrics'),{'val\u00eancia':`${a.valence_percent??0}%`,'ativa\u00e7\u00e3o':`${a.activation_percent??0}%`,'estresse':`${a.stress_percent??0}%`,'confian\u00e7a':`${a.confidence_percent??0}%`,'engajamento':`${a.engagement_percent??0}%`,'curiosidade':`${a.curiosity_percent??0}%`});
+  kv($('a3Perception'),{'entidade':c.entity_id,'estado':p.estado,'confian\u00e7a':`${p.confidence_percent??0}%`,'conflito':p.conflito_evidencias?'sim':'n\u00e3o'});
+  kv($('a4Emotion'),{'emo\u00e7\u00e3o':e.principal,'nuances':(e.nuances||[]).join(', '),'foco':f.principal?.assunto_id||'nenhum'});
+  $('cognitionChanges').innerHTML=(c.recent_changes||[]).slice().reverse().map(x=>`<div class="event"><b>${esc(x.severity)}</b> \u00b7 ${esc(x.source)} \u00b7 ${esc(x.kind)} \u00b7 ${esc(x.stimulus_id)}</div>`).join('')||'<div class="muted">sem mudan\u00e7as recentes</div>';
 }
 function renderCognitiveRuntime(runtime){
   const r=runtime||{status:'unavailable'}; const available=r.status==='available';
@@ -80,7 +80,18 @@ function renderCognitiveRuntime(runtime){
   $('qwenLatency').textContent=available&&r.duration_ms!=null?`${r.duration_ms} ms`:'n/a';
   $('qwenReason').textContent=available?(r.motivo||r.reason||'sem ativacao'):'sem resultado';
 }
-async function refreshAll(){try{const [statusRes,eventRes]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/events',{cache:'no-store'})]); const status=await statusRes.json(); const events=await eventRes.json(); AtlasAvatarRenderer.render(status.visual); renderCognition(status.cognition); renderCognitiveRuntime(status.cognitive_runtime); $('atlasHealth').textContent=(status.atlas?.health||'unknown').toUpperCase(); $('atlasSha').textContent=`SHA ${status.atlas?.sha||'unknown'}`; $('voiceState').textContent=(status.voice?.state||'unknown').toUpperCase(); $('voiceDetail').textContent=`serviÃ§o ${status.services?.voice?.active||'unknown'} Â· ${status.services?.voice?.enabled||'unknown'}`; $('ancState').textContent=(status.anc?.state||'unknown').toUpperCase(); $('ancDetail').textContent=status.anc?.reason||'sem diagnÃ³stico adicional'; kv($('services'),status.services); kv($('audio'),status.audio); kv($('system'),status.system); kv($('network'),status.network); $('events').innerHTML=(events||[]).slice().reverse().map(e=>`<div class="event"><b>${esc(e.severity)}</b> Â· ${esc(e.source)} Â· ${esc(e.message)}</div>`).join('')||'<div class="muted">sem eventos tÃ©cnicos recentes</div>'; $('lastUpdate').textContent=`atualizado ${new Date().toLocaleTimeString()}`;}catch(error){$('lastUpdate').textContent=`dashboard degradado Â· ${error.name}`;}}
+async function refreshAll(){try{
+  const [statusRes,eventRes]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/events',{cache:'no-store'})]);
+  if(!statusRes.ok||!eventRes.ok) throw new Error('HttpStatus');
+  const status=await statusRes.json(); const events=await eventRes.json();
+  AtlasAvatarRenderer.render(status.visual); renderCognition(status.cognition); renderCognitiveRuntime(status.cognitive_runtime);
+  $('atlasHealth').textContent=(status.atlas?.health||'unknown').toUpperCase(); $('atlasSha').textContent=`SHA ${status.atlas?.sha||'unknown'}`;
+  $('voiceState').textContent=(status.voice?.state||'unknown').toUpperCase(); $('voiceDetail').textContent=`servi\u00e7o ${status.services?.voice?.active||'unknown'} \u00b7 ${status.services?.voice?.enabled||'unknown'}`;
+  $('ancState').textContent=(status.anc?.state||'unknown').toUpperCase(); $('ancDetail').textContent=status.anc?.reason||'sem diagn\u00f3stico adicional';
+  kv($('services'),status.services); kv($('audio'),status.audio); kv($('system'),status.system); kv($('network'),status.network);
+  $('events').innerHTML=(events||[]).slice().reverse().map(e=>`<div class="event"><b>${esc(e.severity)}</b> \u00b7 ${esc(e.source)} \u00b7 ${esc(e.message)}</div>`).join('')||'<div class="muted">sem eventos t\u00e9cnicos recentes</div>';
+  $('lastUpdate').textContent=`atualizado ${new Date().toLocaleTimeString()}`;
+}catch(error){$('lastUpdate').textContent=`dashboard degradado \u00b7 ${error.name}`;}}
 refreshAll(); setInterval(refreshAll, 2000);
 </script>
 </body></html>
