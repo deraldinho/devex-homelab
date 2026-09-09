@@ -7,7 +7,7 @@ from .human_context import CognitiveContextUnavailable
 from .stimulus_model import Stimulus, StimulusSeverity
 
 
-_ALLOWED_SOURCES = frozenset(("human.voice", "human.cli"))
+_ALLOWED_SOURCES = frozenset(("human.voice", "human.cli", "human.dashboard"))
 
 
 class HumanInteractionGateway:
