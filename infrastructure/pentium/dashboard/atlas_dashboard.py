@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import dashboard_collectors
+from dashboard_event_store import DashboardEventStore
 
 
 class DashboardServer(ThreadingHTTPServer):
@@ -50,6 +51,17 @@ class Handler(BaseHTTPRequestHandler):
         if request_path == "/api/events":
             body = json.dumps(collectors.collect_events(config), ensure_ascii=True).encode()
             self._send(200, "application/json; charset=utf-8", body)
+            return
+        if request_path == "/api/stream":
+            raw=self.headers.get("Last-Event-ID","0")
+            try: last_id=max(0,int(raw))
+            except ValueError: last_id=0
+            store=DashboardEventStore(Path(config.get("dashboard_events_path","~/pentium-agent/atlas/runtime/dashboard-events.jsonl")).expanduser())
+            chunks=[]
+            for event in store.after(last_id):
+                chunks.append(f"id: {event['id']}\nevent: {event.get('type','message')}\ndata: {json.dumps(event.get('payload',{}),ensure_ascii=True,separators=(',',':'))}\n\n")
+            if not chunks: chunks.append(": heartbeat\n\n")
+            self._send(200,"text/event-stream; charset=utf-8","".join(chunks).encode(),max_bytes=262144)
             return
         assets = {
             "/assets/pixi.min.js": "pixi.min.js",
