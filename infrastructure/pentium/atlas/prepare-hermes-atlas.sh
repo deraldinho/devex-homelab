@@ -24,5 +24,5 @@ for toolset in "${TOOLSETS[@]}"; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHONPATH="$(dirname "$(dirname "$(dirname "${SCRIPT_DIR}")")")${PYTHONPATH:+:${PYTHONPATH}}" \
-  python3 -m infrastructure.pentium.atlas.hermes_preflight
+PYTHONPATH="$(dirname "${SCRIPT_DIR}")${PYTHONPATH:+:${PYTHONPATH}}" \
+  python3 -m atlas.hermes_preflight
