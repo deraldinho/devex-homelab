@@ -95,3 +95,31 @@ class CognitiveObservablePublisher:
 
     def publish(self, snapshot, response):
         return self.publish_result(snapshot, response, task="formular_resposta_cognitiva")
+
+
+class CognitiveActionEventPublisher:
+    def __init__(self, path: Path, *, max_events: int = 128, max_bytes: int = 262144):
+        self.path=Path(path); self.max_events=max(8,int(max_events)); self.max_bytes=max(4096,int(max_bytes))
+
+    def publish(self, event_type: str, payload: dict) -> dict:
+        self.path.parent.mkdir(parents=True,exist_ok=True)
+        events=[]
+        if self.path.is_file():
+            for line in self.path.read_text(encoding="utf-8").splitlines():
+                try: item=json.loads(line)
+                except json.JSONDecodeError: continue
+                if isinstance(item,dict): events.append(item)
+        next_id=(int(events[-1].get("id",0))+1) if events else 1
+        event={"id":next_id,"timestamp":_utc_now(),"type":str(event_type)[:64],"payload":dict(payload)}
+        events.append(event); events=events[-self.max_events:]
+        while events:
+            text="".join(json.dumps(x,ensure_ascii=False,sort_keys=True,separators=(",",":"))+"\n" for x in events)
+            if len(text.encode("utf-8"))<=self.max_bytes: break
+            events.pop(0)
+        tmp=self.path.with_name(self.path.name+".tmp")
+        try:
+            with tmp.open("w",encoding="utf-8",newline="\n") as handle:
+                handle.write(text); handle.flush(); os.fsync(handle.fileno())
+            os.replace(tmp,self.path)
+        finally: tmp.unlink(missing_ok=True)
+        return event

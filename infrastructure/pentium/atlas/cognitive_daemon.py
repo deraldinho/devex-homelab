@@ -8,9 +8,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .capability_registry import atlas_capability_registry
+from .action_executors import ActionExecutorRegistry
+from .action_plan import ActionStatus, ActionType
+from .action_plan_store import ActionPlanStore
+from .action_planner import ActionPlanner
+from .action_policy import ActionPolicy
 from .affective_interaction_ipc import InteractionDatagramClient
 from .cognitive_cache import CognitiveCache
-from .cognitive_observability import CognitiveObservablePublisher
+from .cognitive_observability import CognitiveObservablePublisher, CognitiveActionEventPublisher
 from .config_cache import load_cache_config
 from .config_memory import load_memory_config
 from .config_llama_server import carregar_configuracao_llama_server
@@ -64,10 +69,11 @@ class CognitiveResultPublisher:
 
 
 class CognitiveDaemon:
-    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None):
+    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None):
         if reflection_interval_s<=0: raise ValueError("reflection_interval_s must be > 0")
         self._snapshot_loader=snapshot_loader;self._context_provider=context_provider;self._loop=loop;self._publisher=publisher
         self._reflection_interval_s=float(reflection_interval_s);self._clock=clock;self._last_id=None;self._last_at=None;self._last_affective=None;self._visual_state_sink=visual_state_sink
+        self._planner=planner;self._action_policy=action_policy;self._action_executor=action_executor;self._action_store=action_store;self._event_sink=event_sink
     def _delta(self,current):
         keys=("valencia","ativacao","estresse","confianca","engajamento","curiosidade")
         if self._last_affective is None:return 0.0
@@ -76,6 +82,44 @@ class CognitiveDaemon:
         changes=tuple(snapshot.recent_changes or ());severities={str(x.get("severity","")).lower() for x in changes};kinds={str(x.get("kind","")).lower() for x in changes}
         novelty=max((float(x.get("novelty",0) or 0) for x in changes),default=0.0)
         return {"criticidade":"critical" in severities,"recuperacao_importante":"recovered" in kinds,"mudanca_estado":bool(kinds & {"status_changed","recovered","source_error"}),"delta_afetivo":max(0.0,min(1.0,self._delta(snapshot.affective_state))),"novidade":max(0.0,min(1.0,novelty)),"reflexao_periodica":bool(reflection)}
+    def _emit_action_event(self,event_type,payload):
+        if self._event_sink is not None:
+            self._event_sink(event_type,dict(payload))
+
+    def _process_action_plan(self,snapshot,response):
+        if getattr(response,"razao",None) is not None:
+            return None
+        required=(self._planner,self._action_policy,self._action_executor,self._action_store)
+        if any(item is None for item in required):
+            return None
+        terminal={ActionStatus.COMPLETED,ActionStatus.BLOCKED,ActionStatus.FAILED,ActionStatus.CANCELLED}
+        visual_types={ActionType.LOOK_AT,ActionType.SET_EXPRESSION,ActionType.SET_GESTURE,ActionType.SET_POSTURE}
+        try:
+            plan=self._planner.plan(snapshot.source_stimulus_id,getattr(snapshot,"entity_id",None),response)
+            self._action_store.save_current(plan)
+            self._emit_action_event("plan_created",{"plan_id":plan.plan_id,"stimulus_id":plan.stimulus_id,"objective":plan.objective,"confidence":plan.confidence})
+            authorized=self._action_policy.authorize(plan,voice_enabled=False)
+            self._action_store.save_current(authorized)
+            for before,after in zip(plan.actions,authorized.actions):
+                if before.status!=after.status or before.reason!=after.reason:
+                    self._emit_action_event("action_status",{"plan_id":plan.plan_id,"action_id":after.action_id,"type":after.type.value,"status":after.status.value,"reason":after.reason,"target":after.target})
+            executed=self._action_executor.execute(authorized)
+            self._action_store.save_current(executed)
+            for before,after in zip(authorized.actions,executed.actions):
+                if before.status!=after.status or before.reason!=after.reason:
+                    payload={"plan_id":plan.plan_id,"action_id":after.action_id,"type":after.type.value,"status":after.status.value,"reason":after.reason,"target":after.target}
+                    self._emit_action_event("action_status",payload)
+                    if after.type in visual_types:
+                        self._emit_action_event("visual_action",payload)
+            if all(action.status in terminal for action in executed.actions):
+                self._action_store.append_terminal(executed)
+            return executed
+        except Exception as exc:
+            self._emit_action_event("runtime_error",{"stimulus_id":snapshot.source_stimulus_id,"error":type(exc).__name__})
+            if hasattr(self._publisher,"publish_phase"):
+                self._publisher.publish_phase(snapshot,state="DEGRADADA",activity="erro_plano_acao",detail=type(exc).__name__)
+            return None
+
     def run_once(self):
         snapshot=self._snapshot_loader();now=self._clock();reflection=self._last_id==snapshot.source_stimulus_id and self._last_at is not None and now-self._last_at>=self._reflection_interval_s
         if snapshot.source_stimulus_id==self._last_id and not reflection:return None
@@ -89,6 +133,7 @@ class CognitiveDaemon:
             if self._visual_state_sink is not None:
                 self._visual_state_sink(EstadoInteracaoVisual(pensando=True, atualizado_em=_utc_now()));thinking=True
             response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context)
+            self._process_action_plan(snapshot,response)
             self._publisher.publish(snapshot,response);self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
             return response
         except Exception as exc:
@@ -128,7 +173,12 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     snapshot_path=Path(os.path.expanduser(cognitive.observation_bridge.snapshot_path));provider=HumanContextProvider(state_dir/"observation-affective-health.json",snapshot_path,max_snapshot_age_s=cognitive.observation_bridge.max_snapshot_age_s,expected_sha=expected_sha)
     visual_sink=InteractionDatagramClient(state_dir/"cognitive-interaction.sock").send
     observable=CognitiveObservablePublisher(state_dir/"cognitive-runtime.json",state_dir/"cognitive-activity.jsonl",max_events=64,max_text_chars=cognitive.contexto.max_string_chars)
-    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink)
+    action_events=CognitiveActionEventPublisher(state_dir/"dashboard-events.jsonl",max_events=128,max_bytes=262144)
+    action_store=ActionPlanStore(state_dir/"action-plan-current.json",state_dir/"action-plan-history.jsonl",max_history=64,max_bytes=131072)
+    action_planner=ActionPlanner()
+    action_policy=ActionPolicy(capabilities)
+    action_executor=ActionExecutorRegistry()
+    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish)
     return CognitiveRuntimeOwner(daemon,server,memory_store),socket_path
 
 
