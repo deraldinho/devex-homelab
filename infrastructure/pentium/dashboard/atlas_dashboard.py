@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 import dashboard_collectors
 from dashboard_event_store import DashboardEventStore
+from dashboard_chat import DashboardChatGateway
 
 
 class DashboardServer(ThreadingHTTPServer):
@@ -81,7 +82,29 @@ class Handler(BaseHTTPRequestHandler):
     def _method_not_allowed(self) -> None:
         self._send(405, "application/json; charset=utf-8", b'{"error":"method_not_allowed"}')
 
-    do_POST = _method_not_allowed
+    def do_POST(self) -> None:
+        request_path=urlsplit(self.path).path
+        if request_path!="/api/chat":
+            self._method_not_allowed(); return
+        if self.headers.get("Content-Type","").split(";",1)[0].strip().lower()!="application/json":
+            self._send(415,"application/json; charset=utf-8",b'{"error":"unsupported_media_type"}'); return
+        try: length=int(self.headers.get("Content-Length","0"))
+        except ValueError: length=0
+        if length<=0 or length>4096:
+            self._send(413,"application/json; charset=utf-8",b'{"error":"request_too_large"}'); return
+        try:
+            payload=json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(payload,dict) or set(payload)!={"message","client_message_id"}: raise ValueError("invalid_fields")
+            gateway=DashboardChatGateway(Path(self.server.config.get("chat_inbox_path","~/pentium-agent/atlas/runtime/chat-inbox.json")).expanduser())
+            result=gateway.submit(payload["message"],payload["client_message_id"])
+        except UnicodeDecodeError:
+            self._send(400,"application/json; charset=utf-8",b'{"error":"invalid_utf8"}'); return
+        except OverflowError:
+            self._send(429,"application/json; charset=utf-8",b'{"error":"chat_inbox_full"}'); return
+        except (ValueError,TypeError,json.JSONDecodeError) as exc:
+            code=413 if "max_message_chars" in str(exc) or "exceeds" in str(exc) else 400
+            self._send(code,"application/json; charset=utf-8",json.dumps({"error":str(exc)[:128]},ensure_ascii=True).encode()); return
+        self._send(202,"application/json; charset=utf-8",json.dumps(result,ensure_ascii=True,separators=(",",":")).encode())
     do_PUT = _method_not_allowed
     do_PATCH = _method_not_allowed
     do_DELETE = _method_not_allowed
