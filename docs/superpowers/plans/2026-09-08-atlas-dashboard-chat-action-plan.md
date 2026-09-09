@@ -45,7 +45,7 @@ with self.assertRaises(ValueError): transition_action(plan.actions[0], ActionSta
 
 - [ ] **Step 2: Run RED**
 
-Run: `python -m unittest infrastructure.pentium.atlas.tests.test_action_plan -v`  
+Run: `python -m unittest infrastructure.pentium.atlas.tests.test_action_plan -v`
 Expected: import/module failure.
 
 - [ ] **Step 3: Implement immutable validated model**
@@ -81,7 +81,7 @@ self.assertNotIn("secret", history_path.read_text())
 
 - [ ] **Step 2: Run RED**
 
-Run: `python -m unittest infrastructure.pentium.atlas.tests.test_action_plan_store -v`  
+Run: `python -m unittest infrastructure.pentium.atlas.tests.test_action_plan_store -v`
 Expected: module missing.
 
 - [ ] **Step 3: Implement atomic current state and bounded JSONL history**

@@ -1,7 +1,7 @@
 # Atlas Dashboard Chat + PlanoAcaoAtlas Design
 
-**Data:** 2026-09-08  
-**Projeto:** DevEx HomeLab / Atlas  
+**Data:** 2026-09-08
+**Projeto:** DevEx HomeLab / Atlas
 **Branch:** `atlas/issue-20-avatar-pixijs-v1-1`
 
 ## Objetivo
