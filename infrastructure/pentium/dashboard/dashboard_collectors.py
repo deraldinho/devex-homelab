@@ -37,6 +37,7 @@ def default_config() -> dict:
         "cognitive_snapshot_path": "~/pentium-agent/atlas/runtime/cognitive-observation-context.json",
         "cognitive_health_path": "~/pentium-agent/atlas/runtime/observation-affective-health.json",
         "cognitive_runtime_path": "~/pentium-agent/atlas/runtime/cognitive-runtime.json",
+        "cognitive_activity_path": "~/pentium-agent/atlas/runtime/cognitive-activity.jsonl",
         "cognitive_max_age_s": 180,
     }
 
@@ -238,20 +239,45 @@ def collect_cognition(config: dict, *, now=lambda: datetime.now(timezone.utc)) -
 
 def collect_cognitive_runtime(config: dict) -> dict:
     payload = _read_json(config["cognitive_runtime_path"])
-    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+    if not isinstance(payload, dict):
         return {"status": "unavailable"}
+    schema = payload.get("schema_version")
+    if schema == 1:
+        return {
+            "status":"available","schema_version":1,"generated_at":payload.get("generated_at"),
+            "source_stimulus_id":payload.get("source_stimulus_id"),"activated":bool(payload.get("activated",False)),
+            "reason":payload.get("reason"),"motivo":payload.get("motivo"),"backend":payload.get("backend"),
+            "duration_ms":payload.get("duracao_ms"),"confidence":payload.get("confianca"),
+            "requires_confirmation":bool(payload.get("requer_confirmacao",False)),
+        }
+    if schema != 2:
+        return {"status":"unavailable"}
+    result = payload.get("last_result") if isinstance(payload.get("last_result"),dict) else {}
     return {
-        "status": "available",
-        "generated_at": payload.get("generated_at"),
-        "source_stimulus_id": payload.get("source_stimulus_id"),
-        "activated": bool(payload.get("activated", False)),
-        "reason": payload.get("reason"),
-        "motivo": payload.get("motivo"),
-        "backend": payload.get("backend"),
-        "duration_ms": payload.get("duracao_ms"),
-        "confidence": payload.get("confianca"),
-        "requires_confirmation": bool(payload.get("requer_confirmacao", False)),
+        "status":"available","schema_version":2,"generated_at":payload.get("generated_at"),
+        "source_stimulus_id":payload.get("source_stimulus_id"),"entity_id":payload.get("entity_id"),
+        "state":payload.get("state"),"activity":payload.get("activity"),"task":payload.get("task"),
+        "motivo":payload.get("motivo"),"detail":payload.get("detail"),
+        "activated":bool(result.get("activated",False)),"reason":result.get("reason"),
+        "summary":result.get("summary"),"response_preview":result.get("response_preview"),
+        "intention":result.get("intention"),"confidence":result.get("confidence"),
+        "backend":result.get("backend"),"duration_ms":result.get("duration_ms"),
+        "requires_confirmation":bool(result.get("requires_confirmation",False)),
+        "intention_authorized":bool(result.get("intention_authorized",False)),
     }
+
+
+def collect_cognitive_activity(config: dict, limit: int = 40) -> list[dict]:
+    path=Path(config["cognitive_activity_path"]).expanduser()
+    try: lines=path.read_text(encoding="utf-8").splitlines()[-max(1,min(100,int(limit))):]
+    except OSError: return []
+    events=[]
+    allowed=("timestamp","source_stimulus_id","state","activity","motivo","summary","intention","confidence")
+    for line in lines:
+        try: item=json.loads(line)
+        except json.JSONDecodeError: continue
+        if isinstance(item,dict): events.append({k:item.get(k) for k in allowed})
+    return events
 
 def collect_status(config: dict, *, command_runner: CommandRunner = run_command, meminfo_text: str | None = None, uptime_text: str | None = None, cognition_now=lambda: datetime.now(timezone.utc)) -> dict:
     import shutil
@@ -284,7 +310,7 @@ def collect_status(config: dict, *, command_runner: CommandRunner = run_command,
     return {
         "visual": _visual_state(config),
         "cognition": collect_cognition(config, now=cognition_now),
-        "cognitive_runtime": collect_cognitive_runtime(config),
+        "cognitive_runtime": {**collect_cognitive_runtime(config), "timeline": collect_cognitive_activity(config)},
         "atlas": {"sha": _read_text(config["deploy_sha_path"]), "health": health.get("status", "unknown")},
         "services": {
             "agent": _unit("pentium-agent.service", command_runner),

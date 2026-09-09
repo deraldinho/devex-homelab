@@ -10,6 +10,7 @@ from pathlib import Path
 from .capability_registry import atlas_capability_registry
 from .affective_interaction_ipc import InteractionDatagramClient
 from .cognitive_cache import CognitiveCache
+from .cognitive_observability import CognitiveObservablePublisher
 from .config_cache import load_cache_config
 from .config_memory import load_memory_config
 from .config_llama_server import carregar_configuracao_llama_server
@@ -78,13 +79,21 @@ class CognitiveDaemon:
     def run_once(self):
         snapshot=self._snapshot_loader();now=self._clock();reflection=self._last_id==snapshot.source_stimulus_id and self._last_at is not None and now-self._last_at>=self._reflection_interval_s
         if snapshot.source_stimulus_id==self._last_id and not reflection:return None
+        if hasattr(self._publisher,"publish_phase"):
+            self._publisher.publish_phase(snapshot,state="ANALISANDO",activity="avaliando_estimulo")
         context=self._context_provider();signals=self._signals(snapshot,reflection=reflection)
+        if hasattr(self._publisher,"publish_phase"):
+            self._publisher.publish_phase(snapshot,state="INFERINDO",activity="executando_ciclo_cognitivo",task="formular_resposta_cognitiva")
         if self._visual_state_sink is not None:
             self._visual_state_sink(EstadoInteracaoVisual(pensando=True, atualizado_em=_utc_now()))
         try:
             response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context)
             self._publisher.publish(snapshot,response);self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
             return response
+        except Exception as exc:
+            if hasattr(self._publisher,"publish_phase"):
+                self._publisher.publish_phase(snapshot,state="DEGRADADA",activity="erro_cognitivo",detail=type(exc).__name__)
+            raise
         finally:
             if self._visual_state_sink is not None:
                 self._visual_state_sink(EstadoInteracaoVisual(pensando=False, atualizado_em=_utc_now()))
@@ -116,7 +125,8 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     expected_sha=(os.environ.get("ATLAS_EXPECTED_SHA") or None) if cognitive.observation_bridge.require_expected_sha else None
     snapshot_path=Path(os.path.expanduser(cognitive.observation_bridge.snapshot_path));provider=HumanContextProvider(state_dir/"observation-affective-health.json",snapshot_path,max_snapshot_age_s=cognitive.observation_bridge.max_snapshot_age_s,expected_sha=expected_sha)
     visual_sink=InteractionDatagramClient(state_dir/"cognitive-interaction.sock").send
-    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,CognitiveResultPublisher(state_dir/"cognitive-runtime.json",cognitive.contexto.max_string_chars),visual_state_sink=visual_sink)
+    observable=CognitiveObservablePublisher(state_dir/"cognitive-runtime.json",state_dir/"cognitive-activity.jsonl",max_events=64,max_text_chars=cognitive.contexto.max_string_chars)
+    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink)
     return CognitiveRuntimeOwner(daemon,server,memory_store),socket_path
 
 

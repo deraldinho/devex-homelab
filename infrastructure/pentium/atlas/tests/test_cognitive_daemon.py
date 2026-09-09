@@ -9,7 +9,8 @@ class FakeLoop:
     def processar(self,**kwargs): self.calls.append(kwargs); return self.response
 
 class FakePublisher:
-    def __init__(self): self.items=[]
+    def __init__(self): self.items=[]; self.phases=[]
+    def publish_phase(self,snapshot,**kwargs): self.phases.append(kwargs)
     def publish(self,snapshot,response): self.items.append((snapshot,response))
 
 class CognitiveDaemonTests(unittest.TestCase):
@@ -22,6 +23,24 @@ class CognitiveDaemonTests(unittest.TestCase):
         result=daemon.run_once()
         self.assertTrue(result.ativado); self.assertEqual(1,len(loop.calls)); self.assertEqual(1,len(pub.items))
         self.assertIsNone(daemon.run_once()); self.assertEqual(1,len(loop.calls))
+
+    def test_new_snapshot_publishes_observable_phases_before_result(self):
+        snap=self.snapshot(); loop=FakeLoop(SimpleNamespace(ativado=True,razao=None)); pub=FakePublisher()
+        daemon=CognitiveDaemon(lambda:snap,lambda:{},loop,pub)
+        daemon.run_once()
+        self.assertEqual(["ANALISANDO","INFERINDO"],[x["state"] for x in pub.phases])
+        self.assertEqual("avaliando_estimulo",pub.phases[0]["activity"])
+        self.assertEqual("executando_ciclo_cognitivo",pub.phases[1]["activity"])
+
+    def test_inference_failure_publishes_degraded_observable_phase(self):
+        snap=self.snapshot(); pub=FakePublisher()
+        class BrokenLoop:
+            def processar(self,**kwargs): raise TimeoutError("slow")
+        daemon=CognitiveDaemon(lambda:snap,lambda:{},BrokenLoop(),pub)
+        with self.assertRaises(TimeoutError): daemon.run_once()
+        self.assertEqual("DEGRADADA",pub.phases[-1]["state"])
+        self.assertEqual("erro_cognitivo",pub.phases[-1]["activity"])
+        self.assertEqual("TimeoutError",pub.phases[-1]["detail"])
 
     def test_signals_derive_critical_recovery_state_change_and_novelty(self):
         snap=SimpleNamespace(source_stimulus_id='s2',generated_at='2026-09-08T18:00:00+00:00',recent_changes=(
