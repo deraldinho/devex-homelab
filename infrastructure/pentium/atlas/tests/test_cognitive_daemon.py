@@ -54,6 +54,14 @@ class CognitiveDaemonTests(unittest.TestCase):
         loop=FakeLoop(SimpleNamespace(ativado=True,razao=None)); daemon=CognitiveDaemon(lambda:next(snaps),lambda:{},loop,FakePublisher())
         daemon.run_once(); daemon.run_once(); self.assertAlmostEqual(.5,loop.calls[1]['sinais_ativacao']['delta_afetivo'])
 
+    def test_context_failure_publishes_degraded_observable_phase(self):
+        snap=self.snapshot(); pub=FakePublisher()
+        def broken_context(): raise RuntimeError("context")
+        daemon=CognitiveDaemon(lambda:snap,broken_context,FakeLoop(SimpleNamespace(ativado=True,razao=None)),pub)
+        with self.assertRaises(RuntimeError): daemon.run_once()
+        self.assertEqual("DEGRADADA",pub.phases[-1]["state"])
+        self.assertEqual("RuntimeError",pub.phases[-1]["detail"])
+
 class CognitiveDaemonPackagingTests(unittest.TestCase):
     def test_daemon_wires_resident_llama_server_and_service(self):
         root=Path(__file__).resolve().parents[1]

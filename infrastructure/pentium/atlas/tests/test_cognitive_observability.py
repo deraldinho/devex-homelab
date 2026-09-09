@@ -36,3 +36,12 @@ class CognitiveObservablePublisherTests(unittest.TestCase):
         self.assertNotIn("parameters", state["last_result"])
         self.assertEqual("resultado_concluido", events[-1]["activity"])
         self.assertNotIn("prompt", json.dumps(state).lower())
+
+    def test_timeline_coalesces_identical_consecutive_phase_for_same_stimulus(self):
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            publisher=CognitiveObservablePublisher(root/"runtime.json",root/"activity.jsonl",max_events=8)
+            publisher.publish_phase(self.snapshot(),state="ANALISANDO",activity="avaliando_estimulo")
+            publisher.publish_phase(self.snapshot(),state="ANALISANDO",activity="avaliando_estimulo")
+            events=(root/"activity.jsonl").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(1,len(events))

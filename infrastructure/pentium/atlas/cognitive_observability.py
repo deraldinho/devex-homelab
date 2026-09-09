@@ -44,6 +44,9 @@ class CognitiveObservablePublisher:
                     continue
                 if isinstance(item, dict):
                     events.append(item)
+        keys=("source_stimulus_id","state","activity","motivo","summary","intention")
+        if events and all(events[-1].get(k)==event.get(k) for k in keys):
+            return
         events.append(event)
         tmp = self.timeline_path.with_name(self.timeline_path.name + ".tmp")
         with tmp.open("w", encoding="utf-8", newline="\n") as handle:

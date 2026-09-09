@@ -79,14 +79,15 @@ class CognitiveDaemon:
     def run_once(self):
         snapshot=self._snapshot_loader();now=self._clock();reflection=self._last_id==snapshot.source_stimulus_id and self._last_at is not None and now-self._last_at>=self._reflection_interval_s
         if snapshot.source_stimulus_id==self._last_id and not reflection:return None
+        thinking=False
         if hasattr(self._publisher,"publish_phase"):
             self._publisher.publish_phase(snapshot,state="ANALISANDO",activity="avaliando_estimulo")
-        context=self._context_provider();signals=self._signals(snapshot,reflection=reflection)
-        if hasattr(self._publisher,"publish_phase"):
-            self._publisher.publish_phase(snapshot,state="INFERINDO",activity="executando_ciclo_cognitivo",task="formular_resposta_cognitiva")
-        if self._visual_state_sink is not None:
-            self._visual_state_sink(EstadoInteracaoVisual(pensando=True, atualizado_em=_utc_now()))
         try:
+            context=self._context_provider();signals=self._signals(snapshot,reflection=reflection)
+            if hasattr(self._publisher,"publish_phase"):
+                self._publisher.publish_phase(snapshot,state="INFERINDO",activity="executando_ciclo_cognitivo",task="formular_resposta_cognitiva")
+            if self._visual_state_sink is not None:
+                self._visual_state_sink(EstadoInteracaoVisual(pensando=True, atualizado_em=_utc_now()));thinking=True
             response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context)
             self._publisher.publish(snapshot,response);self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
             return response
@@ -95,8 +96,9 @@ class CognitiveDaemon:
                 self._publisher.publish_phase(snapshot,state="DEGRADADA",activity="erro_cognitivo",detail=type(exc).__name__)
             raise
         finally:
-            if self._visual_state_sink is not None:
+            if thinking and self._visual_state_sink is not None:
                 self._visual_state_sink(EstadoInteracaoVisual(pensando=False, atualizado_em=_utc_now()))
+
 
 
 class CognitiveRuntimeOwner:
