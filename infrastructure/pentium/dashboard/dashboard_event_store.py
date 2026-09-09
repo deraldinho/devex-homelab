@@ -4,6 +4,14 @@ import json
 import os
 from pathlib import Path
 
+_SENSITIVE={"secret","token","password","api_key","apikey","authorization","cookie"}
+
+def _sanitize(value):
+    if isinstance(value,dict):
+        return {str(k):_sanitize(v) for k,v in value.items() if str(k).lower() not in _SENSITIVE}
+    if isinstance(value,list): return [_sanitize(v) for v in value]
+    return value
+
 class DashboardEventStore:
     def __init__(self,path:Path,*,max_events:int=128,max_bytes:int=262144):
         if max_events<=0 or max_bytes<=0: raise ValueError('bounds must be > 0')
@@ -32,9 +40,9 @@ class DashboardEventStore:
 
     def append(self,event_type:str,payload:dict):
         events=self._load(); next_id=(events[-1]['id']+1) if events else 1
-        event={'id':next_id,'type':str(event_type)[:64],'payload':dict(payload)}
+        event={'id':next_id,'type':str(event_type)[:64],'payload':_sanitize(dict(payload))}
         events.append(event); self._write(events[-self.max_events:]); return event
 
     def after(self,last_event_id:int|None):
         threshold=int(last_event_id or 0)
-        return [e for e in self._load() if int(e.get('id',0))>threshold][-self.max_events:]
+        return [_sanitize(e) for e in self._load() if int(e.get('id',0))>threshold][-self.max_events:]
