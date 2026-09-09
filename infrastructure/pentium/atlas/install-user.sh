@@ -67,6 +67,13 @@ for file in \
   cognitive_observation_projection.py \
   cognitive_context_bridge_certification.py \
   cognitive_daemon.py \
+  cognitive_observability.py \
+  action_plan.py \
+  action_plan_store.py \
+  action_planner.py \
+  action_policy.py \
+  action_executors.py \
+  chat_inbox.py \
   modelo_contexto_cognitivo.py \
   configuracao_cognitiva.py \
   contexto_cognitivo.py \
@@ -183,6 +190,13 @@ python3 -m py_compile \
   "${TARGET_DIR}/cognitive_observation_projection.py" \
   "${TARGET_DIR}/cognitive_context_bridge_certification.py" \
   "${TARGET_DIR}/cognitive_daemon.py" \
+  "${TARGET_DIR}/cognitive_observability.py" \
+  "${TARGET_DIR}/action_plan.py" \
+  "${TARGET_DIR}/action_plan_store.py" \
+  "${TARGET_DIR}/action_planner.py" \
+  "${TARGET_DIR}/action_policy.py" \
+  "${TARGET_DIR}/action_executors.py" \
+  "${TARGET_DIR}/chat_inbox.py" \
   "${TARGET_DIR}/modelo_contexto_cognitivo.py" \
   "${TARGET_DIR}/configuracao_cognitiva.py" \
   "${TARGET_DIR}/contexto_cognitivo.py" \
@@ -286,5 +300,6 @@ if systemctl --user show-environment >/dev/null 2>&1; then
 fi
 
 echo "ATLAS_COGNITIVE_RUNTIME_INSTALL_PASS"
+echo "ATLAS_ACTION_PLAN_CHAT_INSTALL_PASS"
 echo "ATLAS_V1_ALWAYS_ON_VOICE_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"

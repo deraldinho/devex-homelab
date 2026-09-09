@@ -185,6 +185,13 @@ jobs:
               "$atlas/cognitive_observation_projection.py" \
               "$atlas/cognitive_context_bridge_certification.py" \
               "$atlas/cognitive_daemon.py" \
+              "$atlas/cognitive_observability.py" \
+              "$atlas/action_plan.py" \
+              "$atlas/action_plan_store.py" \
+              "$atlas/action_planner.py" \
+              "$atlas/action_policy.py" \
+              "$atlas/action_executors.py" \
+              "$atlas/chat_inbox.py" \
               "$atlas/modelo_contexto_cognitivo.py" \
               "$atlas/configuracao_cognitiva.py" \
               "$atlas/contexto_cognitivo.py" \
@@ -269,6 +276,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_AFFECTIVE_BOOT_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CONTEXT_BRIDGE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_RUNTIME_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_ACTION_PLAN_CHAT_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C3_PASS'
