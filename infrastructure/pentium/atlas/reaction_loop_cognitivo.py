@@ -21,6 +21,7 @@ class RespostaCognitiva:
     confianca: float | None = None
     requer_confirmacao: bool = False
     intencao_autorizada: bool = False
+    solicitar_fala: bool = False
 
 
 class ReactionLoopCognitivo:

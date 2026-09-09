@@ -145,6 +145,18 @@ class PlanoAcaoAtlas:
             raise ValueError("actions are required")
         object.__setattr__(self, "actions", tuple(self.actions))
 
+    def to_dict(self) -> dict:
+        return {
+            "schema_version": 1, "plan_id": self.plan_id, "stimulus_id": self.stimulus_id,
+            "created_at": self.created_at, "objective": self.objective,
+            "confidence": self.confidence, "response_text": self.response_text,
+            "requires_confirmation": self.requires_confirmation, "policy_decision": self.policy_decision,
+            "actions": [{"action_id": a.action_id, "type": a.type.value, "target": a.target,
+                         "parameters": dict(a.parameters), "status": a.status.value, "reason": a.reason,
+                         "created_at": a.created_at, "authorized_at": a.authorized_at,
+                         "started_at": a.started_at, "finished_at": a.finished_at} for a in self.actions],
+        }
+
     @classmethod
     def create(cls, *, stimulus_id: str, objective: str, confidence: float,
                response_text: str | None, actions) -> "PlanoAcaoAtlas":
