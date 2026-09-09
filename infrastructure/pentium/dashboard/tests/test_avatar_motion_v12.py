@@ -62,3 +62,10 @@ class AvatarMotionPackagingTests(unittest.TestCase):
         installer=(ROOT/'install-user.sh').read_text(encoding='utf-8')
         self.assertIn('atlas-avatar-motion.js',server)
         self.assertIn('atlas-avatar-motion.js',installer)
+
+class AvatarMotionAnchorRegressionTests(unittest.TestCase):
+    def test_tick_preserves_rig_horizontal_anchor(self):
+        engine=(ROOT/'atlas-avatar-engine.js').read_text(encoding='utf-8')
+        self.assertIn('root.position.set(170,280)',engine)
+        self.assertIn('r.root.x=170+alive.weightShift*.22',engine)
+        self.assertNotIn('r.root.x=alive.weightShift*.22',engine)

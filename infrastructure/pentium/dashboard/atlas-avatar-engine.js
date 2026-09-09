@@ -54,7 +54,7 @@
 
     #tick(deltaMs){
       if(!this.ready||!this.state||this.hidden)return;const s=this.state,r=this.rig,dt=Math.min(.05,Math.max(0,deltaMs/1000));const t=(performance.now()-this.startedAt)/1000;const motion=this.reducedMotion?0:s.intensidade_movimento;
-      const alive=this.motion.step({...s,intensidade_movimento:motion},dt,t);r.root.y=280+alive.breath;r.root.x=alive.weightShift*.22;r.torso.rotation=M.smoothExp(r.torso.rotation,alive.weightShift*.0025,dt,5);r.hairBack.rotation=alive.hairLag;
+      const alive=this.motion.step({...s,intensidade_movimento:motion},dt,t);r.root.y=280+alive.breath;r.root.x=170+alive.weightShift*.22;r.torso.rotation=M.smoothExp(r.torso.rotation,alive.weightShift*.0025,dt,5);r.hairBack.rotation=alive.hairLag;
       r.head.rotation=M.smoothExp(r.head.rotation,(r.head._targetRotation||0)+alive.headMicro,dt,9);r.armL.rotation=M.smoothExp(r.armL.rotation,r.armL._targetRotation||0,dt,7);r.armR.rotation=M.smoothExp(r.armR.rotation,r.armR._targetRotation||0,dt,7);r.forearmL.rotation=M.smoothExp(r.forearmL.rotation,r.forearmL._targetRotation||0,dt,8);r.forearmR.rotation=M.smoothExp(r.forearmR.rotation,r.forearmR._targetRotation||0,dt,8);
       r.browL.rotation=M.smoothExp(r.browL.rotation,r.browL._targetRotation||0,dt,10);r.browR.rotation=M.smoothExp(r.browR.rotation,r.browR._targetRotation||0,dt,10);r.legL.rotation=M.smoothExp(r.legL.rotation,r.legL._targetRotation||0,dt,6);r.legR.rotation=M.smoothExp(r.legR.rotation,r.legR._targetRotation||0,dt,6);
       const sc=r.root._targetScale||1;r.root.scale.x=M.smoothExp(r.root.scale.x,sc,dt,7);r.root.scale.y=M.smoothExp(r.root.scale.y,sc,dt,7);
