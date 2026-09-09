@@ -1,0 +1,7 @@
+from pathlib import Path
+p=Path(r'C:\Users\deral\DevEx-HomeLab\.worktrees\issue-20-atlas-v1-always-on-voice\infrastructure\pentium\atlas\llama_cpp_backend.py')
+t=p.read_text(encoding='utf-8')
+a=t.index("_JSON_GBNF = r'''")
+b=t.index("'''.strip()", a)+len("'''.strip()")
+new="""_JSON_GBNF = r'''\nroot ::= \"{\" ws \"\\\"versao_schema\\\"\" ws \":\" ws \"1\" ws \",\" ws \"\\\"texto\\\"\" ws \":\" ws nullable-string \",\" ws \"\\\"resumo\\\"\" ws \":\" ws nullable-string \",\" ws \"\\\"intencao\\\"\" ws \":\" ws nullable-string \",\" ws \"\\\"parametros_intencao\\\"\" ws \":\" ws object \",\" ws \"\\\"confianca\\\"\" ws \":\" ws confidence \",\" ws \"\\\"motivo\\\"\" ws \":\" ws string \",\" ws \"\\\"requer_confirmacao\\\"\" ws \":\" ws boolean \"}\" ws\nnullable-string ::= string | \"null\" ws\nboolean ::= (\"true\" | \"false\") ws\nconfidence ::= (\"0\" | \"1\" | \"0.\" [0-9]+) ws\nobject ::= \"{\" ws (string \":\" ws value (\",\" ws string \":\" ws value)*)? \"}\" ws\narray ::= \"[\" ws (value (\",\" ws value)*)? \"]\" ws\nvalue ::= object | array | string | number | boolean | \"null\" ws\nstring ::= \"\\\"\" char* \"\\\"\" ws\nchar ::= [^\"\\\\\\x7F\\x00-\\x1F] | \"\\\\\" ([\"\\\\/bfnrt] | \"u\" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])\nnumber ::= \"-\"? (\"0\" | [1-9] [0-9]*) (\".\" [0-9]+)? ([eE] [+-]? [0-9]+)? ws\nws ::= [ \\t\\n]*\n'''.strip()"""
+p.write_text(t[:a]+new+t[b:],encoding='utf-8')
