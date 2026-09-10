@@ -83,6 +83,20 @@ class HttpContractTests(unittest.TestCase):
         self.assertIn("application/json", headers["Content-Type"])
         self.assertEqual(json.loads(body)["error"], "asset_not_found")
 
+    def test_repository_anime_sprites_are_served_read_only(self):
+        for path in (
+            "/assets/atlas-pet-standing.png",
+            "/assets/atlas-pet-sitting.png",
+            "/assets/atlas-pet-poke.png",
+        ):
+            status, headers, body = self.request("GET", path)
+            self.assertEqual(status, 200, path)
+            self.assertIn("image/png", headers["Content-Type"])
+            self.assertTrue(body.startswith(b"\x89PNG\r\n\x1a\n"), f"PNG magic bytes mismatch for {path}")
+            self.assertGreater(len(body), 50000, f"Sprite asset too small for {path}")
+            post_status, _, _ = self.request("POST", path)
+            self.assertEqual(post_status, 405, path)
+
 
 if __name__ == "__main__":
     unittest.main()

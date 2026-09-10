@@ -36,7 +36,8 @@ class Handler(BaseHTTPRequestHandler):
         if not path.is_file():
             self._send(404, "application/json; charset=utf-8", b'{"error":"asset_not_found"}')
             return
-        self._send(200, "application/javascript; charset=utf-8", path.read_bytes(), max_bytes=1048576)
+        ctype = "image/png" if filename.endswith(".png") else "application/javascript; charset=utf-8"
+        self._send(200, ctype, path.read_bytes(), max_bytes=4194304)
 
     def do_GET(self) -> None:
         collectors = self.server.collectors
@@ -69,6 +70,9 @@ class Handler(BaseHTTPRequestHandler):
             "/assets/atlas-avatar-motion.js": "atlas-avatar-motion.js",
             "/assets/atlas-avatar-engine.js": "atlas-avatar-engine.js",
             "/assets/atlas-avatar-renderer.js": "atlas-avatar-renderer.js",
+            "/assets/atlas-pet-standing.png": "atlas-pet-standing.png",
+            "/assets/atlas-pet-sitting.png": "atlas-pet-sitting.png",
+            "/assets/atlas-pet-poke.png": "atlas-pet-poke.png",
         }
         if request_path in assets:
             self._send_asset(assets[request_path])

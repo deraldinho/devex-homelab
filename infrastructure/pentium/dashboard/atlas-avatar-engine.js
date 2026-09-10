@@ -443,8 +443,42 @@
       hudBg.rect(6, 27, 20, 2).fill({ color: 0x2ee4b0, alpha: 0.4 });
       hudPanel.addChild(hudBg);
 
-      // Montagem na hierarquia preservando todos os nomes contratuais
-      root.addChild(legL, legR, hairBack, torso, L.upper, R.upper, head, bitDrone, hudPanel);
+      // Container vetorial de compatibilidade contratual (invisivel, preservando referencias)
+      const vectorRig = new PIXI.Container();
+      vectorRig.name = "vectorRig";
+      vectorRig.alpha = 0;
+      vectorRig.visible = false;
+      vectorRig.addChild(legL, legR, hairBack, torso, L.upper, R.upper, head);
+
+      // Sprites Anime 2D de Alta Resolucao (Pet Shimeji Poses)
+      const spriteContainer = new PIXI.Container();
+      spriteContainer.name = "spriteContainer";
+
+      const spriteStanding = PIXI.Sprite.from('/assets/atlas-pet-standing.png');
+      spriteStanding.name = "spriteStanding";
+      spriteStanding.anchor.set(0.513, 0.98);
+      spriteStanding.position.set(0, 114);
+      spriteStanding.scale.set(0.208);
+      spriteStanding.visible = true;
+
+      const spriteSitting = PIXI.Sprite.from('/assets/atlas-pet-sitting.png');
+      spriteSitting.name = "spriteSitting";
+      spriteSitting.anchor.set(0.513, 0.96);
+      spriteSitting.position.set(0, 114);
+      spriteSitting.scale.set(0.208);
+      spriteSitting.visible = false;
+
+      const spritePoke = PIXI.Sprite.from('/assets/atlas-pet-poke.png');
+      spritePoke.name = "spritePoke";
+      spritePoke.anchor.set(0.513, 0.98);
+      spritePoke.position.set(0, 114);
+      spritePoke.scale.set(0.208);
+      spritePoke.visible = false;
+
+      spriteContainer.addChild(spriteStanding, spriteSitting, spritePoke);
+
+      // Montagem na hierarquia preservando todos os nós contratuais
+      root.addChild(vectorRig, spriteContainer, bitDrone, hudPanel);
 
       return {
         root,
@@ -469,6 +503,11 @@
         sweatDrop,
         sparkles,
         ahoge,
+        vectorRig,
+        spriteContainer,
+        spriteStanding,
+        spriteSitting,
+        spritePoke,
       };
     }
 
@@ -621,6 +660,27 @@
       r.root.scale.x = M.smoothExp(r.root.scale.x, targetScaleX, dt, 6);
       const scY = (r.root._targetScale || 1) * depthScale;
       r.root.scale.y = M.smoothExp(r.root.scale.y, scY, dt, 7);
+
+      // Alternancia e animacao dos Sprites Anime 2D de Alta Resolucao
+      if (r.spriteStanding && r.spriteSitting && r.spritePoke) {
+        if (this.petMode === 'SIT') {
+          r.spriteSitting.visible = true;
+          r.spriteStanding.visible = false;
+          r.spritePoke.visible = false;
+          r.spriteSitting.rotation = Math.sin(t * 2.8) * 0.025;
+        } else if (this.petMode === 'POKE') {
+          r.spritePoke.visible = true;
+          r.spriteStanding.visible = false;
+          r.spriteSitting.visible = false;
+          r.spritePoke.rotation = Math.sin(now * 0.025) * 0.04;
+        } else {
+          r.spriteStanding.visible = true;
+          r.spriteSitting.visible = false;
+          r.spritePoke.visible = false;
+          const walkTilt = isWalking ? Math.sin(this.stepPhase) * 0.035 : 0;
+          r.spriteStanding.rotation = walkTilt + alive.headMicro * 0.35;
+        }
+      }
 
       // Pernas: Dobradas e balançando quando sentada (SIT) ou caminhando (WALK)
       if (isSitting) {
