@@ -28,11 +28,12 @@ class AtlasChatCli:
 def _build_gateway():
     from pathlib import Path
     from .capability_registry import atlas_capability_registry
+    from .config_hermes import load_hermes_config
     from .configuracao_cognitiva import carregar_configuracao_cognitiva
     from .contexto_cognitivo import ContextoCognitivoBuilder
     from .human_context import HumanContextProvider
     from .human_interaction import HumanInteractionGateway
-    from .llama_cpp_backend import LlamaCppBackend
+    from .hermes_adapter import HermesAdapter
     from .llm_gateway import LLMGateway
     from .policy_capabilities import PolicyCapabilities
     from .politica_ativacao_cognitiva import ActivationPolicy
@@ -42,11 +43,10 @@ def _build_gateway():
 
     cfg = load_voice_config()
     cognitive = carregar_configuracao_cognitiva(ROOT / 'config_cognitiva.json')
-    runtime_root = Path.home() / 'pentium-agent' / 'runtime'
-    backend = LlamaCppBackend(runtime_root / 'llama/build/bin/llama-cli', _path(cfg['llm_model']),
-                              timeout_s=float(cfg['llm_timeout_s']), max_saida_bytes=8192)
+    hermes = load_hermes_config(ROOT / 'config_hermes.json')
+    backend = HermesAdapter(hermes)
     gateway = LLMGateway(backend, max_payload_bytes=cognitive.contexto.max_payload_bytes,
-                         max_tokens_contexto=int(cfg['llm_context_tokens']), reasoning_policy=ReasoningPolicy())
+                         max_tokens_contexto=hermes.max_context_tokens, reasoning_policy=ReasoningPolicy())
     loop = ReactionLoopCognitivo(ActivationPolicy(cognitive.ativacao), ContextoCognitivoBuilder(cognitive.contexto),
                                  gateway, capability_policy=PolicyCapabilities(atlas_capability_registry(),
                                  read_auto_allow=('get_host_status',), control_allow=()))

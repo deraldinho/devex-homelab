@@ -72,13 +72,13 @@ Discord será o segundo canal humano oficial da Atlas, ao lado do dashboard/API.
 
 Fluxo canônico:
 
-Discord Bot -> AtlasDiscordGateway -> ChatInbox -> AtlasCognitiveRuntime -> HermesAdapter -> PlanoAcaoAtlas -> ActionPolicy -> resposta -> Discord
+`Discord Bot -> AtlasDiscordGateway -> ChatInbox -> AtlasCognitiveRuntime -> HermesAdapter -> PlanoAcaoAtlas -> ActionPolicy -> resposta -> Discord`
 
-O adapter preserva a origem human.discord e identificadores sanitizados de conversa/canal suficientes para correlacionar resposta e timeline. O histórico no dashboard indica a origem dashboard ou discord.
+O adapter preserva a origem `human.discord` e identificadores sanitizados de conversa/canal suficientes para correlacionar resposta e timeline. O histórico no dashboard indica a origem `dashboard` ou `discord`.
 
-O bot opera por allowlist de usuários/canais configurada fora do código. Mensagens de bots, webhooks não autorizados e DMs/canais fora da allowlist são ignorados. Tamanho, fila, tentativas e idempotência seguem os mesmos limites do ChatInbox.
+O bot opera por allowlist de usuários/canais configurada fora do código. Mensagens de bots, webhooks não autorizados e DMs/canais fora da allowlist são ignorados. Tamanho, fila, tentativas e idempotência seguem os mesmos limites do `ChatInbox`.
 
-O token Discord nunca é armazenado em Git, JSON de runtime, logs, eventos ou dashboard. O serviço lê DISCORD_BOT_TOKEN de ambiente ou arquivo protegido no Pentium. O installer cria apenas o contrato de configuração; o segredo é provisionado manualmente após deploy.
+O token Discord nunca é armazenado em Git, JSON de runtime, logs, eventos ou dashboard. O serviço lê `DISCORD_BOT_TOKEN` de ambiente ou arquivo protegido no Pentium. O installer cria apenas o contrato de configuração; o segredo é provisionado manualmente após deploy.
 
 A resposta ao Discord é publicada somente depois de o resultado cognitivo e o lifecycle do plano estarem persistidos. Falha de envio gera evento operacional retryable e não reexecuta a cognição nem duplica ações concluídas.
 
@@ -99,9 +99,12 @@ A migração será considerada pronta somente quando:
 - `PlanoAcaoAtlas`, policy, chat, SSE e avatar continuarem GREEN;
 - installers e CI validarem os novos módulos Hermes e rejeitarem regressão para Qwen/llama;
 - o Pentium executar uma mensagem real do dashboard até uma resposta Hermes via ChatGPT/Codex OAuth;
+- o Pentium executar uma mensagem real via Discord até a mesma cognição Atlas/Hermes e responder no canal de origem;
+- mensagens Discord fora da allowlist e mensagens de bots forem ignoradas;
+- falha de envio Discord não reexecutar cognição nem ações já persistidas;
 - a mesma interação produzir plano e ação visual observáveis;
 - Voice continuar inactive/disabled;
-- Observation, Cognitive e Dashboard estiverem ativos no mesmo SHA;
+- Observation, Cognitive, Dashboard e Discord estiverem ativos no mesmo SHA;
 - Foundation CI e Atlas Avatar CI estiverem GREEN no mesmo SHA físico.
 
 ## Fora de escopo desta slice

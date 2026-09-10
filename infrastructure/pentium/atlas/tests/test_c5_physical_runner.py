@@ -6,21 +6,22 @@ from infrastructure.pentium.atlas.sampler_linux_cognitivo import LinuxCognitiveS
 
 
 class C5PhysicalRunnerContractTests(unittest.TestCase):
-    def test_sampler_exige_pid_llm_e_fonte_termica_explicitos(self):
+    def test_sampler_exige_fonte_termica_sem_pid_llm_local(self):
         sig = inspect.signature(LinuxCognitiveSampler)
         self.assertIs(inspect.Parameter.empty, sig.parameters['thermal_path'].default)
-        self.assertIs(inspect.Parameter.empty, sig.parameters['llm_status_path'].default)
+        self.assertNotIn('llm_status_path', sig.parameters)
 
-    def test_runner_nao_executa_shell_e_exige_identidade_do_head(self):
+    def test_runner_exige_sha_e_config_hermes_sem_socket_ou_pid(self):
         from infrastructure.pentium.atlas.c5_physical_runner import construir_parser
         parser = construir_parser()
         args = parser.parse_args([
-            '--llm-pid', '321', '--socket', '/run/user/1000/atlas.sock',
             '--expected-sha', 'a' * 40,
+            '--hermes-config', '/tmp/config_hermes.json',
         ])
-        self.assertEqual(321, args.llm_pid)
-        self.assertEqual(Path('/run/user/1000/atlas.sock'), args.socket)
         self.assertEqual('a' * 40, args.expected_sha)
+        self.assertEqual(Path('/tmp/config_hermes.json'), args.hermes_config)
+        self.assertFalse(hasattr(args, 'llm_pid'))
+        self.assertFalse(hasattr(args, 'socket'))
 
 
 if __name__ == '__main__':

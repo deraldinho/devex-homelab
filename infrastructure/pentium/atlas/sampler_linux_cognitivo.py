@@ -78,14 +78,12 @@ def _temperatura_c(path: Path) -> float | None:
 
 
 class LinuxCognitiveSampler:
-    def __init__(self, *, thermal_path: Path, llm_status_path: Path,
-                 meminfo_path=Path("/proc/meminfo"), proc_stat_path=Path("/proc/stat"),
-                 atlas_status_path=Path("/proc/self/status")):
+    def __init__(self, *, thermal_path: Path, meminfo_path=Path("/proc/meminfo"),
+                 proc_stat_path=Path("/proc/stat"), atlas_status_path=Path("/proc/self/status")):
         self._meminfo = Path(meminfo_path)
         self._proc_stat = Path(proc_stat_path)
         self._thermal = Path(thermal_path)
         self._atlas_status = Path(atlas_status_path)
-        self._llm_status = Path(llm_status_path)
         self._cpu_anterior = None
 
     def coletar(self) -> MetricasSistema:
@@ -94,7 +92,7 @@ class LinuxCognitiveSampler:
         self._cpu_anterior = cpu_atual
         return MetricasSistema(
             rss_atlas_kib=_rss_kib(self._atlas_status),
-            rss_llm_kib=_rss_kib(self._llm_status),
+            rss_llm_kib=None,
             swap_usada_kib=_swap_usada_kib(self._meminfo),
             cpu_percent=cpu_percent,
             temperatura_c=_temperatura_c(self._thermal),

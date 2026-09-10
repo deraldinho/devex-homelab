@@ -7,6 +7,7 @@ Wants=network-online.target atlas-observation.service
 Type=simple
 WorkingDirectory=%h/pentium-agent
 EnvironmentFile=-%h/pentium-agent/atlas/runtime/observation.env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/bin/python3 -m atlas.cognitive_daemon
 Restart=on-failure
 RestartSec=5
@@ -16,7 +17,7 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=%h/pentium-agent/atlas/runtime /run/user/%U
-RestrictAddressFamilies=AF_UNIX
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 [Install]
 WantedBy=default.target

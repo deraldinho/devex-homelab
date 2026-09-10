@@ -3,22 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import string
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from .certificacao_cognitiva import CertificadorCognitivo
-from .fontes_fisicas_cognitivas import descobrir_fonte_termica, status_path_para_pid
-from .llama_cpp_resident_backend import LlamaCppResidentBackend
+from .config_hermes import load_hermes_config
+from .fontes_fisicas_cognitivas import descobrir_fonte_termica
+from .hermes_adapter import HermesAdapter
 from .modelo_llm_gateway import SolicitacaoInferencia
 from .saida_cognitiva import parse_resposta_llm
 from .sampler_linux_cognitivo import LinuxCognitiveSampler
-
-
-def _pid_positivo(valor: str) -> int:
-    pid = int(valor)
-    if pid <= 0:
-        raise argparse.ArgumentTypeError("llm-pid deve ser > 0")
-    return pid
 
 
 def _sha40(valor: str) -> str:
@@ -29,39 +23,29 @@ def _sha40(valor: str) -> str:
 
 
 def construir_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Atlas C5 physical certification runner")
-    parser.add_argument("--llm-pid", required=True, type=_pid_positivo)
-    parser.add_argument("--socket", required=True, type=Path)
+    parser = argparse.ArgumentParser(description="Atlas C5 Hermes physical certification runner")
     parser.add_argument("--expected-sha", required=True, type=_sha40)
+    parser.add_argument("--hermes-config", required=True, type=Path)
     parser.add_argument("--timeout-s", type=float, default=20.0)
-    parser.add_argument("--cache-reuse", type=int, default=64)
-    parser.add_argument("--max-response-bytes", type=int, default=8192)
     return parser
 
 
 def executar(args: argparse.Namespace) -> dict[str, object]:
-    if not str(args.socket).endswith(".sock"):
-        raise ValueError("socket deve terminar em .sock")
+    if float(args.timeout_s) <= 0:
+        raise ValueError("timeout-s deve ser > 0")
     fonte = descobrir_fonte_termica()
     if fonte is None:
         raise RuntimeError("fonte termica nao encontrada")
-    sampler = LinuxCognitiveSampler(
-        thermal_path=fonte.path,
-        llm_status_path=status_path_para_pid(args.llm_pid),
-    )
-    backend = LlamaCppResidentBackend(
-        args.socket,
-        cache_reuse=args.cache_reuse,
-        timeout_s=args.timeout_s,
-        max_response_bytes=args.max_response_bytes,
-        fallback=None,
-    )
+    config = load_hermes_config(args.hermes_config)
+    backend = HermesAdapter(replace(config, timeout_s=float(args.timeout_s)))
+    sampler = LinuxCognitiveSampler(thermal_path=fonte.path)
     cert = CertificadorCognitivo(sampler=sampler)
     solicitacao = SolicitacaoInferencia(
         1,
         "certificacao_c5_fisica",
         '{"tipo":"certificacao_fisica","estado":"observado"}',
-        4096,
+        config.max_context_tokens,
+        "off",
     )
 
     def inferencia() -> dict[str, object]:
@@ -73,10 +57,9 @@ def executar(args: argparse.Namespace) -> dict[str, object]:
 
     resultado = cert.executar(inferencia)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "expected_sha": args.expected_sha,
-        "llm_pid": args.llm_pid,
-        "socket": str(args.socket),
+        "backend": f"hermes/{config.provider}",
         "thermal_type": fonte.tipo,
         "thermal_path": str(fonte.path),
         "resultado": asdict(resultado),

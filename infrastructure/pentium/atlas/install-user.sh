@@ -5,6 +5,8 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_ROOT="${HOME}/pentium-agent"
 TARGET_DIR="${TARGET_ROOT}/atlas"
 
+command -v hermes >/dev/null 2>&1 || { echo "Hermes CLI nao encontrado no PATH" >&2; exit 2; }
+
 install -d -m 0755 "${TARGET_DIR}"
 
 for file in \
@@ -79,10 +81,12 @@ for file in \
   contexto_cognitivo.py \
   politica_ativacao_cognitiva.py \
   modelo_llm_gateway.py \
-  configuracao_llm.py \
+  config_hermes.py \
+  hermes_preflight.py \
+  hermes_physical_smoke.py \
+  hermes_adapter.py \
   llm_gateway.py \
   prompt_cognitivo.py \
-  llama_cpp_backend.py \
   reaction_loop_cognitivo.py \
   reasoning_policy.py \
   capability_registry.py \
@@ -103,9 +107,6 @@ for file in \
   config_memory.py \
   cognitive_cache.py \
   config_cache.py \
-  config_llama_server.py \
-  llama_server_runtime.py \
-  llama_cpp_resident_backend.py \
   unix_http.py \
   voice_gate.py \
   live_tts.py \
@@ -127,9 +128,11 @@ for file in \
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
 
-for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_affective_runtime.json config_observation_affective.json config_cognitiva.json config_llm.json config_memory.json config_cache.json config_llama_server.json config_fast_router.json config_voice.json; do
+for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_affective_runtime.json config_observation_affective.json config_cognitiva.json config_hermes.json config_memory.json config_cache.json config_fast_router.json config_voice.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
+
+install -m 0755 "${SOURCE_DIR}/prepare-hermes-atlas.sh" "${TARGET_DIR}/prepare-hermes-atlas.sh"
 
 python3 -m py_compile \
   "${TARGET_DIR}/state_model.py" \
@@ -202,10 +205,12 @@ python3 -m py_compile \
   "${TARGET_DIR}/contexto_cognitivo.py" \
   "${TARGET_DIR}/politica_ativacao_cognitiva.py" \
   "${TARGET_DIR}/modelo_llm_gateway.py" \
-  "${TARGET_DIR}/configuracao_llm.py" \
+  "${TARGET_DIR}/config_hermes.py" \
+  "${TARGET_DIR}/hermes_preflight.py" \
+  "${TARGET_DIR}/hermes_physical_smoke.py" \
+  "${TARGET_DIR}/hermes_adapter.py" \
   "${TARGET_DIR}/llm_gateway.py" \
   "${TARGET_DIR}/prompt_cognitivo.py" \
-  "${TARGET_DIR}/llama_cpp_backend.py" \
   "${TARGET_DIR}/reaction_loop_cognitivo.py" \
   "${TARGET_DIR}/reasoning_policy.py" \
   "${TARGET_DIR}/capability_registry.py" \
@@ -226,9 +231,6 @@ python3 -m py_compile \
   "${TARGET_DIR}/config_memory.py" \
   "${TARGET_DIR}/cognitive_cache.py" \
   "${TARGET_DIR}/config_cache.py" \
-  "${TARGET_DIR}/config_llama_server.py" \
-  "${TARGET_DIR}/llama_server_runtime.py" \
-  "${TARGET_DIR}/llama_cpp_resident_backend.py" \
   "${TARGET_DIR}/unix_http.py" \
   "${TARGET_DIR}/voice_gate.py" \
   "${TARGET_DIR}/live_tts.py" \
@@ -256,10 +258,9 @@ python3 -m json.tool "${TARGET_DIR}/config_foco_emocao.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_affective_runtime.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_observation_affective.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_cognitiva.json" >/dev/null
-python3 -m json.tool "${TARGET_DIR}/config_llm.json" >/dev/null
+python3 -m json.tool "${TARGET_DIR}/config_hermes.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_memory.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_cache.json" >/dev/null
-python3 -m json.tool "${TARGET_DIR}/config_llama_server.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_fast_router.json" >/dev/null
 python3 -m json.tool "${TARGET_DIR}/config_voice.json" >/dev/null
 

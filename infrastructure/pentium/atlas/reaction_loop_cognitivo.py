@@ -86,7 +86,7 @@ class ReactionLoopCognitivo:
                 True,
                 motivo.value if motivo is not None else None,
                 None,
-                "llm_indisponivel",
+                "cognitive_backend_unavailable",
                 resultado.backend,
                 resultado.duracao_ms,
             )
