@@ -41,3 +41,7 @@ class DashboardEncodingTests(unittest.TestCase):
         raw = (ROOT / "config.json").read_bytes()
         self.assertFalse(raw.startswith(b"\xef\xbb\xbf"))
         raw.decode("utf-8")
+
+    def test_chat_has_narrow_runtime_write_access(self):
+        unit = (ROOT / 'systemd' / 'atlas-dashboard.service').read_text(encoding='utf-8')
+        self.assertIn('ReadWritePaths=%h/pentium-agent/atlas/runtime', unit)

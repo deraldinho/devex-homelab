@@ -91,6 +91,7 @@ for file in \
   reasoning_policy.py \
   capability_registry.py \
   policy_capabilities.py \
+  autonomy_executor.py \
   saida_cognitiva.py \
   certificacao_cognitiva.py \
   sampler_linux_cognitivo.py \
@@ -215,6 +216,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/reasoning_policy.py" \
   "${TARGET_DIR}/capability_registry.py" \
   "${TARGET_DIR}/policy_capabilities.py" \
+  "${TARGET_DIR}/autonomy_executor.py" \
   "${TARGET_DIR}/saida_cognitiva.py" \
   "${TARGET_DIR}/certificacao_cognitiva.py" \
   "${TARGET_DIR}/sampler_linux_cognitivo.py" \

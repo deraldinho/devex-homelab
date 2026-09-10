@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class DashboardUiContractTests(unittest.TestCase):
     def test_ui_contains_pipeline_and_two_second_polling(self):
         html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
-        for label in ("MIC", "ANC", "VAD", "Whisper", "Wake", "Qwen", "TTS"):
+        for label in ("MIC", "ANC", "VAD", "Whisper", "Wake", "Hermes", "auto", "TTS"):
             self.assertIn(label, html)
         self.assertIn("setInterval(refreshAll, 2000)", html)
 
@@ -61,3 +61,12 @@ class DashboardCognitivePanelUiTests(unittest.TestCase):
         for token in ("available", "stale", "unavailable", "CONTEXTO INDISPON&Iacute;VEL"):
             self.assertIn(token, html)
         self.assertNotIn("/api/cognition/control", html)
+
+
+class DashboardHermesRuntimeTruthUiTests(unittest.TestCase):
+    def test_ui_names_current_hermes_runtime_not_qwen(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn("Hermes Runtime", html)
+        self.assertIn("auto", html)
+        self.assertNotIn("Qwen Runtime", html)
+        self.assertNotIn(">Qwen<", html)

@@ -8,7 +8,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class HermesConfig:
     schema_version: int
-    provider: str
+    provider: str | None
     profile: str
     binary: str
     timeout_s: float
@@ -18,8 +18,8 @@ class HermesConfig:
     def __post_init__(self) -> None:
         if self.schema_version != 1:
             raise ValueError("schema_version deve ser 1")
-        if self.provider != "openai-codex":
-            raise ValueError("provider deve ser openai-codex")
+        if self.provider is not None and (not isinstance(self.provider, str) or not self.provider.strip()):
+            raise ValueError("provider deve ser string nao vazia quando informado")
         for name in ("profile", "binary"):
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
@@ -34,12 +34,13 @@ class HermesConfig:
 
 def load_hermes_config(path: Path) -> HermesConfig:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    allowed = {"schema_version", "provider", "profile", "binary", "timeout_s", "max_context_tokens", "max_response_bytes"}
-    if set(payload) != allowed:
+    required = {"schema_version", "profile", "binary", "timeout_s", "max_context_tokens", "max_response_bytes"}
+    allowed = required | {"provider"}
+    if not required.issubset(payload) or not set(payload).issubset(allowed):
         raise ValueError("campos de configuracao Hermes invalidos")
     return HermesConfig(
         schema_version=payload["schema_version"],
-        provider=payload["provider"],
+        provider=payload.get("provider"),
         profile=payload["profile"],
         binary=payload["binary"],
         timeout_s=payload["timeout_s"],

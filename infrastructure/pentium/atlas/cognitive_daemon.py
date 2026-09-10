@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 from .capability_registry import atlas_capability_registry
 from .action_executors import ActionExecutorRegistry
+from .autonomy_executor import SafeLocalCapabilityExecutor
 from .action_plan import ActionStatus, ActionType
 from .action_plan_store import ActionPlanStore
 from .action_planner import ActionPlanner
@@ -177,7 +178,7 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     backend=HermesAdapter(hermes)
     gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=hermes.max_context_tokens,reasoning_policy=ReasoningPolicy())
     memory_cfg=load_memory_config(config_root/"config_memory.json");memory_store=MemoryStore(state_dir/"memory.sqlite3");retriever=MemoryRetriever(memory_store,max_items=memory_cfg.retriever_max_items,max_bytes=memory_cfg.retriever_max_bytes)
-    cache=CognitiveCache(load_cache_config(config_root/"config_cache.json"));policy=ActivationPolicy(cognitive.ativacao);builder=ContextoCognitivoBuilder(cognitive.contexto);capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status",),control_allow=())
+    cache=CognitiveCache(load_cache_config(config_root/"config_cache.json"));policy=ActivationPolicy(cognitive.ativacao);builder=ContextoCognitivoBuilder(cognitive.contexto);capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status",),control_allow=("restart_service",),auto_control_allow=("restart_service",),auto_hosts=("pentium",),auto_services=("atlas-observation.service","atlas-dashboard.service"))
     loop=ReactionLoopCognitivo(policy,builder,gateway,capability_policy=capabilities,memory_retriever=retriever,cognitive_cache=cache)
     expected_sha=(os.environ.get("ATLAS_EXPECTED_SHA") or None) if cognitive.observation_bridge.require_expected_sha else None
     snapshot_path=Path(os.path.expanduser(cognitive.observation_bridge.snapshot_path));provider=HumanContextProvider(state_dir/"observation-affective-health.json",snapshot_path,max_snapshot_age_s=cognitive.observation_bridge.max_snapshot_age_s,expected_sha=expected_sha)
@@ -187,7 +188,8 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     action_store=ActionPlanStore(state_dir/"action-plan-current.json",state_dir/"action-plan-history.jsonl",max_history=64,max_bytes=131072)
     action_planner=ActionPlanner()
     action_policy=ActionPolicy(capabilities)
-    action_executor=ActionExecutorRegistry()
+    autonomy_executor=SafeLocalCapabilityExecutor(host="pentium",services=("atlas-observation.service","atlas-dashboard.service"),on_executed=capabilities.registrar_execucao)
+    action_executor=ActionExecutorRegistry(capability_sink=autonomy_executor)
     chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512)
     daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox)
     return CognitiveRuntimeOwner(daemon,memory_store)

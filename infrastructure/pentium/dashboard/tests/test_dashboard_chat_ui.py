@@ -5,10 +5,11 @@ ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT))
 import dashboard_collectors
 
 class DashboardChatUiTests(unittest.TestCase):
-    def test_ui_contains_chat_plan_and_operational_timeline(self):
+    def test_ui_contains_single_page_atlas_chat_with_backend_and_processing_state(self):
         html=(ROOT/'dashboard.html').read_text(encoding='utf-8')
-        for token in ('atlasChatHistory','atlasChatInput','atlasChatSend','actionPlanObjective','actionPlanConfidence','actionPlanActions','operationalTimeline','EventSource','/api/stream','/api/chat'):
+        for token in ('atlasChatPanel','atlasChatHistory','atlasChatInput','atlasChatSend','atlasChatBackend','atlasChatState','Hermes &middot; auto','PROCESSANDO','/api/chat','EventSource','/api/stream'):
             self.assertIn(token,html)
+        self.assertNotIn('iframe',html.lower())
         self.assertNotIn('chain-of-thought',html.lower())
 
     def test_runtime_collector_exposes_safe_plan_and_chat_events(self):

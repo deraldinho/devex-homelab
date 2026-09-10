@@ -145,3 +145,19 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(status["visual"]["modo"], "OCIOSO")
         self.assertEqual(status["visual"]["expressao"], "SERENO")
         self.assertEqual(status["visual"]["source"], "fallback")
+
+
+class DashboardRuntimeTruthTests(unittest.TestCase):
+    def test_collect_status_exposes_observation_service(self):
+        cfg = dc.default_config()
+
+        def runner(command, timeout):
+            if command[:3] == ["systemctl", "--user", "is-enabled"]:
+                return dc.CommandResult(0, "enabled\n", "")
+            if command[:3] == ["systemctl", "--user", "is-active"]:
+                return dc.CommandResult(0, "active\n", "")
+            return dc.CommandResult(1, "", "")
+
+        status = dc.collect_status(cfg, command_runner=runner)
+        self.assertEqual(status["services"]["observation"]["enabled"], "enabled")
+        self.assertEqual(status["services"]["observation"]["active"], "active")

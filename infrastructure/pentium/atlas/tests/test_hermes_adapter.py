@@ -31,6 +31,29 @@ class HermesAdapterTests(unittest.TestCase):
         self.assertNotIn("--toolsets", joined)
         self.assertEqual(2.0, kwargs["timeout"])
 
+    def test_omits_provider_flag_when_provider_is_none(self):
+        calls = []
+        def runner(command, **kwargs):
+            calls.append(command)
+            return subprocess.CompletedProcess(command, 0, stdout='{"versao_schema":1}', stderr="")
+        result = HermesAdapter(self.cfg(provider=None), runner=runner).inferir(self.req())
+        self.assertTrue(result.sucesso)
+        self.assertEqual("hermes/auto", result.backend)
+        self.assertNotIn("--provider", calls[0])
+    def test_prompt_declares_exact_atlas_v1_schema_contract(self):
+        calls = []
+        def runner(command, **kwargs):
+            calls.append(command)
+            return subprocess.CompletedProcess(command, 0, stdout='{"versao_schema":1}', stderr="")
+        HermesAdapter(self.cfg(provider=None), runner=runner).inferir(self.req())
+        prompt = calls[0][calls[0].index("-z") + 1]
+        for field in ("versao_schema", "texto", "resumo", "intencao", "parametros_intencao", "confianca", "motivo", "requer_confirmacao"):
+            self.assertIn(field, prompt)
+        self.assertIn('"versao_schema":1', prompt)
+        self.assertIn('"parametros_intencao":{}', prompt)
+        self.assertIn('"requer_confirmacao":false', prompt)
+        self.assertIn("exatamente estes 8 campos", prompt.lower())
+
     def test_timeout_is_bounded_failure(self):
         def runner(*_args, **_kwargs):
             raise subprocess.TimeoutExpired("hermes", 2.0)

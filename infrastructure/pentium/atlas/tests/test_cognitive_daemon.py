@@ -76,11 +76,11 @@ class CognitiveDaemonPackagingTests(unittest.TestCase):
         self.assertIn('restart atlas-cognitive.service',install); self.assertNotIn('restart atlas-voice.service',install)
         self.assertIn('EnvironmentFile=-%h/pentium-agent/atlas/runtime/observation.env',unit)
 
-    def test_repository_hermes_config_uses_codex_profile(self):
+    def test_repository_hermes_config_uses_automatic_provider_profile(self):
         import json
         root=Path(__file__).resolve().parents[1]
         cfg=json.loads((root/'config_hermes.json').read_text(encoding='utf-8'))
-        self.assertEqual('openai-codex',cfg['provider'])
+        self.assertNotIn('provider',cfg)
         self.assertEqual('atlas',cfg['profile'])
 
 if __name__=='__main__': unittest.main()

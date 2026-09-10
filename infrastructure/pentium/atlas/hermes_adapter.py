@@ -14,7 +14,16 @@ class HermesAdapter:
 
     def _prompt(self, request: SolicitacaoInferencia) -> str:
         return (
-            "Responda somente JSON estrito no schema cognitivo Atlas v1. "
+            "Responda somente JSON estrito, sem markdown, comentarios ou texto fora do JSON. "
+            "O schema cognitivo Atlas v1 exige exatamente estes 8 campos, sem campos extras: "
+            "versao_schema, texto, resumo, intencao, parametros_intencao, confianca, motivo, requer_confirmacao. "
+            "versao_schema deve ser 1; texto, resumo e intencao devem ser string nao vazia ou null; "
+            "parametros_intencao deve ser objeto e deve ser {} quando intencao for null; "
+            "confianca deve ser numero entre 0 e 1; motivo deve ser string nao vazia; "
+            "requer_confirmacao deve ser booleano. "
+            "Para conversa sem capability use como forma: "
+            '{"versao_schema":1,"texto":"resposta","resumo":"resumo","intencao":null,'
+            '"parametros_intencao":{},"confianca":0.9,"motivo":"interacao_humana","requer_confirmacao":false}. '
             "Nao use ferramentas, shell, filesystem ou rede por iniciativa propria. "
             f"Tarefa: {request.tarefa}\nContexto: {request.contexto_json}"
         )
@@ -23,8 +32,10 @@ class HermesAdapter:
         started = time.monotonic()
         command = [
             self._config.binary, "-p", self._config.profile, "-z",
-            self._prompt(request), "--provider", self._config.provider,
+            self._prompt(request),
         ]
+        if self._config.provider:
+            command.extend(["--provider", self._config.provider])
         try:
             completed = self._runner(
                 command,
@@ -52,7 +63,7 @@ class HermesAdapter:
             output.strip(),
             None,
             self._duration_ms(started),
-            f"hermes/{self._config.provider}",
+            f"hermes/{self._config.provider or 'auto'}",
         )
 
     @staticmethod
@@ -65,5 +76,5 @@ class HermesAdapter:
             None,
             error,
             self._duration_ms(started),
-            f"hermes/{self._config.provider}",
+            f"hermes/{self._config.provider or 'auto'}",
         )
