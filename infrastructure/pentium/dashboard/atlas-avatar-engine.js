@@ -38,6 +38,8 @@
       this.hopTargetZ = 0;
       this.sitDwellTime = 0;
       this.pokeUntil = 0;
+      this.lastCognitiveAlvo = null;
+      this.lastCognitiveAcaoPet = null;
 
       // Mouse tracking interativo
       this.mouseTarget = { x: 0, y: 0, active: false };
@@ -123,13 +125,24 @@
     }
 
     visitPanel(target) {
-      if (target === 'mind' || target === 'cognitionPanel') {
+      const t = String(target || 'auto').toLowerCase();
+      if (t === 'mind' || t === 'cognitionpanel') {
         this.hopTo(-this.patrolLimit * 0.88, -0.12);
         if (this.rig?.hudPanel) this.rig.hudPanel.visible = true;
-      } else if (target === 'chat' || target === 'atlasChatPanel') {
+      } else if (t === 'chat' || t === 'atlaschatpanel') {
         this.hopTo(this.patrolLimit * 0.88, 0.12);
-      } else if (target === 'services') {
+      } else if (t === 'services') {
         this.hopTo(-this.patrolLimit * 0.45, 0.05);
+        if (this.rig?.hudPanel) this.rig.hudPanel.visible = true;
+      } else if (t === 'core') {
+        this.hopTo(-this.patrolLimit * 0.75, -0.05);
+      } else if (t === 'x99') {
+        this.hopTo(this.patrolLimit * 0.75, 0.05);
+      } else if (t === 'deraldinho' || t === 'center') {
+        this.hopTo(0, 0);
+      } else if (t === 'auto') {
+        this.petMode = 'PATROL';
+        this.walking = true;
       } else {
         this.hopTo(0, 0);
       }
@@ -491,8 +504,26 @@
       if (r.sparkles) r.sparkles.visible = s.expressao === 'RECUPERANDO' || g === 'ALIVIO';
       if (r.hudPanel) r.hudPanel.visible = s.modo === 'OBSERVANDO' || g === 'ESCUTA';
 
-      // Navegação por foco cognitivo
-      if (s.foco_visual === 'core') {
+      // Controle de Locomoção e Comportamento Pet vindo de Hermes / Estado Visual
+      if (s.acao_pet && s.acao_pet !== this.lastCognitiveAcaoPet) {
+        this.lastCognitiveAcaoPet = s.acao_pet;
+        const petAct = String(s.acao_pet).toUpperCase();
+        if (petAct === 'POKE') {
+          this.triggerPoke();
+        } else if (petAct === 'SIT') {
+          this.petMode = 'SIT';
+          this.sitDwellTime = performance.now() + 9000;
+        } else if (petAct === 'HOP') {
+          this.hopTo(this.walkTargetOffset, this.targetZDepth);
+        } else if (petAct === 'PATROL') {
+          this.petMode = 'PATROL';
+        }
+      }
+
+      if (s.alvo_locomocao && s.alvo_locomocao !== this.lastCognitiveAlvo) {
+        this.lastCognitiveAlvo = s.alvo_locomocao;
+        this.visitPanel(s.alvo_locomocao);
+      } else if (s.foco_visual === 'core') {
         this.walkTargetOffset = -this.patrolLimit * 0.75;
         this.walking = true;
       } else if (s.foco_visual === 'x99') {

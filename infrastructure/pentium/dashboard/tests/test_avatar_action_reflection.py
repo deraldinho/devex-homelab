@@ -10,10 +10,14 @@ class AvatarActionReflectionTests(unittest.TestCase):
         self.assertIn('semanticPosture',engine)
         self.assertIn("side==='left'",engine)
         self.assertIn("side==='right'",engine)
+        self.assertIn('alvo_locomocao',engine)
+        self.assertIn('acao_pet',engine)
 
     def test_visual_contract_contains_semantic_fields(self):
         model=(ROOT.parent/'atlas'/'modelo_visual_atlas.py').read_text(encoding='utf-8')
         self.assertIn('postura_atual',model)
         self.assertIn('lado_gesto',model)
+        self.assertIn('alvo_locomocao',model)
+        self.assertIn('acao_pet',model)
 
 if __name__=='__main__': unittest.main()

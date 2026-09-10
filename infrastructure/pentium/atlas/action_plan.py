@@ -14,6 +14,8 @@ class ActionType(str, Enum):
     SET_EXPRESSION = "SET_EXPRESSION"
     SET_GESTURE = "SET_GESTURE"
     SET_POSTURE = "SET_POSTURE"
+    NAVIGATE_TO = "NAVIGATE_TO"
+    SET_PET_ACTION = "SET_PET_ACTION"
     SPEAK_TTS = "SPEAK_TTS"
     CAPABILITY_REQUEST = "CAPABILITY_REQUEST"
     WAIT = "WAIT"
@@ -34,6 +36,8 @@ _PARAMETER_KEYS = {
     ActionType.SET_EXPRESSION: frozenset(("expression", "intensity")),
     ActionType.SET_GESTURE: frozenset(("gesture", "arm")),
     ActionType.SET_POSTURE: frozenset(("posture",)),
+    ActionType.NAVIGATE_TO: frozenset(("target", "mode")),
+    ActionType.SET_PET_ACTION: frozenset(("action", "duration_ms")),
     ActionType.SPEAK_TTS: frozenset(("voice",)),
     ActionType.CAPABILITY_REQUEST: frozenset(("capability", "arguments")),
     ActionType.WAIT: frozenset(("duration_ms",)),

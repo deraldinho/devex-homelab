@@ -22,10 +22,15 @@ class ActionExecutorRegistry:
             state=replace(state,gesto_atual=str(p.get("gesture") or "NENHUM"),lado_gesto=str(p.get("arm") or "none"))
         elif action.type is ActionType.SET_POSTURE:
             state=replace(state,postura_atual=str(p.get("posture") or "NEUTRO"))
+        elif action.type is ActionType.NAVIGATE_TO:
+            target=str(p.get("target") or action.target or "auto")
+            state=replace(state,alvo_locomocao=target,foco_visual=target)
+        elif action.type is ActionType.SET_PET_ACTION:
+            state=replace(state,acao_pet=str(p.get("action") or "PATROL"))
         self._visual_writer(state)
 
     def _execute_one(self, plan, action):
-        if action.type in {ActionType.LOOK_AT,ActionType.SET_EXPRESSION,ActionType.SET_GESTURE,ActionType.SET_POSTURE}:
+        if action.type in {ActionType.LOOK_AT,ActionType.SET_EXPRESSION,ActionType.SET_GESTURE,ActionType.SET_POSTURE,ActionType.NAVIGATE_TO,ActionType.SET_PET_ACTION}:
             self._visual(action)
         elif action.type is ActionType.CHAT_REPLY:
             if self._chat_sink is not None: self._chat_sink(plan.response_text or "", plan, action)
