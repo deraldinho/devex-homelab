@@ -1,0 +1,12 @@
+<!doctype html><html><body data-ready="pending">
+<div id="atlasPixiStage" style="width:340px;height:380px"></div>
+<script src="pixi.min.js"></script>
+<script src="atlas-avatar-engine.js"></script>
+<script>
+(async()=>{
+  const engine=new AtlasAvatarEngine(document.getElementById('atlasPixiStage'));
+  const ok=await engine.init();
+  if(ok) engine.render({modo:'CONVERSANDO',expressao:'CURIOSO',intensidade_expressao:.7,velocidade_movimento:.5,intensidade_movimento:.5,falando:true,ouvindo:false,pensando:false,gesto_atual:'ACENO',direcao_olhar:'direita'});
+  document.body.dataset.ready=String(ok && !!document.querySelector('canvas'));
+})();
+</script></body></html>

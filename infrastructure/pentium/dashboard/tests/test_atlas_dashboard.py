@@ -51,11 +51,16 @@ class HttpContractTests(unittest.TestCase):
         status, _, _ = self.request("POST", "/api/status")
         self.assertEqual(status, 405)
 
-    def test_avatar_renderer_asset_is_served_read_only(self):
-        status, headers, body = self.request("GET", "/assets/atlas-avatar-renderer.js")
-        self.assertEqual(status, 200)
-        self.assertIn("application/javascript", headers["Content-Type"])
-        self.assertIn(b"AtlasAvatarRenderer", body)
-
-        post_status, _, _ = self.request("POST", "/assets/atlas-avatar-renderer.js")
-        self.assertEqual(post_status, 405)
+    def test_avatar_assets_are_served_read_only(self):
+        assets = {
+            "/assets/pixi.min.js": b"PIXI",
+            "/assets/atlas-avatar-engine.js": b"AtlasAvatarEngine",
+            "/assets/atlas-avatar-renderer.js": b"AtlasAvatarRenderer",
+        }
+        for path, marker in assets.items():
+            status, headers, body = self.request("GET", path)
+            self.assertEqual(status, 200, path)
+            self.assertIn("application/javascript", headers["Content-Type"])
+            self.assertIn(marker, body)
+            post_status, _, _ = self.request("POST", path)
+            self.assertEqual(post_status, 405, path)

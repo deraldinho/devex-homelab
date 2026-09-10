@@ -27,7 +27,8 @@ class DashboardPackagingTests(unittest.TestCase):
 
     def test_installer_packages_avatar_renderer_asset(self):
         script = (ROOT / "install-user.sh").read_text(encoding="utf-8")
-        self.assertIn("atlas-avatar-renderer.js", script)
+        for asset in ("pixi.min.js", "atlas-avatar-engine.js", "atlas-avatar-renderer.js"):
+            self.assertIn(asset, script)
 
 
 if __name__ == "__main__":

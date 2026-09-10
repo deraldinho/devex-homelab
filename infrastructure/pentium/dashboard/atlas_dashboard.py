@@ -16,8 +16,8 @@ class DashboardServer(ThreadingHTTPServer):
 class Handler(BaseHTTPRequestHandler):
     server_version = "AtlasDashboard/1"
 
-    def _send(self, status: int, content_type: str, body: bytes) -> None:
-        if len(body) > 262144:
+    def _send(self, status: int, content_type: str, body: bytes, *, max_bytes: int = 262144) -> None:
+        if len(body) > max_bytes:
             body = b'{"error":"response_too_large"}'
             status = 503
             content_type = "application/json; charset=utf-8"
@@ -42,9 +42,14 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(collectors.collect_events(config), ensure_ascii=True).encode()
             self._send(200, "application/json; charset=utf-8", body)
             return
-        if self.path == "/assets/atlas-avatar-renderer.js":
-            body = Path(__file__).with_name("atlas-avatar-renderer.js").read_bytes()
-            self._send(200, "application/javascript; charset=utf-8", body)
+        assets = {
+            "/assets/pixi.min.js": "pixi.min.js",
+            "/assets/atlas-avatar-engine.js": "atlas-avatar-engine.js",
+            "/assets/atlas-avatar-renderer.js": "atlas-avatar-renderer.js",
+        }
+        if self.path in assets:
+            body = Path(__file__).with_name(assets[self.path]).read_bytes()
+            self._send(200, "application/javascript; charset=utf-8", body, max_bytes=1048576)
             return
         if self.path == "/":
             body = Path(__file__).with_name("dashboard.html").read_bytes()
