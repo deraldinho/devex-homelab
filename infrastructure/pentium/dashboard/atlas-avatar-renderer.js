@@ -112,5 +112,6 @@
     settleVisualState,
     resetTransitionState,
     ensureEngine,
+    getEngine: () => engine,
   });
 })();

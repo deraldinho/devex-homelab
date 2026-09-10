@@ -26,6 +26,8 @@
       this.walking = true;
       this.patrolLimit = 95; // Amplitude ampla de caminhada
       this.nextPatrolTime = performance.now() + 2000;
+      this.zDepth = 0;
+      this.targetZDepth = 0;
 
       // Mouse tracking interativo
       this.mouseTarget = { x: 0, y: 0, active: false };
@@ -83,6 +85,24 @@
       this.state = state;
       this.#applyState();
       return true;
+    }
+
+    visitPanel(target) {
+      this.walking = true;
+      if (target === 'mind' || target === 'cognitionPanel') {
+        this.walkTargetOffset = -this.patrolLimit * 0.9;
+        this.targetZDepth = -0.12;
+        if (this.rig?.hudPanel) this.rig.hudPanel.visible = true;
+      } else if (target === 'chat' || target === 'atlasChatPanel') {
+        this.walkTargetOffset = this.patrolLimit * 0.9;
+        this.targetZDepth = 0.12;
+      } else if (target === 'services') {
+        this.walkTargetOffset = -this.patrolLimit * 0.45;
+        this.targetZDepth = 0.05;
+      } else {
+        this.walkTargetOffset = 0;
+        this.targetZDepth = 0;
+      }
     }
 
     #arm(side) {
@@ -278,42 +298,57 @@
       mouth.moveTo(-7, 0).quadraticCurveTo(0, 3, 7, 0).stroke({ color: 0xa44c60, width: 2.2, cap: 'round' });
       mouth.position.set(0, 38);
 
-      // Franja Anime Fluida com mechas laterais (Side-Bangs) e Hair Halo
+      // Franja & Cabelo Frontal Anime com Volume Completo (sem cortes no crânio)
       const fringe = new PIXI.Container();
       const hairGeo = new PIXI.Graphics();
-      // Mechas laterais longas que descem pelos ombros com curvas elegantes
-      hairGeo.moveTo(-42, -28)
-        .quadraticCurveTo(-52, 10, -45, 52)
-        .quadraticCurveTo(-40, 20, -36, -10)
-        .closePath()
-        .fill(0x523972);
-      hairGeo.moveTo(42, -28)
-        .quadraticCurveTo(52, 10, 45, 52)
-        .quadraticCurveTo(40, 20, 36, -10)
-        .closePath()
-        .fill(0x523972);
 
-      // Franja central suavemente dividida em mechas curvas naturais
-      hairGeo.moveTo(-44, -34)
-        .quadraticCurveTo(-30, -5, -24, 8)
-        .quadraticCurveTo(-22, -8, -14, -18)
-        .quadraticCurveTo(-8, 4, -2, 14)
-        .quadraticCurveTo(0, -6, 8, -16)
-        .quadraticCurveTo(16, 2, 22, 10)
-        .quadraticCurveTo(28, -6, 44, -34)
-        .quadraticCurveTo(0, -68, -44, -34)
+      // Topo do crânio com volume farto de cabelo anime cobrindo completamente a cabeça
+      hairGeo.moveTo(-48, -25)
+        .quadraticCurveTo(-52, -78, 0, -84)
+        .quadraticCurveTo(52, -78, 48, -25)
+        .quadraticCurveTo(46, -10, 42, 25)
+        .lineTo(34, -15)
+        .quadraticCurveTo(0, -60, -34, -15)
+        .lineTo(-42, 25)
+        .quadraticCurveTo(-46, -10, -48, -25)
         .closePath()
-        .fill(0x4c3468)
+        .fill(0x422d5b)
+        .stroke({ color: 0x624386, width: 2 });
+
+      // Mechas laterais longas curvas (Side-Bangs) que descem além das bochechas
+      hairGeo.moveTo(-44, -28)
+        .quadraticCurveTo(-54, 15, -46, 56)
+        .quadraticCurveTo(-38, 20, -35, -5)
+        .closePath()
+        .fill(0x4f366e);
+
+      hairGeo.moveTo(44, -28)
+        .quadraticCurveTo(54, 15, 46, 56)
+        .quadraticCurveTo(38, 20, 35, -5)
+        .closePath()
+        .fill(0x4f366e);
+
+      // Franja frontal dividida em mechas curvas delicadas sobre a testa
+      hairGeo.moveTo(-45, -35)
+        .quadraticCurveTo(-32, -4, -25, 12)
+        .quadraticCurveTo(-22, -10, -14, -22)
+        .quadraticCurveTo(-8, 6, -1, 16)
+        .quadraticCurveTo(0, -8, 8, -18)
+        .quadraticCurveTo(16, 4, 23, 13)
+        .quadraticCurveTo(28, -6, 45, -35)
+        .quadraticCurveTo(0, -82, -45, -35)
+        .closePath()
+        .fill(0x493366)
         .stroke({ color: 0x6e4e94, width: 1.8 });
 
-      // Hair Halo / Angel Ring (arco suave de luz no topo do cabelo)
+      // Hair Halo / Angel Ring (arco luminoso no cabelo anime)
       const halo = new PIXI.Graphics();
-      halo.moveTo(-28, -42).quadraticCurveTo(0, -56, 28, -42).stroke({ color: 0xbfa8e4, width: 3, alpha: 0.7, cap: 'round' });
+      halo.moveTo(-28, -52).quadraticCurveTo(0, -68, 28, -52).stroke({ color: 0xc4aef0, width: 3.5, alpha: 0.75, cap: 'round' });
       fringe.addChild(hairGeo, halo);
 
-      // Ahoge (mecha rebelde clássica de anime no topo da cabeça)
+      // Ahoge esbelto e orgânico
       const ahoge = new PIXI.Graphics();
-      ahoge.moveTo(0, -64).bezierCurveTo(-10, -86, 16, -92, 24, -80).stroke({ color: 0x6e4e94, width: 2.8, cap: 'round' });
+      ahoge.moveTo(0, -80).bezierCurveTo(-14, -106, 18, -112, 26, -98).stroke({ color: 0x76539e, width: 3, cap: 'round' });
       ahoge.name = "ahoge";
 
       // Emotes de Anime: Sweat Drop e Sparkles
@@ -476,10 +511,12 @@
       r.root.x=170+alive.weightShift*.22+(this.walkOffset||0);
       r.root.y = 280 + alive.breath - walkBob;
 
-      // Virada suave na direção da caminhada
-      const targetScaleX = (r.root._targetScale || 1) * (this.walkDirection || 1);
+      // Virada suave na direção da caminhada com profundidade 3D
+      this.zDepth = M.smoothExp(this.zDepth, this.targetZDepth, dt, 5);
+      const depthScale = 1.0 + this.zDepth;
+      const targetScaleX = (r.root._targetScale || 1) * (this.walkDirection || 1) * depthScale;
       r.root.scale.x = M.smoothExp(r.root.scale.x, targetScaleX, dt, 6);
-      const scY = r.root._targetScale || 1;
+      const scY = (r.root._targetScale || 1) * depthScale;
       r.root.scale.y = M.smoothExp(r.root.scale.y, scY, dt, 7);
 
       // Pernas no Walk Cycle
