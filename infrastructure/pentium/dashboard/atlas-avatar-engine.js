@@ -90,7 +90,25 @@
         await app.init({ resizeTo: this.host, backgroundAlpha: 0, antialias: true, autoDensity: true });
         this.host.replaceChildren(app.canvas);
         this.app = app;
-        this.rig = this.#buildRig();
+
+        // No PixiJS v8, o carregamento de texturas precisa ser assincrono via Assets.load
+        let textures = null;
+        try {
+          if (PIXI.Assets && typeof PIXI.Assets.load === 'function') {
+            const [stand, sit, poke] = await Promise.all([
+              PIXI.Assets.load('/assets/atlas-pet-standing.png').catch(() => null),
+              PIXI.Assets.load('/assets/atlas-pet-sitting.png').catch(() => null),
+              PIXI.Assets.load('/assets/atlas-pet-poke.png').catch(() => null),
+            ]);
+            if (stand && sit && poke) {
+              textures = { stand, sit, poke };
+            }
+          }
+        } catch (loadErr) {
+          console.warn("[AtlasAvatarEngine] Assets.load error, using procedural fallback:", loadErr);
+        }
+
+        this.rig = this.#buildRig(textures);
         app.stage.addChild(this.rig.root);
         app.ticker.add(t => this.#tick(t.deltaMS));
         this.host.classList.add("pixi-ready");
@@ -187,7 +205,7 @@
       return { upper, forearm, hand };
     }
 
-    #buildRig() {
+    #buildRig(textures = null) {
       const root = new PIXI.Container();
       root.position.set(170,280);
 
@@ -443,32 +461,35 @@
       hudBg.rect(6, 27, 20, 2).fill({ color: 0x2ee4b0, alpha: 0.4 });
       hudPanel.addChild(hudBg);
 
-      // Container vetorial de compatibilidade contratual (invisivel, preservando referencias)
+      // Se houver texturas carregadas, os sprites sao exibidos com prioridade.
+      // Se nao houver, o rig vetorial procedural e mantido 100% visivel como fallback automatico.
+      const hasSprites = Boolean(textures && textures.stand && textures.sit && textures.poke);
       const vectorRig = new PIXI.Container();
       vectorRig.name = "vectorRig";
-      vectorRig.alpha = 0;
-      vectorRig.visible = false;
+      vectorRig.alpha = hasSprites ? 0 : 1;
+      vectorRig.visible = !hasSprites;
       vectorRig.addChild(legL, legR, hairBack, torso, L.upper, R.upper, head);
 
       // Sprites Anime 2D de Alta Resolucao (Pet Shimeji Poses)
       const spriteContainer = new PIXI.Container();
       spriteContainer.name = "spriteContainer";
+      spriteContainer.visible = hasSprites;
 
-      const spriteStanding = PIXI.Sprite.from('/assets/atlas-pet-standing.png');
+      const spriteStanding = hasSprites ? new PIXI.Sprite(textures.stand) : PIXI.Sprite.from('/assets/atlas-pet-standing.png');
       spriteStanding.name = "spriteStanding";
       spriteStanding.anchor.set(0.513, 0.98);
       spriteStanding.position.set(0, 114);
       spriteStanding.scale.set(0.208);
       spriteStanding.visible = true;
 
-      const spriteSitting = PIXI.Sprite.from('/assets/atlas-pet-sitting.png');
+      const spriteSitting = hasSprites ? new PIXI.Sprite(textures.sit) : PIXI.Sprite.from('/assets/atlas-pet-sitting.png');
       spriteSitting.name = "spriteSitting";
       spriteSitting.anchor.set(0.513, 0.96);
       spriteSitting.position.set(0, 114);
       spriteSitting.scale.set(0.208);
       spriteSitting.visible = false;
 
-      const spritePoke = PIXI.Sprite.from('/assets/atlas-pet-poke.png');
+      const spritePoke = hasSprites ? new PIXI.Sprite(textures.poke) : PIXI.Sprite.from('/assets/atlas-pet-poke.png');
       spritePoke.name = "spritePoke";
       spritePoke.anchor.set(0.513, 0.98);
       spritePoke.position.set(0, 114);
