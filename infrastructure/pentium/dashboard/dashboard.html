@@ -41,21 +41,22 @@ main{position:relative;z-index:1;max-width:1500px;margin:auto;padding:24px}
       <div class="avatarStage">
         <div id="atlasPixiStage" aria-hidden="true"></div>
         <svg id="atlasAvatar" data-mode="OCIOSO" data-expression="SERENO" viewBox="0 0 280 340" role="img" aria-label="Avatar cognitivo do Atlas">
-          <g class="effects" opacity=".8">
+          <image id="atlasAvatarAnimeImg" href="/assets/atlas-pet-standing.png" x="10" y="10" width="260" height="320" preserveAspectRatio="xMidYMid meet"/>
+          <g class="effects" style="display:none" opacity=".8">
             <circle cx="140" cy="126" r="112" fill="none" stroke="#8f7cff" stroke-width="2" opacity=".28"/>
             <circle cx="140" cy="126" r="96" fill="none" stroke="#2ee4b0" stroke-width="1" opacity=".22"/>
           </g>
-          <g class="body">
+          <g class="body" style="display:none">
             <path d="M72 322c8-72 36-103 68-103s60 31 68 103" fill="#132238" stroke="#223a5e" stroke-width="3"/>
             <path d="M118 219h44l22 103H96z" fill="#f0f4fa" opacity=".95"/>
             <circle cx="140" cy="245" r="7" fill="#2ee4b0"/>
             <circle cx="140" cy="245" r="12" fill="#43d17d" opacity=".3"/>
             <circle cx="140" cy="245" r="3" fill="#ffffff"/>
           </g>
-          <g class="hair">
+          <g class="hair" style="display:none">
             <path d="M64 125c0-74 42-106 76-106 54 0 84 46 77 114l-14 134-38-34-25 24-28-22-40 33z" fill="#3e2d58" stroke="#614885" stroke-width="3"/>
           </g>
-          <g class="head">
+          <g class="head" style="display:none">
             <path d="M92 90c-4 50 12 88 48 98 36-10 52-48 48-98-8-44-40-55-48-55s-40 11-48 55z" fill="#f5ded3"/>
             <rect x="86" y="132" width="6" height="20" rx="3" fill="#182436" stroke="#2ee4b0" stroke-width="1.5"/>
             <rect x="188" y="132" width="6" height="20" rx="3" fill="#182436" stroke="#2ee4b0" stroke-width="1.5"/>

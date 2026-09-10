@@ -63,6 +63,15 @@
     avatar.classList.toggle("listening", v.ouvindo);
     avatar.classList.toggle("thinking", v.pensando);
     avatar.classList.toggle("speaking", v.falando);
+    const img = byId("atlasAvatarAnimeImg");
+    if (img) {
+      const isPoke = v.acao_pet === 'POKE' || v.modo === 'REAGINDO';
+      const isSit = v.acao_pet === 'SIT';
+      const target = isPoke ? '/assets/atlas-pet-poke.png' : (isSit ? '/assets/atlas-pet-sitting.png' : '/assets/atlas-pet-standing.png');
+      if (img.getAttribute('href') !== target) {
+        img.setAttribute('href', target);
+      }
+    }
   }
 
   function renderMeta(v, pixiReady) {
@@ -71,9 +80,10 @@
     byId("avatarFocus").textContent = v.foco_visual;
     byId("avatarIntensity").textContent = `${Math.round(v.intensidade_expressao * 100)}%`;
     byId("avatarHeadline").textContent = `Atlas \u00b7 ${v.modo.charAt(0) + v.modo.slice(1).toLowerCase()}`;
+    const hostErr = byId("atlasPixiStage")?.dataset?.rendererError;
     byId("avatarSource").textContent = v.source === "fallback"
       ? "fallback neutro \u00b7 fonte visual ainda indispon\u00edvel"
-      : `EstadoVisualAtlas v1.1 \u00b7 ${pixiReady ? "PixiJS" : "fallback SVG"}`;
+      : `EstadoVisualAtlas v1.1 \u00b7 ${pixiReady ? "PixiJS" : (hostErr ? "fallback SVG (" + hostErr + ")" : "fallback SVG")}`;
     toggleFlag("flagListening", v.ouvindo);
     toggleFlag("flagThinking", v.pensando);
     toggleFlag("flagSpeaking", v.falando);
@@ -84,12 +94,20 @@
   let initPromise = null;
 
   function ensureEngine() {
+    if (engine?.ready) return Promise.resolve(true);
     if (initPromise) return initPromise;
     const host = byId("atlasPixiStage");
     const Engine = window.AtlasAvatarEngine?.AtlasAvatarEngine;
     if (!host || !Engine) return Promise.resolve(false);
     engine = new Engine(host);
-    initPromise = engine.init().catch(() => false);
+    initPromise = engine.init().then(ready => {
+      if (!ready) initPromise = null;
+      return ready;
+    }).catch(err => {
+      console.warn("[ensureEngine] engine.init failed:", err);
+      initPromise = null;
+      return false;
+    });
     return initPromise;
   }
 

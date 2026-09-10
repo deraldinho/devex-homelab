@@ -87,7 +87,15 @@
       if (!this.host || !window.PIXI || !M) return false;
       try {
         const app = new PIXI.Application();
-        await app.init({ resizeTo: this.host, backgroundAlpha: 0, antialias: true, autoDensity: true });
+        await app.init({
+          preference: 'webgl',
+          width: 340,
+          height: 380,
+          resizeTo: this.host,
+          backgroundAlpha: 0,
+          antialias: true,
+          autoDensity: true
+        });
         this.host.replaceChildren(app.canvas);
         this.app = app;
 
@@ -115,7 +123,8 @@
         this.ready = true;
         return true;
       } catch (error) {
-        this.host.dataset.rendererError = error?.name || "PixiInitError";
+        console.error("[AtlasAvatarEngine] Pixi init error:", error);
+        this.host.dataset.rendererError = error?.message || error?.name || "PixiInitError";
         return false;
       }
     }
