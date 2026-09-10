@@ -126,6 +126,9 @@
 
     visitPanel(target) {
       const t = String(target || 'auto').toLowerCase();
+      if (typeof window !== 'undefined' && window.anchorPetTo) {
+        window.anchorPetTo(t);
+      }
       if (t === 'mind' || t === 'cognitionpanel') {
         this.hopTo(-this.patrolLimit * 0.88, -0.12);
         if (this.rig?.hudPanel) this.rig.hudPanel.visible = true;
