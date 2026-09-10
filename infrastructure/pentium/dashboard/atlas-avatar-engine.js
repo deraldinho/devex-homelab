@@ -29,10 +29,30 @@
       this.zDepth = 0;
       this.targetZDepth = 0;
 
+      // Pet State Machine (Shimeji Desktop Pet)
+      this.petMode = 'PATROL'; // 'PATROL', 'SIT', 'HOP', 'POKE'
+      this.hopTime = 0;
+      this.hopDuration = 0.60;
+      this.hopOrigin = 0;
+      this.hopTarget = 0;
+      this.hopTargetZ = 0;
+      this.sitDwellTime = 0;
+      this.pokeUntil = 0;
+
       // Mouse tracking interativo
       this.mouseTarget = { x: 0, y: 0, active: false };
       this.lastMouseMove = 0;
       this.#initMouseTracking();
+      this.#initPetInteraction();
+    }
+
+    #initPetInteraction() {
+      if (!this.host) return;
+      this.host.style.cursor = 'pointer';
+      this.host.title = 'Clique para interagir com a Atlas!';
+      this.host.addEventListener('click', () => {
+        this.triggerPoke();
+      });
     }
 
     #initMouseTracking() {
@@ -87,21 +107,31 @@
       return true;
     }
 
+    triggerPoke() {
+      this.petMode = 'POKE';
+      this.pokeUntil = performance.now() + 1200;
+      if (this.rig?.sparkles) this.rig.sparkles.visible = true;
+    }
+
+    hopTo(targetOffset, targetZ = 0) {
+      this.petMode = 'HOP';
+      this.hopOrigin = this.walkOffset;
+      this.hopTarget = targetOffset;
+      this.hopTargetZ = targetZ;
+      this.hopTime = 0;
+      this.walkDirection = targetOffset >= this.walkOffset ? 1 : -1;
+    }
+
     visitPanel(target) {
-      this.walking = true;
       if (target === 'mind' || target === 'cognitionPanel') {
-        this.walkTargetOffset = -this.patrolLimit * 0.9;
-        this.targetZDepth = -0.12;
+        this.hopTo(-this.patrolLimit * 0.88, -0.12);
         if (this.rig?.hudPanel) this.rig.hudPanel.visible = true;
       } else if (target === 'chat' || target === 'atlasChatPanel') {
-        this.walkTargetOffset = this.patrolLimit * 0.9;
-        this.targetZDepth = 0.12;
+        this.hopTo(this.patrolLimit * 0.88, 0.12);
       } else if (target === 'services') {
-        this.walkTargetOffset = -this.patrolLimit * 0.45;
-        this.targetZDepth = 0.05;
+        this.hopTo(-this.patrolLimit * 0.45, 0.05);
       } else {
-        this.walkTargetOffset = 0;
-        this.targetZDepth = 0;
+        this.hopTo(0, 0);
       }
     }
 
@@ -171,16 +201,18 @@
       const hairBack = new PIXI.Container();
       hairBack.position.set(0, -152);
       const hbG = new PIXI.Graphics();
-      // Silhueta orgânica curva do cabelo longo anime
-      hbG.moveTo(-40, -10)
-        .quadraticCurveTo(-75, 20, -72, 85)
-        .quadraticCurveTo(-60, 128, -42, 142)
-        .quadraticCurveTo(-36, 105, -22, 115)
-        .quadraticCurveTo(-8, 148, 0, 136)
-        .quadraticCurveTo(8, 148, 22, 115)
-        .quadraticCurveTo(36, 105, 42, 142)
-        .quadraticCurveTo(60, 128, 72, 85)
-        .quadraticCurveTo(75, 20, 40, -10)
+      // Silhueta orgânica curva do cabelo longo anime com domo cranial superior volumoso
+      hbG.moveTo(-48, -48)
+        .quadraticCurveTo(-60, -92, 0, -96)
+        .quadraticCurveTo(60, -92, 48, -48)
+        .quadraticCurveTo(78, 20, 72, 85)
+        .quadraticCurveTo(60, 128, 42, 142)
+        .quadraticCurveTo(36, 105, 22, 115)
+        .quadraticCurveTo(8, 148, 0, 136)
+        .quadraticCurveTo(-8, 148, -22, 115)
+        .quadraticCurveTo(-36, 105, -42, 142)
+        .quadraticCurveTo(-60, 128, -72, 85)
+        .quadraticCurveTo(-78, 20, -48, -48)
         .closePath()
         .fill(0x382452)
         .stroke({ color: 0x583d78, width: 2.5 });
@@ -303,14 +335,14 @@
       const hairGeo = new PIXI.Graphics();
 
       // Topo do crânio com volume farto de cabelo anime cobrindo completamente a cabeça
-      hairGeo.moveTo(-48, -25)
-        .quadraticCurveTo(-52, -78, 0, -84)
-        .quadraticCurveTo(52, -78, 48, -25)
+      hairGeo.moveTo(-50, -25)
+        .quadraticCurveTo(-56, -84, 0, -90)
+        .quadraticCurveTo(56, -84, 50, -25)
         .quadraticCurveTo(46, -10, 42, 25)
         .lineTo(34, -15)
         .quadraticCurveTo(0, -60, -34, -15)
         .lineTo(-42, 25)
-        .quadraticCurveTo(-46, -10, -48, -25)
+        .quadraticCurveTo(-46, -10, -50, -25)
         .closePath()
         .fill(0x422d5b)
         .stroke({ color: 0x624386, width: 2 });
@@ -336,19 +368,19 @@
         .quadraticCurveTo(0, -8, 8, -18)
         .quadraticCurveTo(16, 4, 23, 13)
         .quadraticCurveTo(28, -6, 45, -35)
-        .quadraticCurveTo(0, -82, -45, -35)
+        .quadraticCurveTo(0, -86, -45, -35)
         .closePath()
         .fill(0x493366)
         .stroke({ color: 0x6e4e94, width: 1.8 });
 
       // Hair Halo / Angel Ring (arco luminoso no cabelo anime)
       const halo = new PIXI.Graphics();
-      halo.moveTo(-28, -52).quadraticCurveTo(0, -68, 28, -52).stroke({ color: 0xc4aef0, width: 3.5, alpha: 0.75, cap: 'round' });
+      halo.moveTo(-30, -56).quadraticCurveTo(0, -72, 30, -56).stroke({ color: 0xc4aef0, width: 3.5, alpha: 0.75, cap: 'round' });
       fringe.addChild(hairGeo, halo);
 
       // Ahoge esbelto e orgânico
       const ahoge = new PIXI.Graphics();
-      ahoge.moveTo(0, -80).bezierCurveTo(-14, -106, 18, -112, 26, -98).stroke({ color: 0x76539e, width: 3, cap: 'round' });
+      ahoge.moveTo(0, -86).bezierCurveTo(-16, -112, 18, -118, 26, -102).stroke({ color: 0x76539e, width: 3.2, cap: 'round' });
       ahoge.name = "ahoge";
 
       // Emotes de Anime: Sweat Drop e Sparkles
@@ -480,36 +512,73 @@
       const motion = this.reducedMotion ? 0 : s.intensidade_movimento;
       const alive = this.motion.step({ ...s, intensidade_movimento: motion }, dt, t);
 
-      // LOCOMOÇÃO & PATRULHA (WALK CYCLE DE ANIME)
-      if (!this.reducedMotion) {
-        if (now >= this.nextPatrolTime) {
-          this.walking = Math.random() > 0.20;
-          if (this.walking) {
-            // Caminha para um ponto aleatório da passarela
-            this.walkTargetOffset = (Math.random() * (this.patrolLimit * 2)) - this.patrolLimit;
-          }
-          this.nextPatrolTime = now + 3200 + Math.random() * 3800;
-        }
+      // COMPORTAMENTO PET DE INTERFACE (SHIMEJI: HOP, SIT, POKE, PATROL)
+      let hopY = 0;
+      let isSitting = false;
 
-        const distToTarget = this.walkTargetOffset - this.walkOffset;
-        if (Math.abs(distToTarget) > 2.5 && this.walking) {
-          this.walkDirection = distToTarget > 0 ? 1 : -1;
-          const speed = 36 * (0.85 + motion * 0.45);
-          this.walkOffset += this.walkDirection * speed * dt;
-          this.stepPhase += dt * 5.6 * (0.85 + motion * 0.35);
-        } else {
-          this.stepPhase = M.smoothExp(this.stepPhase, 0, dt, 4);
+      // 1. Estado HOP (Salto entre janelas)
+      if (this.petMode === 'HOP') {
+        this.hopTime += dt;
+        const progress = Math.min(1, this.hopTime / this.hopDuration);
+        hopY = -Math.sin(progress * Math.PI) * 55;
+        this.walkOffset = this.hopOrigin + (this.hopTarget - this.hopOrigin) * progress;
+        this.zDepth = M.smoothExp(this.zDepth, this.hopTargetZ, dt, 8);
+        if (progress >= 1) {
+          this.petMode = Math.random() > 0.35 ? 'SIT' : 'PATROL';
+          this.sitDwellTime = now + 4000 + Math.random() * 4500;
+        }
+      } 
+      // 2. Estado SIT (Sentar na borda da janela balançando perninhas)
+      else if (this.petMode === 'SIT') {
+        isSitting = true;
+        this.walkOffset = M.smoothExp(this.walkOffset, this.walkTargetOffset, dt, 4);
+        if (now > this.sitDwellTime) {
+          this.petMode = 'PATROL';
+          this.nextPatrolTime = now + 3500;
+        }
+      }
+      // 3. Estado POKE (Pulinho assustado com carinho)
+      else if (this.petMode === 'POKE') {
+        hopY = -Math.abs(Math.sin((now - (this.pokeUntil - 1200)) * 0.012)) * 22;
+        if (now >= this.pokeUntil) {
+          this.petMode = 'PATROL';
+          if (r.sparkles) r.sparkles.visible = false;
+        }
+      }
+      // 4. Estado PATROL (Caminhar sobre o topo da janela)
+      else {
+        if (!this.reducedMotion) {
+          if (now >= this.nextPatrolTime) {
+            this.walking = Math.random() > 0.20;
+            if (this.walking) {
+              this.walkTargetOffset = (Math.random() * (this.patrolLimit * 2)) - this.patrolLimit;
+            } else if (Math.random() > 0.45) {
+              this.petMode = 'SIT';
+              this.sitDwellTime = now + 4500 + Math.random() * 5000;
+            }
+            this.nextPatrolTime = now + 3200 + Math.random() * 3800;
+          }
+
+          const distToTarget = this.walkTargetOffset - this.walkOffset;
+          if (Math.abs(distToTarget) > 2.5 && this.walking) {
+            this.walkDirection = distToTarget > 0 ? 1 : -1;
+            const speed = 36 * (0.85 + motion * 0.45);
+            this.walkOffset += this.walkDirection * speed * dt;
+            this.stepPhase += dt * 5.6 * (0.85 + motion * 0.35);
+          } else {
+            this.stepPhase = M.smoothExp(this.stepPhase, 0, dt, 4);
+          }
         }
       }
 
-      const isWalking = Math.abs(Math.sin(this.stepPhase)) > 0.05;
+      const isWalking = (this.petMode === 'PATROL') && Math.abs(Math.sin(this.stepPhase)) > 0.05;
       const walkBob = isWalking ? Math.abs(Math.sin(this.stepPhase)) * 3.6 : 0;
       const legSwing = isWalking ? Math.sin(this.stepPhase) * 0.34 : 0;
       const armSwing = isWalking ? Math.sin(this.stepPhase) * 0.24 : 0;
 
       // CONTRATO VITAL PRESERVADO:
       r.root.x=170+alive.weightShift*.22+(this.walkOffset||0);
-      r.root.y = 280 + alive.breath - walkBob;
+      r.root.y = 280 + alive.breath - walkBob + hopY + (isSitting ? 12 : 0);
 
       // Virada suave na direção da caminhada com profundidade 3D
       this.zDepth = M.smoothExp(this.zDepth, this.targetZDepth, dt, 5);
@@ -519,9 +588,19 @@
       const scY = (r.root._targetScale || 1) * depthScale;
       r.root.scale.y = M.smoothExp(r.root.scale.y, scY, dt, 7);
 
-      // Pernas no Walk Cycle
-      r.legL.rotation = M.smoothExp(r.legL.rotation, (r.legL._targetRotation || 0) + legSwing, dt, 12);
-      r.legR.rotation = M.smoothExp(r.legR.rotation, (r.legR._targetRotation || 0) - legSwing, dt, 12);
+      // Pernas: Dobradas e balançando quando sentada (SIT) ou caminhando (WALK)
+      if (isSitting) {
+        const sitSwing = Math.sin(t * 2.8) * 0.22;
+        r.legL.rotation = M.smoothExp(r.legL.rotation, 1.42 + sitSwing, dt, 8);
+        r.legR.rotation = M.smoothExp(r.legR.rotation, 1.42 - sitSwing, dt, 8);
+      } else if (this.petMode === 'HOP') {
+        // Pernas recolhidas durante o salto
+        r.legL.rotation = M.smoothExp(r.legL.rotation, 0.75, dt, 10);
+        r.legR.rotation = M.smoothExp(r.legR.rotation, 0.75, dt, 10);
+      } else {
+        r.legL.rotation = M.smoothExp(r.legL.rotation, (r.legL._targetRotation || 0) + legSwing, dt, 12);
+        r.legR.rotation = M.smoothExp(r.legR.rotation, (r.legR._targetRotation || 0) - legSwing, dt, 12);
+      }
 
       // Tronco e Cabelo
       r.torso.rotation = M.smoothExp(r.torso.rotation, (r.torso._semanticRotation || 0) + alive.weightShift * .0025, dt, 5);

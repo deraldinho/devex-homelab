@@ -98,10 +98,12 @@ main{position:relative;z-index:1;max-width:1500px;margin:auto;padding:24px}
         </div>
         <div class="flags"><span id="flagListening" class="flag">ouvindo</span><span id="flagThinking" class="flag">pensando</span><span id="flagSpeaking" class="flag">falando</span><span id="flagIdentity" class="flag">d&uacute;vida identidade</span></div>
         <div class="patrolBar">
-          <span class="muted" style="font-size:11px">🚶‍♀️ Navegar no Mundo 3D:</span>
+          <span class="muted" style="font-size:11px">🚶‍♀️ Pet Atlas (Mundo 3D):</span>
           <button class="patrolBtn" data-target="mind" type="button">Mente</button>
           <button class="patrolBtn" data-target="chat" type="button">Chat</button>
           <button class="patrolBtn" data-target="services" type="button">Servi&ccedil;os</button>
+          <button class="patrolBtn" data-target="sit" type="button">🪑 Sentar</button>
+          <button class="patrolBtn" data-target="poke" type="button">✨ Carinho</button>
           <button class="patrolBtn" data-target="auto" type="button">Patrulha Livre</button>
         </div>
       </div>
@@ -248,8 +250,19 @@ document.querySelectorAll('.patrolBtn').forEach(btn=>{
     e.stopPropagation();
     const t=btn.dataset.target;
     const eng=window.AtlasAvatarRenderer?.getEngine?.();
-    if(eng?.visitPanel) eng.visitPanel(t);
-    playChime(640,'triangle',0.16);
+    if(t==='poke'){
+      if(eng?.triggerPoke) eng.triggerPoke();
+      playChime(880,'sine',0.2);
+    } else if(t==='sit'){
+      if(eng){
+        eng.petMode = 'SIT';
+        eng.sitDwellTime = performance.now() + 8000;
+      }
+      playChime(440,'triangle',0.2);
+    } else {
+      if(eng?.visitPanel) eng.visitPanel(t);
+      playChime(640,'triangle',0.16);
+    }
   });
 });
 document.querySelectorAll('.card').forEach(c=>{
