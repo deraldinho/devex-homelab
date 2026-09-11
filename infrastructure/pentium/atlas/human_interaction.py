@@ -7,7 +7,7 @@ from .human_context import CognitiveContextUnavailable
 from .stimulus_model import Stimulus, StimulusSeverity
 
 
-_ALLOWED_SOURCES = frozenset(("human.voice", "human.cli", "human.dashboard"))
+_ALLOWED_SOURCES = frozenset(("human.voice", "human.cli", "human.dashboard", "human.discord"))
 
 
 def build_human_stimulus(text: str, *, source: str, stimulus_id: str | None = None,

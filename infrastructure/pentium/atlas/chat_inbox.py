@@ -30,6 +30,10 @@ class ChatEnvelope:
     claimed_at: str | None = None
     acked_at: str | None = None
     attempts: int = 0
+    channel: str = "dashboard"
+    actor_id: str | None = None
+    conversation_id: str | None = None
+    reply_target: str | None = None
 
 
 class ChatInbox:
@@ -65,11 +69,19 @@ class ChatInbox:
             os.replace(tmp,self.path)
         finally: tmp.unlink(missing_ok=True)
 
-    def enqueue(self,message:str,client_message_id:str)->ChatEnvelope:
-        text=str(message).strip();client=str(client_message_id).strip()
+    def enqueue(self,message:str,client_message_id:str,*,channel:str="dashboard",actor_id:str|None=None,conversation_id:str|None=None,reply_target:str|None=None)->ChatEnvelope:
+        text=str(message).strip();client=str(client_message_id).strip();channel_name=str(channel).strip().lower()
         if not text: raise ValueError("message is required")
         if len(text)>self.max_message_chars: raise ValueError("message exceeds max_message_chars")
         if not client or len(client)>128: raise ValueError("invalid client_message_id")
+        if not channel_name or len(channel_name)>32 or any(ch not in "abcdefghijklmnopqrstuvwxyz0123456789_.-" for ch in channel_name):
+            raise ValueError("invalid channel")
+        def route(value):
+            if value is None: return None
+            normalized=str(value).strip()
+            if not normalized or len(normalized)>128: raise ValueError("invalid route metadata")
+            return normalized
+        actor=route(actor_id);conversation=route(conversation_id);target=route(reply_target)
         with self._lock():
             items=self._load()
             existing=next((x for x in items if x.client_message_id==client),None)
@@ -78,7 +90,10 @@ class ChatInbox:
                 index=next((i for i,x in enumerate(items) if x.acked_at is not None),None)
                 if index is None: raise OverflowError("chat inbox full")
                 del items[index]
-            mid=str(uuid4());env=ChatEnvelope(mid,f"human-chat-{mid}",client,text,_now())
+            mid=str(uuid4());env=ChatEnvelope(
+                mid,f"human-chat-{mid}",client,text,_now(),channel=channel_name,
+                actor_id=actor,conversation_id=conversation,reply_target=target,
+            )
             items.append(env);self._write(items);return env
 
     def claim_next(self)->ChatEnvelope|None:

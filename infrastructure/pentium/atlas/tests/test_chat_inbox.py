@@ -33,3 +33,21 @@ class ChatInboxTests(unittest.TestCase):
     def test_claim_returns_none_when_empty(self):
         with TemporaryDirectory() as tmp:
             self.assertIsNone(ChatInbox(Path(tmp)/"chat-inbox.json").claim_next())
+
+    def test_multichannel_route_metadata_is_persisted(self):
+        with TemporaryDirectory() as tmp:
+            inbox=ChatInbox(Path(tmp)/"chat-inbox.json")
+            env=inbox.enqueue(
+                "Como esta o core?","discord-42",channel="discord",
+                actor_id="user-7",conversation_id="channel-9",reply_target="channel-9",
+            )
+            loaded=inbox.list_items()[0]
+            self.assertEqual("discord",env.channel)
+            self.assertEqual("user-7",loaded.actor_id)
+            self.assertEqual("channel-9",loaded.conversation_id)
+            self.assertEqual("channel-9",loaded.reply_target)
+
+    def test_dashboard_remains_default_channel(self):
+        with TemporaryDirectory() as tmp:
+            env=ChatInbox(Path(tmp)/"chat-inbox.json").enqueue("oi","dashboard-1")
+            self.assertEqual("dashboard",env.channel)

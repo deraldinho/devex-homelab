@@ -180,6 +180,8 @@ jobs:
               "$atlas/pipeline_afetivo_observacional.py" \
               "$atlas/affective_composition.py" \
               "$atlas/affective_interaction_ipc.py" \
+              "$atlas/local_health.py" \
+              "$atlas/github_observation.py" \
               "$atlas/observation_daemon.py" \
               "$atlas/affective_boot_certification.py" \
               "$atlas/cognitive_observation_projection.py" \
@@ -192,6 +194,9 @@ jobs:
               "$atlas/action_policy.py" \
               "$atlas/action_executors.py" \
               "$atlas/chat_inbox.py" \
+              "$atlas/config_discord.py" \
+              "$atlas/discord_gateway.py" \
+              "$atlas/notification_policy.py" \
               "$atlas/modelo_contexto_cognitivo.py" \
               "$atlas/configuracao_cognitiva.py" \
               "$atlas/contexto_cognitivo.py" \
@@ -246,10 +251,16 @@ jobs:
             python3 -m json.tool "$atlas/config_cache.json" >/dev/null
             python3 -m json.tool "$atlas/config_fast_router.json" >/dev/null
             python3 -m json.tool "$atlas/config_voice.json" >/dev/null
+            python3 -m json.tool "$atlas/config_github.json" >/dev/null
+            python3 -m json.tool "$atlas/config_discord.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_registry -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_source_d2 -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_affective_composition -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_github_observation -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_notification_policy -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_discord_gateway -v
             python3 -m unittest discover -s "$atlas/tests" -p 'test_*.py' -v
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/healthy.json" >/tmp/atlas-healthy.json
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/critical.json" >/tmp/atlas-critical.json
@@ -257,7 +268,7 @@ jobs:
             bash -n "$atlas/install-user.sh"
             bash -n "$atlas/prepare-hermes-atlas.sh"
             if command -v systemd-analyze >/dev/null 2>&1; then
-              systemd-analyze verify "$atlas/atlas-observation.service" "$atlas/atlas-cognitive.service" "$atlas/atlas-voice.service"
+              systemd-analyze verify "$atlas/atlas-observation.service" "$atlas/atlas-cognitive.service" "$atlas/atlas-voice.service" "$atlas/atlas-discord.service"
             fi
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
@@ -286,6 +297,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_I1_OBSERVATION_INTEGRATION_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_MULTISOURCE_CHAT_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_V1_ALWAYS_ON_VOICE_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'

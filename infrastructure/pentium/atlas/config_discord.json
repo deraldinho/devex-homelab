@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "guild_ids": [],
+  "channel_ids": [],
+  "user_ids": [],
+  "alert_channel_id": null,
+  "max_message_chars": 512,
+  "poll_interval_seconds": 0.5
+}

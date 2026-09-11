@@ -14,18 +14,28 @@
   "fontes": {
     "pentium.self": {
       "entidade_id": "pentium",
-      "campos_alcance": [],
+      "campos_alcance": ["self_healthy"],
       "confianca": 0.90
     },
     "core": {
       "entidade_id": "core",
-      "campos_alcance": ["tailscale_online", "ssh_reachable"],
+      "campos_alcance": ["channel_healthy", "tailscale_online", "ssh_reachable"],
       "confianca": 0.85
     },
     "x99": {
       "entidade_id": "x99",
       "campos_alcance": ["channel_healthy"],
       "confianca": 0.80
+    },
+    "github.deraldinho.devex-homelab": {
+      "entidade_id": "repo:devex-homelab",
+      "campos_alcance": ["delivery_healthy"],
+      "confianca": 0.90
+    },
+    "github.deraldinho.L2jToren": {
+      "entidade_id": "repo:L2jToren",
+      "campos_alcance": ["delivery_healthy"],
+      "confianca": 0.90
     }
   },
   "dependencias": [

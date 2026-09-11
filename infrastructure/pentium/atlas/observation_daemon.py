@@ -24,11 +24,13 @@ except ImportError:
 from .affective_composition import AffectiveComposition, build_affective_composition
 from .affective_interaction_ipc import InteractionDatagramListener
 from .dual_zone_runtime import build_dual_zone_runtime
+from .github_observation import GitHubCliClient, build_github_sources
+from .local_health import collect_pentium_self
 from .observation_runtime import load_observation_config
 from .presence_persistence import PresenceRepository
 from .stimulus_bus import StimulusBus
 from .stimulus_journal import append_stimulus
-from .stimulus_sources import WifiPresenceSource
+from .stimulus_sources import PentiumSelfSource, WifiPresenceSource
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_STATE_DIR = Path.home() / "pentium-agent" / "atlas" / "runtime"
@@ -100,6 +102,7 @@ def build_observation_context(
     state_dir: Path = DEFAULT_STATE_DIR,
     wifi_interface: str,
     managed_read_service=None,
+    github_client=None,
     scanner=None,
     interaction_listener=None,
     cognitive_interaction_listener=None,
@@ -124,8 +127,23 @@ def build_observation_context(
         managed_hosts[str(item["host_id"])] = operations
     if not managed_hosts:
         raise ValueError("no MANAGED hosts configured for observation")
-    source_names = {"wifi.presence", *(f"managed.{host}" for host in managed_hosts)}
+    github_sources = ()
+    github_config = config_root / "config_github.json"
+    if github_config.is_file():
+        payload = json.loads(github_config.read_text(encoding="utf-8"))
+        if payload.get("schema_version") != 1:
+            raise ValueError("github config schema_version must be 1")
+        repositories = tuple(payload.get("repositories") or ())
+        if payload.get("enabled", False) and repositories:
+            github_sources = build_github_sources(repositories, client=github_client or GitHubCliClient())
+    source_names = {
+        "pentium.self",
+        "wifi.presence",
+        *(f"managed.{host}" for host in managed_hosts),
+        *(source.name for source in github_sources),
+    }
     schedules = {name: schedules_all[name] for name in source_names}
+    local_sources = (PentiumSelfSource(collect_pentium_self),)
     wifi_cfg = observation_payload["sources"]["wifi.presence"]
     wifi = WifiPresenceSource(
         wifi_interface,
@@ -147,6 +165,8 @@ def build_observation_context(
         wifi_source=wifi,
         managed_read_service=service,
         managed_hosts=managed_hosts,
+        local_sources=local_sources,
+        extra_sources=github_sources,
         bus=bus,
         journal=lambda stimulus: append_stimulus(
             journal_path, stimulus, {"expected_sha": expected_sha}

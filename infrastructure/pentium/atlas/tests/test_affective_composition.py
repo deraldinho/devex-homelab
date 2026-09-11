@@ -63,6 +63,36 @@ class AffectiveCompositionTests(unittest.TestCase):
                                          {"channel_status": "degraded", "reads": {}}))
             self.assertTrue(result.impacto.contexto_emocional.percepcao_insegura)
 
+    def test_managed_core_degraded_enters_affective_uncertainty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            comp = build_affective_composition(config_root=ROOT, state_dir=Path(tmp),
+                                                now=lambda: NOW, id_factory=lambda: "inc-core")
+            result = comp.processar(stim("core-degraded", "managed.core",
+                                         {"channel_status": "degraded", "reads": {}}))
+            self.assertTrue(result.impacto.contexto_emocional.percepcao_insegura)
+
+    def test_pentium_self_degraded_enters_affective_uncertainty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            comp = build_affective_composition(config_root=ROOT, state_dir=Path(tmp),
+                                                now=lambda: NOW, id_factory=lambda: "inc-pentium")
+            result = comp.processar(stim("pentium-degraded", "pentium.self",
+                                         {"self_healthy": False, "checks": {}}))
+            self.assertTrue(result.impacto.contexto_emocional.percepcao_insegura)
+
+    def test_github_delivery_state_enters_same_affective_pipeline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            comp = build_affective_composition(config_root=ROOT, state_dir=Path(tmp),
+                                                now=lambda: NOW, id_factory=lambda: "inc-gh")
+            result = comp.processar(stim(
+                "gh-red", "github.deraldinho.L2jToren",
+                {"repo": "deraldinho/L2jToren", "delivery_healthy": False,
+                 "workflow_runs": [{"conclusion": "failure"}]},
+            ))
+            self.assertIsNotNone(result)
+            self.assertTrue(result.aceito)
+            self.assertEqual("repo:L2jToren", result.resultado_percepcao.percepcao.entidade_id)
+            self.assertNotIn("ignored_source:github.deraldinho.L2jToren", comp.diagnostics())
+
     def test_successful_event_persists_a1_a2_a3_a4(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp)

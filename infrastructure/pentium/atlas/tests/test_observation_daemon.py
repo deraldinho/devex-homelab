@@ -24,6 +24,11 @@ class ManagedService:
         return {"status": "healthy", "operation": operation.value}
 
 
+class GitHubClient:
+    def repository_snapshot(self, repo):
+        return {"repo": repo, "pull_requests": [], "issues": [], "workflow_runs": []}
+
+
 class FakeListener:
     def __init__(self):
         self.calls = 0
@@ -45,6 +50,7 @@ class ObservationDaemonTests(unittest.TestCase):
             state_dir=Path(tmp),
             wifi_interface="wlan0",
             managed_read_service=ManagedService(),
+            github_client=GitHubClient(),
             scanner=EmptyScanner(),
             interaction_listener=listener,
             expected_sha="a" * 40,
@@ -53,9 +59,22 @@ class ObservationDaemonTests(unittest.TestCase):
 
     def test_managed_polling_operations_are_explicit_and_bounded(self):
         payload = json.loads((ATLAS / "observation_config.json").read_text(encoding="utf-8"))
-        operations = payload["sources"]["managed.x99"]["operations"]
-        self.assertEqual(["uptime", "cpu", "memory"], operations)
-        self.assertLessEqual(len(operations), 4)
+        for source in ("managed.core", "managed.x99"):
+            operations = payload["sources"][source]["operations"]
+            self.assertEqual(["uptime", "cpu", "memory"], operations)
+            self.assertLessEqual(len(operations), 4)
+
+    def test_context_exposes_pentium_core_x99_and_wifi(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            context, _ = self.build(tmp)
+            try:
+                for source in (
+                    "pentium.self", "managed.core", "managed.x99", "wifi.presence",
+                    "github.deraldinho.devex-homelab", "github.deraldinho.L2jToren",
+                ):
+                    self.assertIsNotNone(context.runtime.run_once(source))
+            finally:
+                context.close()
 
     def test_context_wires_real_dual_zone_to_affective_composition(self):
         with tempfile.TemporaryDirectory() as tmp:
