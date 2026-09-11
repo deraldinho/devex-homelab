@@ -118,7 +118,12 @@
     if (!targetEngine || typeof targetEngine.applyIntentBehavior !== "function") return false;
     const projection = projectIntentBehavior(intentState);
     if (targetEngine === lastIntentBehaviorEngine && projection.key === lastIntentBehaviorKey) return false;
-    targetEngine.applyIntentBehavior(projection);
+    try {
+      targetEngine.applyIntentBehavior(projection);
+    } catch (error) {
+      console.warn("[applyIntentBehavior] overlay failed:", error);
+      return false;
+    }
     lastIntentBehaviorEngine = targetEngine; lastIntentBehaviorKey = projection.key;
     return true;
   }
