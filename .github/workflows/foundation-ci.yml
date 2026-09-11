@@ -174,6 +174,12 @@ jobs:
               "$atlas/memory_manager.py" \
               "$atlas/memory_retriever.py" \
               "$atlas/config_memory.py" \
+              "$atlas/episodic_model.py" \
+              "$atlas/episodic_metrics.py" \
+              "$atlas/episodic_buffer.py" \
+              "$atlas/episodic_consolidator.py" \
+              "$atlas/episodic_adapters.py" \
+              "$atlas/episodic_ingestion.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
@@ -188,6 +194,14 @@ jobs:
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_source_d2 -v
             python3 -m unittest discover -s "$atlas/tests" -p 'test_*.py' -v
+            python3 -m unittest \
+              infrastructure.pentium.atlas.tests.test_episodic_model \
+              infrastructure.pentium.atlas.tests.test_episodic_buffer \
+              infrastructure.pentium.atlas.tests.test_episodic_consolidator \
+              infrastructure.pentium.atlas.tests.test_episodic_adapters \
+              infrastructure.pentium.atlas.tests.test_episodic_ingestion \
+              infrastructure.pentium.atlas.tests.test_m2_memory_packaging \
+              -v
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/healthy.json" >/tmp/atlas-healthy.json
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/critical.json" >/tmp/atlas-critical.json
             python3 -c "import json,pathlib; h=json.loads(pathlib.Path('/tmp/atlas-healthy.json').read_text()); c=json.loads(pathlib.Path('/tmp/atlas-critical.json').read_text()); assert h['assessment']['state']=='healthy'; assert c['assessment']['state']=='critical'; assert c['reaction']['reaction_id']=='critical.canonical'"
@@ -206,6 +220,7 @@ jobs:
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C4_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C5_HARNESS_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_MEMORY_M1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_MEMORY_M2_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi

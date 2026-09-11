@@ -54,3 +54,36 @@ class PipelinePercepcaoCorrelacaoTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PipelineEpisodicSinkTests(unittest.TestCase):
+    def build_pipeline(self, sink=None):
+        grafo = GrafoDependencias(16)
+        configs = {
+            "core.agent": ConfigFontePercepcao("core.agent", "core", ("reachable",), 0.8),
+        }
+        return PipelinePercepcaoCorrelacao(
+            configs, PoliticaConfirmacaoPercepcao(1, 0.95, 8), grafo,
+            capacidade_evidencias_por_entidade=8, capacidade_incidentes=8,
+            max_entidades_por_incidente=8, id_factory=lambda: "inc-1",
+            episodic_sink=sink,
+        )
+
+    def test_duplicate_stimulus_does_not_emit_episode_twice(self):
+        seen = []
+        pipeline = self.build_pipeline(seen.append)
+        event = stim("s1", "core.agent", payload={"reachable": True})
+        pipeline.processar(event)
+        pipeline.processar(event)
+        self.assertEqual(1, len(seen))
+        self.assertTrue(seen[0].aceito)
+
+    def test_sink_failure_does_not_break_perception(self):
+        def fail(_result):
+            raise RuntimeError("episodic down")
+
+        result = self.build_pipeline(fail).processar(
+            stim("s1", "core.agent", payload={"reachable": True})
+        )
+        self.assertTrue(result.aceito)
+        self.assertEqual(EstadoObservacao.OBSERVADO, result.percepcao.estado)

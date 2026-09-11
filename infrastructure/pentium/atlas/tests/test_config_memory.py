@@ -19,3 +19,13 @@ class MemoryConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MemoryM2ConfigTests(unittest.TestCase):
+    def test_schema1_aplica_defaults_episodicos_bounded(self):
+        cfg = load_memory_config(Path("infrastructure/pentium/atlas/config_memory.json"))
+        self.assertGreater(cfg.episodic_max_events, 0)
+        self.assertGreater(cfg.episodic_max_bytes, 0)
+        self.assertGreater(cfg.episodic_max_open_segments, 0)
+        self.assertGreater(cfg.episodic_max_pending_bytes, cfg.episodic_max_bytes)
+        self.assertGreater(cfg.episodic_idle_timeout_s, 0)
