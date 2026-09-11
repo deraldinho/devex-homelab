@@ -191,6 +191,13 @@ class CognitiveDaemon:
         reflection=envelope is None and self._last_id==snapshot.source_stimulus_id and self._last_at is not None and now-self._last_at>=self._reflection_interval_s
         if envelope is None and snapshot.source_stimulus_id==self._last_id and not reflection:return None
         thinking=False
+        def inference_state(active):
+            nonlocal thinking
+            thinking = active
+            if active and hasattr(self._publisher, "publish_phase"):
+                self._publisher.publish_phase(snapshot,state="INFERINDO",activity="executando_ciclo_cognitivo",task="formular_resposta_cognitiva")
+            if self._visual_state_sink is not None:
+                self._visual_state_sink(EstadoInteracaoVisual(pensando=active, atualizado_em=_utc_now()))
         if hasattr(self._publisher,"publish_phase"):
             self._publisher.publish_phase(snapshot,state="ANALISANDO",activity="avaliando_estimulo")
         try:
@@ -203,11 +210,7 @@ class CognitiveDaemon:
                 recent=list(context.get("mudancas_recentes",()))
                 recent.append(stimulus); context["mudancas_recentes"]=recent
                 signals["interacao_humana"]=True
-            if hasattr(self._publisher,"publish_phase"):
-                self._publisher.publish_phase(snapshot,state="INFERINDO",activity="executando_ciclo_cognitivo",task="formular_resposta_cognitiva")
-            if self._visual_state_sink is not None:
-                self._visual_state_sink(EstadoInteracaoVisual(pensando=True, atualizado_em=_utc_now()));thinking=True
-            response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context)
+            response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context,on_inference=inference_state)
             if envelope is None and not reflection and self._notification_policy is not None:
                 chat_route=self._notification_policy.route_for(snapshot)
             self._process_action_plan(snapshot,response,trigger_kind=trigger_kind,chat_route=chat_route)

@@ -6,7 +6,12 @@ from infrastructure.pentium.atlas.cognitive_daemon import CognitiveDaemon
 
 class FakeLoop:
     def __init__(self,response): self.response=response; self.calls=[]
-    def processar(self,**kwargs): self.calls.append(kwargs); return self.response
+    def processar(self,**kwargs):
+        self.calls.append(kwargs)
+        if self.response.ativado:
+            kwargs["on_inference"](True)
+            kwargs["on_inference"](False)
+        return self.response
 
 class FakePublisher:
     def __init__(self): self.items=[]; self.phases=[]
