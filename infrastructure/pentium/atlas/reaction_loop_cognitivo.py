@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from .modelo_contexto_cognitivo import MotivoAtivacaoCognitiva
 from .saida_cognitiva import parse_resposta_llm
@@ -33,7 +33,8 @@ class ReactionLoopCognitivo:
         self._memory_retriever = memory_retriever
         self._cognitive_cache = cognitive_cache
     def processar(self, *, fingerprint: str, agora: str,
-                 sinais_ativacao: Mapping[str, Any], dados_contexto: Mapping[str, Any]) -> RespostaCognitiva:
+                 sinais_ativacao: Mapping[str, Any], dados_contexto: Mapping[str, Any],
+                 on_inference: Callable[[bool], None] | None = None) -> RespostaCognitiva:
         decisao = self._policy.avaliar(
             fingerprint=fingerprint,
             agora=agora,
@@ -79,7 +80,13 @@ class ReactionLoopCognitivo:
                 resultado = None
         cache_hit = resultado is not None
         if resultado is None:
-            resultado = self._gateway.inferir(contexto, tarefa)
+            try:
+                if on_inference is not None:
+                    on_inference(True)
+                resultado = self._gateway.inferir(contexto, tarefa)
+            finally:
+                if on_inference is not None:
+                    on_inference(False)
 
         if not resultado.sucesso:
             return RespostaCognitiva(

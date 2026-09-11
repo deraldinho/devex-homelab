@@ -33,7 +33,10 @@ class CognitiveDaemonVisualTests(unittest.TestCase):
         snap=SimpleNamespace(source_stimulus_id='s1',generated_at=NOW,recent_changes=({'severity':'notice','kind':'status_changed','novelty':.9},),affective_state={})
         class Loop:
             def processar(self,**kwargs):
-                self.seen=list(states); return SimpleNamespace(ativado=True,razao=None)
+                kwargs["on_inference"](True)
+                self.seen=list(states)
+                kwargs["on_inference"](False)
+                return SimpleNamespace(ativado=True,razao=None)
         class Pub:
             def publish(self,*args): pass
         daemon=CognitiveDaemon(lambda:snap,lambda:{},Loop(),Pub(),visual_state_sink=lambda state:states.append(state))

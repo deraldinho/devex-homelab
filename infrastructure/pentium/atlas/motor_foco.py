@@ -33,6 +33,8 @@ class MotorFoco:
         atual = self._foco.principal if self._foco is not None else None
         if atual is not None and atual.assunto_id not in candidatos:
             candidatos[atual.assunto_id] = atual
+        if atual is not None:
+            atual = candidatos[atual.assunto_id]
 
         ordenados = sorted(
             candidatos.values(),
