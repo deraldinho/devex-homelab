@@ -237,9 +237,10 @@ atlasEventStream.addEventListener('visual_action', e => {
         playChime(640, 'triangle', 0.16);
       }
     }
-    if (data.expression && eng) {
+    const expr = String(data.expression || '').replace('ExpressaoVisual.', '');
+    if (expr && eng) {
       eng.updateState({
-        expressao: data.expression,
+        expressao: expr,
         foco_visual: data.focus || data.target || 'neutro',
         alvo_locomocao: data.target || 'auto',
         acao_pet: data.action || 'PATROL',

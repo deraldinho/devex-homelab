@@ -35,7 +35,7 @@ class ActionExecutorRegistry:
                     "action_type": action.type.value,
                     "target": getattr(state, "alvo_locomocao", "auto"),
                     "action": getattr(state, "acao_pet", "PATROL"),
-                    "expression": str(getattr(state, "expressao", "SERENO")),
+                    "expression": str(getattr(getattr(state, "expressao", "SERENO"), "value", getattr(state, "expressao", "SERENO"))),
                     "focus": getattr(state, "foco_visual", "neutro"),
                     "duration_ms": int(p.get("duration_ms") or 6000),
                     "parameters": p,
