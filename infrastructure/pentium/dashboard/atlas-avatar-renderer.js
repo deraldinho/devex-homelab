@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   "use strict";
 
   const MODES = new Set(["OCIOSO", "OBSERVANDO", "CONVERSANDO", "REAGINDO"]);
@@ -74,12 +74,14 @@
     }
   }
 
+  let currentIntentHeadline = null;
+
   function renderMeta(v, pixiReady) {
     byId("avatarMode").textContent = v.modo;
     byId("avatarExpression").textContent = v.expressao;
     byId("avatarFocus").textContent = v.foco_visual;
     byId("avatarIntensity").textContent = `${Math.round(v.intensidade_expressao * 100)}%`;
-    byId("avatarHeadline").textContent = `Atlas \u00b7 ${v.modo.charAt(0) + v.modo.slice(1).toLowerCase()}`;
+    byId("avatarHeadline").textContent = currentIntentHeadline || `Atlas \u00b7 ${v.modo.charAt(0) + v.modo.slice(1).toLowerCase()}`;
     const hostErr = byId("atlasPixiStage")?.dataset?.rendererError;
     byId("avatarSource").textContent = v.source === "fallback"
       ? "fallback neutro \u00b7 fonte visual ainda indispon\u00edvel"
@@ -88,6 +90,21 @@
     toggleFlag("flagThinking", v.pensando);
     toggleFlag("flagSpeaking", v.falando);
     toggleFlag("flagIdentity", v.duvida_identidade);
+  }
+
+  function renderIntent(intentState) {
+    const payload = intentState && typeof intentState === "object" ? intentState : {};
+    const intent = payload.intent && typeof payload.intent === "object" ? payload.intent : null;
+    const state = String(intent?.estado || "").toUpperCase();
+    const subject = String(intent?.assunto_id || intent?.entidade_id || "");
+    const labels = {ATIVA: "ACOMPANHANDO", AGUARDANDO: "AGUARDANDO VOCÊ", CONCLUIDA: "RECUPERADO", CANCELADA: "ENCERRADO", EXPIRADA: "EXPIRADO"};
+    const intentHeadline = intent ? `${labels[state] || state || "OBSERVANDO"}${subject ? " · " + subject : ""}` : "OBSERVANDO";
+    const headline = byId("avatarHeadline");
+    currentIntentHeadline = `Atlas · ${intentHeadline}`;
+    if (headline) headline.textContent = currentIntentHeadline;
+    toggleFlag("flagTracking", state === "ATIVA");
+    toggleFlag("flagWaitingHuman", state === "AGUARDANDO");
+    return intentHeadline;
   }
 
   let engine = null;
@@ -126,6 +143,7 @@
 
   window.AtlasAvatarRenderer = Object.freeze({
     render,
+    renderIntent,
     normalize,
     settleVisualState,
     resetTransitionState,

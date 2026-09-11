@@ -37,6 +37,7 @@ def default_config() -> dict:
         "cognitive_snapshot_path": "~/pentium-agent/atlas/runtime/cognitive-observation-context.json",
         "cognitive_health_path": "~/pentium-agent/atlas/runtime/observation-affective-health.json",
         "cognitive_runtime_path": "~/pentium-agent/atlas/runtime/cognitive-runtime.json",
+        "continuous_intent_path": "~/pentium-agent/atlas/runtime/continuous-intent.json",
         "cognitive_activity_path": "~/pentium-agent/atlas/runtime/cognitive-activity.jsonl",
         "action_plan_path": "~/pentium-agent/atlas/runtime/action-plan-current.json",
         "dashboard_events_path": "~/pentium-agent/atlas/runtime/dashboard-events.jsonl",
@@ -305,6 +306,25 @@ def _enrich_runtime(runtime: dict, config: dict) -> dict:
     runtime["chat_history"]=[e for e in events if e.get("type")=="chat_message"][-32:]
     return runtime
 
+def collect_continuous_intent(config: dict) -> dict:
+    payload = _read_json(config.get("continuous_intent_path", ""))
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        return {"status": "unavailable", "intent": None}
+    raw = payload.get("intent")
+    allowed = (
+        "intencao_id", "tipo", "estado", "assunto_id", "entidade_id", "motivo",
+        "prioridade", "iniciado_em", "atualizado_em", "valido_ate",
+        "notificado_usuario", "episodio_id",
+    )
+    intent = None if raw is None else {key: raw.get(key) for key in allowed if key in raw}
+    return {
+        "status": "available",
+        "communication_mode": str(payload.get("communication_mode") or "normal")[:64],
+        "material_fingerprint": str(payload.get("material_fingerprint") or "")[:256],
+        "intent": intent,
+    }
+
+
 def collect_cognitive_activity(config: dict, limit: int = 40) -> list[dict]:
     path=Path(config["cognitive_activity_path"]).expanduser()
     try: lines=path.read_text(encoding="utf-8").splitlines()[-max(1,min(100,int(limit))):]
@@ -349,6 +369,7 @@ def collect_status(config: dict, *, command_runner: CommandRunner = run_command,
         "visual": _visual_state(config),
         "cognition": collect_cognition(config, now=cognition_now),
         "cognitive_runtime": {**collect_cognitive_runtime(config), "timeline": collect_cognitive_activity(config)},
+        "continuous_intent": collect_continuous_intent(config),
         "atlas": {"sha": _read_text(config["deploy_sha_path"]), "health": health.get("status", "unknown")},
         "services": {
             "agent": _unit("pentium-agent.service", command_runner),
