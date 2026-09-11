@@ -102,10 +102,13 @@ class ActionPlanner:
 
         return actions
 
-    def plan(self,stimulus_id,entity_id,response,*,trigger_kind="observation")->PlanoAcaoAtlas:
+    def plan(self,stimulus_id,entity_id,response,*,trigger_kind="observation",communication_mode="normal")->PlanoAcaoAtlas:
+        if communication_mode not in {"normal","silent_tracking","terminal"}:
+            raise ValueError("invalid communication_mode")
         actions=[]
         text=getattr(response,"texto",None)
-        if text:
+        silent=communication_mode=="silent_tracking"
+        if text and not silent:
             actions.append(AtlasAction.create(ActionType.CHAT_REPLY))
         if entity_id:
             actions.append(AtlasAction.create(ActionType.LOOK_AT,target=str(entity_id),parameters={"direction":"target"}))
@@ -113,15 +116,19 @@ class ActionPlanner:
         expression=_EXPR_BY_REASON.get(str(motivo))
         if expression:
             actions.append(AtlasAction.create(ActionType.SET_EXPRESSION,parameters={"expression":expression}))
-        if str(motivo)=="interacao_humana":
+        if str(motivo)=="interacao_humana" and not silent:
             actions.append(AtlasAction.create(ActionType.SET_GESTURE,parameters={"gesture":"ABERTO","arm":"right"}))
-        if bool(getattr(response,"solicitar_fala",False)):
-            actions.append(AtlasAction.create(ActionType.SPEAK_TTS))
-        capability=self._capability_action(response,entity_id)
-        if capability is not None:
-            actions.append(capability)
-        locomotion=self._locomotion_actions(response,entity_id,trigger_kind)
-        actions.extend(locomotion)
+        if silent:
+            if not any(action.type is ActionType.SET_EXPRESSION for action in actions):
+                actions.append(AtlasAction.create(ActionType.SET_EXPRESSION,parameters={"expression":"ATENTO"}))
+        else:
+            if bool(getattr(response,"solicitar_fala",False)):
+                actions.append(AtlasAction.create(ActionType.SPEAK_TTS))
+            capability=self._capability_action(response,entity_id)
+            if capability is not None:
+                actions.append(capability)
+            locomotion=self._locomotion_actions(response,entity_id,trigger_kind)
+            actions.extend(locomotion)
         if not actions:
             actions.append(AtlasAction.create(ActionType.WAIT,parameters={"duration_ms":250}))
         objective=(getattr(response,"resumo",None) or text or "processar estimulo")

@@ -38,3 +38,21 @@ class ActionPlannerTests(unittest.TestCase):
     def test_speak_request_is_explicit_action(self):
         plan = ActionPlanner().plan("s1", "x99", response(solicitar_fala=True))
         self.assertIn(ActionType.SPEAK_TTS, [a.type for a in plan.actions])
+
+
+class ActionPlannerContinuousIntentTests(unittest.TestCase):
+    def test_silent_tracking_keeps_visual_actions_and_suppresses_communication_and_capability(self):
+        plan = ActionPlanner().plan(
+            "s1", "core",
+            response(
+                texto="mensagem repetida", solicitar_fala=True,
+                intencao="get_host_status", parametros_intencao={"host":"core"},
+            ),
+            communication_mode="silent_tracking",
+        )
+        types=[action.type for action in plan.actions]
+        self.assertIn(ActionType.LOOK_AT, types)
+        self.assertIn(ActionType.SET_EXPRESSION, types)
+        self.assertNotIn(ActionType.CHAT_REPLY, types)
+        self.assertNotIn(ActionType.SPEAK_TTS, types)
+        self.assertNotIn(ActionType.CAPABILITY_REQUEST, types)

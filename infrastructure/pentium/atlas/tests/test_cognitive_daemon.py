@@ -81,6 +81,14 @@ class CognitiveDaemonPackagingTests(unittest.TestCase):
         self.assertIn('restart atlas-cognitive.service',install); self.assertNotIn('restart atlas-voice.service',install)
         self.assertIn('EnvironmentFile=-%h/pentium-agent/atlas/runtime/observation.env',unit)
 
+    def test_installer_packages_continuous_intent_runtime(self):
+        root=Path(__file__).resolve().parents[1]
+        install=(root/'install-user.sh').read_text(encoding='utf-8')
+        for token in (
+            'behavior_selector.py','continuous_intent.py','continuous_intent_machine.py',
+            'continuous_intent_publisher.py','habituation_engine.py',
+        ):
+            self.assertGreaterEqual(install.count(token),2,token)
     def test_repository_hermes_config_uses_automatic_provider_profile(self):
         import json
         root=Path(__file__).resolve().parents[1]

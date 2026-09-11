@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import signal
@@ -38,6 +39,10 @@ from .politica_ativacao_cognitiva import ActivationPolicy
 from .reaction_loop_cognitivo import ReactionLoopCognitivo
 from .reasoning_policy import ReasoningPolicy
 from .notification_policy import load_notification_policy
+from .behavior_selector import BehaviorSelector
+from .continuous_intent_machine import ContinuousIntentMachine
+from .continuous_intent_publisher import ContinuousIntentPublisher
+from .habituation_engine import HabituationEngine
 
 ROOT=Path(__file__).resolve().parent
 AGENT_ROOT=Path.home()/"pentium-agent"
@@ -118,11 +123,12 @@ class CognitiveResultPublisher:
 
 
 class CognitiveDaemon:
-    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None,chat_inbox=None,notification_policy=None):
+    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None,chat_inbox=None,notification_policy=None,behavior_selector=None,intent_machine=None,habituation_engine=None,intent_publisher=None):
         if reflection_interval_s<=0: raise ValueError("reflection_interval_s must be > 0")
         self._snapshot_loader=snapshot_loader;self._context_provider=context_provider;self._loop=loop;self._publisher=publisher
         self._reflection_interval_s=float(reflection_interval_s);self._clock=clock;self._last_id=None;self._last_at=None;self._last_affective=None;self._visual_state_sink=visual_state_sink
         self._planner=planner;self._action_policy=action_policy;self._action_executor=action_executor;self._action_store=action_store;self._event_sink=event_sink;self._chat_inbox=chat_inbox;self._notification_policy=notification_policy
+        self._behavior_selector=behavior_selector;self._intent_machine=intent_machine;self._habituation_engine=habituation_engine;self._intent_publisher=intent_publisher
     def _delta(self,current):
         keys=("valencia","ativacao","estresse","confianca","engajamento","curiosidade")
         if self._last_affective is None:return 0.0
@@ -135,8 +141,35 @@ class CognitiveDaemon:
         if self._event_sink is not None:
             self._event_sink(event_type,dict(payload))
 
-    def _process_action_plan(self,snapshot,response,*,trigger_kind="observation",chat_route=None):
-        if getattr(response,"razao",None) is not None:
+    def _material_fingerprint(self,snapshot):
+        focus=dict(getattr(snapshot,"focus",{}) or {});principal=dict(focus.get("principal") or {})
+        payload={"assunto_id":principal.get("assunto_id"),"entidade_id":principal.get("entidade_id"),"gravidade":principal.get("gravidade"),"critico":principal.get("critico"),"recuperado":principal.get("recuperado"),"incident":getattr(snapshot,"incident",None)}
+        raw=json.dumps(payload,ensure_ascii=True,sort_keys=True,separators=(",",":"),default=str).encode("utf-8")
+        return hashlib.sha256(raw).hexdigest()
+
+    def _continuous_behavior(self,snapshot,*,human_interaction=False,now=None):
+        required=(self._behavior_selector,self._intent_machine,self._habituation_engine)
+        if any(item is None for item in required): return "normal",None,""
+        try:
+            current=self._intent_machine.current
+            habituation=self._habituation_engine.level(current) if current is not None else 0.0
+            decision=self._behavior_selector.select(snapshot,human_interaction=human_interaction,habituation=habituation)
+            transition=self._intent_machine.update(decision,snapshot,now=now or snapshot.generated_at,human_interaction=human_interaction)
+            intent=transition.intent;fingerprint=self._material_fingerprint(snapshot);mode="normal"
+            if intent is not None:
+                habit=self._habituation_engine.evaluate(intent,fingerprint,terminal=intent.terminal)
+                if human_interaction: mode="normal"
+                elif intent.terminal: mode="terminal" if habit.allow_message else "silent_tracking"
+                elif not habit.allow_message: mode="silent_tracking"
+            if self._intent_publisher is not None:
+                self._intent_publisher.publish(intent,communication_mode=mode,material_fingerprint=fingerprint)
+            return mode,intent,fingerprint
+        except Exception as exc:
+            self._emit_action_event("continuous_intent_error",{"error":type(exc).__name__})
+            return "normal",None,""
+
+    def _process_action_plan(self,snapshot,response,*,trigger_kind="observation",chat_route=None,communication_mode="normal"):
+        if getattr(response,"razao",None) is not None and communication_mode!="silent_tracking":
             return None
         required=(self._planner,self._action_policy,self._action_executor,self._action_store)
         if any(item is None for item in required):
@@ -144,7 +177,7 @@ class CognitiveDaemon:
         terminal={ActionStatus.COMPLETED,ActionStatus.BLOCKED,ActionStatus.FAILED,ActionStatus.CANCELLED}
         visual_types={ActionType.LOOK_AT,ActionType.SET_EXPRESSION,ActionType.SET_GESTURE,ActionType.SET_POSTURE}
         try:
-            plan=self._planner.plan(snapshot.source_stimulus_id,getattr(snapshot,"entity_id",None),response,trigger_kind=trigger_kind)
+            plan=self._planner.plan(snapshot.source_stimulus_id,getattr(snapshot,"entity_id",None),response,trigger_kind=trigger_kind,communication_mode=communication_mode)
             self._action_store.save_current(plan)
             self._emit_action_event("plan_created",{"plan_id":plan.plan_id,"stimulus_id":plan.stimulus_id,"objective":plan.objective,"confidence":plan.confidence})
             authorized=self._action_policy.authorize(plan,voice_enabled=False)
@@ -210,10 +243,13 @@ class CognitiveDaemon:
                 recent=list(context.get("mudancas_recentes",()))
                 recent.append(stimulus); context["mudancas_recentes"]=recent
                 signals["interacao_humana"]=True
+            communication_mode,_,_=self._continuous_behavior(
+                base_snapshot,human_interaction=envelope is not None,now=snapshot.generated_at,
+            )
             response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context,on_inference=inference_state)
             if envelope is None and not reflection and self._notification_policy is not None:
-                chat_route=self._notification_policy.route_for(snapshot)
-            self._process_action_plan(snapshot,response,trigger_kind=trigger_kind,chat_route=chat_route)
+                chat_route=self._notification_policy.route_for(base_snapshot)
+            self._process_action_plan(snapshot,response,trigger_kind=trigger_kind,chat_route=chat_route,communication_mode=communication_mode)
             self._publisher.publish(snapshot,response)
             if envelope is not None:self._chat_inbox.ack(envelope.message_id)
             self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
@@ -264,7 +300,11 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     )
     chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512)
     notification_policy=load_notification_policy(config_root)
-    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox,notification_policy=notification_policy)
+    behavior_selector=BehaviorSelector()
+    intent_machine=ContinuousIntentMachine(ttl_s=300.0,activation_threshold=.5)
+    habituation_engine=HabituationEngine(max_entries=64,ttl_s=300.0)
+    intent_publisher=ContinuousIntentPublisher(state_dir/"continuous-intent.json")
+    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox,notification_policy=notification_policy,behavior_selector=behavior_selector,intent_machine=intent_machine,habituation_engine=habituation_engine,intent_publisher=intent_publisher)
     return CognitiveRuntimeOwner(daemon,memory_store)
 
 

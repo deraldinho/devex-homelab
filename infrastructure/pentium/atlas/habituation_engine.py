@@ -34,6 +34,14 @@ class HabituationEngine:
     def size(self) -> int:
         return len(self._entries)
 
+    def level(self, intent: ContinuousIntent | None) -> float:
+        if intent is None:
+            return 0.0
+        entry = self._entries.get(self._key(intent))
+        if entry is None:
+            return 0.0
+        return min(1.0, entry.repeats / 5.0)
+
     def _key(self, intent: ContinuousIntent) -> str:
         return f"{intent.intencao_id}:{intent.assunto_id}"
 

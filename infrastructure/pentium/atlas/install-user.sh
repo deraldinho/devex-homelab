@@ -71,6 +71,11 @@ for file in \
   cognitive_observation_projection.py \
   cognitive_context_bridge_certification.py \
   cognitive_daemon.py \
+  behavior_selector.py \
+  continuous_intent.py \
+  continuous_intent_machine.py \
+  continuous_intent_publisher.py \
+  habituation_engine.py \
   cognitive_observability.py \
   action_plan.py \
   action_plan_store.py \
@@ -209,6 +214,11 @@ python3 -m py_compile \
   "${TARGET_DIR}/cognitive_observation_projection.py" \
   "${TARGET_DIR}/cognitive_context_bridge_certification.py" \
   "${TARGET_DIR}/cognitive_daemon.py" \
+  "${TARGET_DIR}/behavior_selector.py" \
+  "${TARGET_DIR}/continuous_intent.py" \
+  "${TARGET_DIR}/continuous_intent_machine.py" \
+  "${TARGET_DIR}/continuous_intent_publisher.py" \
+  "${TARGET_DIR}/habituation_engine.py" \
   "${TARGET_DIR}/cognitive_observability.py" \
   "${TARGET_DIR}/action_plan.py" \
   "${TARGET_DIR}/action_plan_store.py" \
