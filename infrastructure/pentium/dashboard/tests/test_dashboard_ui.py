@@ -1,0 +1,72 @@
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class DashboardUiContractTests(unittest.TestCase):
+    def test_ui_contains_pipeline_and_two_second_polling(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        for label in ("MIC", "ANC", "VAD", "Whisper", "Wake", "Hermes", "auto", "TTS"):
+            self.assertIn(label, html)
+        self.assertIn("setInterval(refreshAll, 2000)", html)
+
+    def test_ui_has_no_control_actions(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8").lower()
+        for forbidden in ("restart", "reboot", "shutdown", "managedcontrolservice", "fetch('/api/control"):
+            self.assertNotIn(forbidden, html)
+
+    def test_ui_preserves_portuguese_copy_without_mojibake(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        for corrupted in ("Presen?a", "Express?o", "intera??o", "Servi?os", "?udio", "t?cnica"):
+            self.assertNotIn(corrupted, html)
+        self.assertIn("Presen&ccedil;a cognitiva", html)
+
+    def test_ui_renders_cognitive_avatar_from_visual_contract(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        for token in ("atlasAvatar", "atlasPixiStage", "avatarMode", "avatarExpression", "avatarFocus", "status.visual", "data-mode", "data-expression"):
+            self.assertIn(token, html)
+        self.assertIn("<svg", html)
+        self.assertIn("viewBox", html)
+
+    def test_avatar_renderer_is_externalized_behind_stable_boundary(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        renderer = (ROOT / "atlas-avatar-renderer.js").read_text(encoding="utf-8")
+        for asset in ("/assets/pixi.min.js", "/assets/atlas-avatar-engine.js", "/assets/atlas-avatar-renderer.js"):
+            self.assertIn(f'src="{asset}"', html)
+        self.assertIn("AtlasAvatarRenderer.render(status.visual)", html)
+        self.assertNotIn("function renderAvatar", html)
+        self.assertIn("window.AtlasAvatarRenderer", renderer)
+        self.assertIn("function render(visual)", renderer)
+        self.assertIn("fallback SVG", renderer)
+
+    def test_svg_remains_as_visual_fallback(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn('id="atlasAvatar"', html)
+        self.assertIn("pixi-ready + #atlasAvatar", html)
+        self.assertIn("prefers-reduced-motion", html)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+class DashboardCognitivePanelUiTests(unittest.TestCase):
+    def test_ui_contains_mind_panel_contract(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        for token in ("Mente do Atlas", "cognitionStatus", "cognitionPipeline", "a1Metrics", "a3Perception", "a4Emotion", "cognitionChanges", "renderCognition", "status.cognition"):
+            self.assertIn(token, html)
+
+    def test_ui_contains_cognition_states_without_controls(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        for token in ("available", "stale", "unavailable", "CONTEXTO INDISPON&Iacute;VEL"):
+            self.assertIn(token, html)
+        self.assertNotIn("/api/cognition/control", html)
+
+
+class DashboardHermesRuntimeTruthUiTests(unittest.TestCase):
+    def test_ui_names_current_hermes_runtime_not_qwen(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn("Hermes Runtime", html)
+        self.assertIn("auto", html)
+        self.assertNotIn("Qwen Runtime", html)
+        self.assertNotIn(">Qwen<", html)

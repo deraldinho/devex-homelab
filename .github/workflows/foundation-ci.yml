@@ -39,7 +39,7 @@ jobs:
             git diff --check HEAD^ HEAD || git diff --check
           fi
 
-      - name: Validar scripts e conteúdo sensível
+      - name: Validar scripts e conteÃºdo sensÃ­vel
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
           done < <(git ls-files '*.sh')
           workflow='.github/workflows/foundation-ci.yml'
           if git grep -n -E 'github_pat_|ghp_|tskey-|BEGIN (OPENSSH )?PRIVATE KEY' -- . ":(exclude)$workflow"; then
-            echo 'Padrão de secret encontrado em arquivo versionado.' >&2
+            echo 'PadrÃ£o de secret encontrado em arquivo versionado.' >&2
             exit 1
           fi
           if git grep -n -E 'TODO|TBD' -- . ":(exclude)$workflow"; then
@@ -71,7 +71,7 @@ jobs:
             echo 'NETWORK_CONTRACT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
-      - name: Validar heartbeat do Pentium quando disponível
+      - name: Validar heartbeat do Pentium quando disponÃ­vel
         shell: bash
         run: |
           set -euo pipefail
@@ -93,7 +93,7 @@ jobs:
             echo 'PENTIUM_HEARTBEAT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
-      - name: Validar Pentium Agent quando disponível
+      - name: Validar Pentium Agent quando disponÃ­vel
         shell: bash
         run: |
           set -euo pipefail
@@ -103,6 +103,10 @@ jobs:
               "$agent/agent.py" \
               "$agent/cli.py" \
               "$agent/ssh_transport.py" \
+              "$agent/managed_inventory.py" \
+              "$agent/managed_read.py" \
+              "$agent/control_audit.py" \
+              "$agent/managed_control.py" \
               "$agent/actions/x99_status.py"
             python3 -m json.tool "$agent/config.json" >/dev/null
             python3 -m unittest discover \
@@ -110,6 +114,8 @@ jobs:
               -p 'test_*.py' \
               -v
             echo 'DEVEX_HOMELAB_PENTIUM_AGENT_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_MANAGED_SSH_READ_M1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_MANAGED_CONTROL_M2_PASS'
           else
             echo 'PENTIUM_AGENT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
@@ -126,6 +132,15 @@ jobs:
               "$atlas/reaction_engine.py" \
               "$atlas/journal.py" \
               "$atlas/stimulus_model.py" \
+              "$atlas/modelo_evento_semantico.py" \
+              "$atlas/registro_semantico.py" \
+              "$atlas/adaptadores_semanticos.py" \
+              "$atlas/modelo_fast_router.py" \
+              "$atlas/configuracao_fast_router.py" \
+              "$atlas/fast_router.py" \
+              "$atlas/modelo_fast_dispatch.py" \
+              "$atlas/fast_dispatch.py" \
+              "$atlas/slow_llm_defer_queue.py" \
               "$atlas/stimulus_bus.py" \
               "$atlas/stimulus_journal.py" \
               "$atlas/network_discovery.py" \
@@ -134,6 +149,8 @@ jobs:
               "$atlas/presence_persistence.py" \
               "$atlas/stimulus_sources.py" \
               "$atlas/observation_runtime.py" \
+              "$atlas/dual_zone_runtime.py" \
+              "$atlas/i1_certification.py" \
               "$atlas/modelo_afetivo.py" \
               "$atlas/configuracao_afetiva.py" \
               "$atlas/decaimento_afetivo.py" \
@@ -155,20 +172,54 @@ jobs:
               "$atlas/emocao_derivada.py" \
               "$atlas/contexto_foco_emocao.py" \
               "$atlas/persistencia_foco_emocao.py" \
+              "$atlas/modelo_visual_atlas.py" \
+              "$atlas/compositor_visual_afetivo.py" \
+              "$atlas/visual_state_publisher.py" \
+              "$atlas/affective_runtime.py" \
+              "$atlas/adaptador_impacto_afetivo.py" \
+              "$atlas/pipeline_afetivo_observacional.py" \
+              "$atlas/affective_composition.py" \
+              "$atlas/affective_interaction_ipc.py" \
+              "$atlas/local_health.py" \
+              "$atlas/github_observation.py" \
+              "$atlas/observation_daemon.py" \
+              "$atlas/affective_boot_certification.py" \
+              "$atlas/cognitive_observation_projection.py" \
+              "$atlas/cognitive_context_bridge_certification.py" \
+              "$atlas/cognitive_daemon.py" \
+              "$atlas/cognitive_observability.py" \
+              "$atlas/action_plan.py" \
+              "$atlas/action_plan_store.py" \
+              "$atlas/action_planner.py" \
+              "$atlas/action_policy.py" \
+              "$atlas/action_executors.py" \
+              "$atlas/chat_inbox.py" \
+              "$atlas/config_discord.py" \
+              "$atlas/discord_gateway.py" \
+              "$atlas/notification_policy.py" \
               "$atlas/modelo_contexto_cognitivo.py" \
               "$atlas/configuracao_cognitiva.py" \
               "$atlas/contexto_cognitivo.py" \
               "$atlas/politica_ativacao_cognitiva.py" \
               "$atlas/modelo_llm_gateway.py" \
-              "$atlas/configuracao_llm.py" \
+              "$atlas/config_hermes.py" \
+              "$atlas/hermes_preflight.py" \
+              "$atlas/hermes_physical_smoke.py" \
+              "$atlas/hermes_adapter.py" \
               "$atlas/llm_gateway.py" \
-              "$atlas/llama_cpp_backend.py" \
+              "$atlas/prompt_cognitivo.py" \
               "$atlas/reaction_loop_cognitivo.py" \
               "$atlas/capability_registry.py" \
               "$atlas/policy_capabilities.py" \
               "$atlas/saida_cognitiva.py" \
               "$atlas/certificacao_cognitiva.py" \
               "$atlas/sampler_linux_cognitivo.py" \
+              "$atlas/fontes_fisicas_cognitivas.py" \
+              "$atlas/c5_physical_runner.py" \
+              "$atlas/c5_physical_orchestrator.py" \
+              "$atlas/c5_physical_evaluator.py" \
+              "$atlas/c5_physical_campaign.py" \
+              "$atlas/c5_observation_probe.py" \
               "$atlas/memory_model.py" \
               "$atlas/memory_store.py" \
               "$atlas/memory_manager.py" \
@@ -180,19 +231,42 @@ jobs:
               "$atlas/episodic_consolidator.py" \
               "$atlas/episodic_adapters.py" \
               "$atlas/episodic_ingestion.py" \
+              "$atlas/cognitive_cache.py" \
+              "$atlas/config_cache.py" \
+              "$atlas/unix_http.py" \
+              "$atlas/voice_gate.py" \
+              "$atlas/live_tts.py" \
+              "$atlas/alsa_capture.py" \
+              "$atlas/whisper_stt.py" \
+              "$atlas/voice_runtime.py" \
+              "$atlas/energy_vad.py" \
+              "$atlas/human_interaction.py" \
+              "$atlas/human_context.py" \
+              "$atlas/voice_daemon.py" \
               "$atlas/cli.py"
             python3 -m json.tool "$atlas/config.json" >/dev/null
             python3 -m json.tool "$atlas/observation_config.json" >/dev/null
             python3 -m json.tool "$atlas/config_afetiva.json" >/dev/null
             python3 -m json.tool "$atlas/config_percepcao.json" >/dev/null
             python3 -m json.tool "$atlas/config_foco_emocao.json" >/dev/null
+            python3 -m json.tool "$atlas/config_affective_runtime.json" >/dev/null
+            python3 -m json.tool "$atlas/config_observation_affective.json" >/dev/null
             python3 -m json.tool "$atlas/config_cognitiva.json" >/dev/null
-            python3 -m json.tool "$atlas/config_llm.json" >/dev/null
+            python3 -m json.tool "$atlas/config_hermes.json" >/dev/null
             python3 -m json.tool "$atlas/config_memory.json" >/dev/null
+            python3 -m json.tool "$atlas/config_cache.json" >/dev/null
+            python3 -m json.tool "$atlas/config_fast_router.json" >/dev/null
+            python3 -m json.tool "$atlas/config_voice.json" >/dev/null
+            python3 -m json.tool "$atlas/config_github.json" >/dev/null
+            python3 -m json.tool "$atlas/config_discord.json" >/dev/null
             python3 -m unittest infrastructure.pentium.atlas.tests.test_network_discovery -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_registry -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_persistence -v
             python3 -m unittest infrastructure.pentium.atlas.tests.test_presence_source_d2 -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_affective_composition -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_github_observation -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_notification_policy -v
+            python3 -m unittest infrastructure.pentium.atlas.tests.test_discord_gateway -v
             python3 -m unittest discover -s "$atlas/tests" -p 'test_*.py' -v
             python3 -m unittest \
               infrastructure.pentium.atlas.tests.test_episodic_model \
@@ -206,26 +280,45 @@ jobs:
             python3 -m infrastructure.pentium.atlas.cli --input "$atlas/tests/fixtures/critical.json" >/tmp/atlas-critical.json
             python3 -c "import json,pathlib; h=json.loads(pathlib.Path('/tmp/atlas-healthy.json').read_text()); c=json.loads(pathlib.Path('/tmp/atlas-critical.json').read_text()); assert h['assessment']['state']=='healthy'; assert c['assessment']['state']=='critical'; assert c['reaction']['reaction_id']=='critical.canonical'"
             bash -n "$atlas/install-user.sh"
+            bash -n "$atlas/prepare-hermes-atlas.sh"
+            if command -v systemd-analyze >/dev/null 2>&1; then
+              systemd-analyze verify "$atlas/atlas-observation.service" "$atlas/atlas-cognitive.service" "$atlas/atlas-voice.service" "$atlas/atlas-discord.service"
+            fi
             echo 'DEVEX_HOMELAB_ATLAS_STATE_REACTION_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_SEMANTIC_S1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_FAST_ROUTER_S2_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_FAST_DISPATCH_S3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D1_DISCOVERY_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_D2_IDENTITY_PRESENCE_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_AFETIVO_A4_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_AFFECTIVE_RUNTIME_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_OBSERVATION_AFFECTIVE_PIPELINE_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_AFFECTIVE_BOOT_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CONTEXT_BRIDGE_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_RUNTIME_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_ACTION_PLAN_CHAT_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C2_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C3_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C4_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C5_HARNESS_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVO_C5_HARDENING_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_MEMORY_M1_PASS'
             echo 'DEVEX_HOMELAB_ATLAS_MEMORY_M2_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K1_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_COGNITIVE_CACHE_K2_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_I1_OBSERVATION_INTEGRATION_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_MULTISOURCE_CHAT_PASS'
+            echo 'DEVEX_HOMELAB_ATLAS_V1_ALWAYS_ON_VOICE_PASS'
           else
             echo 'ATLAS_STATE_REACTION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
-      - name: Validar simulação quando disponível
+      - name: Validar simulaÃ§Ã£o quando disponÃ­vel
         shell: bash
         run: |
           set -euo pipefail
@@ -236,7 +329,7 @@ jobs:
             echo 'SIMULATION_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
-      - name: Registrar evidência
+      - name: Registrar evidÃªncia
         shell: bash
         run: |
           set -euo pipefail

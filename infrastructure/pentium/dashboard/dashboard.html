@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atlas Observability</title>
+<style>
+:root{color-scheme:dark;--bg:#070a0f;--panel:rgba(14,22,35,0.76);--line:#263244;--text:#e8eef7;--muted:#8ea0b6;--good:#43d17d;--warn:#f5c451;--bad:#ff6b6b;--pause:#8ba7ff;--violet:#8f7cff;--violet2:#4f3d88;--eye:#69ef9b;--cyan:#2ee4b0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,sans-serif;position:relative;min-height:100vh;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:-50% -50% 0 -50%;height:150vh;background-image:linear-gradient(to right,rgba(46,228,176,0.08) 1px,transparent 1px),linear-gradient(to bottom,rgba(46,228,176,0.08) 1px,transparent 1px);background-size:45px 45px;transform:perspective(500px) rotateX(68deg) translateY(-20px);transform-origin:center bottom;animation:gridFly 20s linear infinite;pointer-events:none;z-index:0;opacity:.75;mask-image:linear-gradient(to top,rgba(0,0,0,1) 0%,rgba(0,0,0,.35) 60%,transparent 100%)}
+@keyframes gridFly{0%{background-position:0 0}100%{background-position:0 450px}}
+body::after{content:"";position:fixed;inset:0;background:radial-gradient(circle at 50% 15%,rgba(143,124,255,0.12) 0%,transparent 60%),radial-gradient(circle at 80% 85%,rgba(46,228,176,0.08) 0%,transparent 50%);pointer-events:none;z-index:0}
+main{position:relative;z-index:1;max-width:1500px;margin:auto;padding:24px}
+.top{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:20px}h1{margin:0;font-size:28px;text-shadow:0 0 20px rgba(46,228,176,0.3)}.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.card{background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(38,50,68,0.85);border-top:1px solid rgba(46,228,176,0.35);border-radius:14px;padding:16px;min-height:120px;box-shadow:0 16px 36px rgba(0,0,0,0.55),0 0 1px rgba(46,228,176,0.2);transition:transform .3s ease,border-color .3s ease,box-shadow .3s ease}
+.card:hover{border-color:rgba(46,228,176,0.55);box-shadow:0 20px 45px rgba(0,0,0,0.65),0 0 16px rgba(46,228,176,0.18);transform:translateY(-2px)}
+.card.inspecting{border-color:var(--cyan);box-shadow:0 0 25px rgba(46,228,176,0.35)}
+.wide{grid-column:span 12}.half{grid-column:span 6}.third{grid-column:span 4}.twoThird{grid-column:span 8}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.value{font-size:24px;font-weight:700;margin:5px 0}.status{display:inline-flex;align-items:center;gap:7px;font-weight:700}.dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.pipeline{display:flex;gap:8px;align-items:center;overflow:auto;padding:12px 0}.stage{min-width:100px;padding:12px;border:1px solid var(--line);border-radius:10px;text-align:center;background:rgba(18,25,35,0.6)}.arrow{color:var(--muted)}.kv{display:grid;grid-template-columns:140px 1fr;gap:7px 12px}.events{max-height:300px;overflow:auto}.event{padding:8px 0;border-bottom:1px solid var(--line)}.chatHistory{max-height:360px;overflow:auto;display:flex;flex-direction:column;gap:8px}.chatMsg{padding:10px 12px;border:1px solid var(--line);border-radius:10px}.chatMsg.user{margin-left:12%;background:#172030}.chatMsg.atlas{margin-right:12%;background:#151c2a}.chatComposer{display:flex;gap:8px;margin-top:12px}.chatComposer input{flex:1;background:#0d131c;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px}.chatComposer button{background:#2d2458;color:var(--text);border:1px solid var(--violet);border-radius:10px;padding:0 18px;cursor:pointer}.chatMeta{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:6px 0 12px}.chatBackend{font-weight:700}.chatState{font-size:12px;font-weight:800;letter-spacing:.08em}.actionRow{display:grid;grid-template-columns:160px 110px 1fr;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.avatarCard{display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:center}
+.avatarStage{position:relative;min-height:220px;display:grid;place-items:center;border:none;background:transparent;overflow:visible;box-shadow:none}
+.avatarMeta{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:12px}.metric{border:1px solid var(--line);border-radius:10px;padding:12px}.metric strong{display:block;font-size:17px;margin-top:4px}.flags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.flag{border:1px solid var(--line);border-radius:999px;padding:5px 10px;color:var(--muted)}.flag.on{color:var(--text);border-color:var(--violet);box-shadow:0 0 18px #8f7cff33}
+.patrolBar{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap}.patrolBtn{background:rgba(22,34,52,0.8);border:1px solid rgba(46,228,176,0.4);color:var(--text);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;transition:all .2s ease}.patrolBtn:hover{background:rgba(46,228,176,0.2);border-color:var(--cyan);box-shadow:0 0 10px rgba(46,228,176,0.3)}
+#atlasPixiStage{position:fixed;width:340px;height:380px;z-index:900;pointer-events:none;transition:left .75s cubic-bezier(.25,1,.5,1),top .75s cubic-bezier(.25,1,.5,1),transform .4s ease;filter:drop-shadow(0 16px 24px rgba(0,0,0,0.75))}
+#atlasPixiStage canvas{width:100%;height:100%;display:block;pointer-events:auto;cursor:pointer}
+#atlasPixiStage.pixi-ready + #atlasAvatar{opacity:0;pointer-events:none;display:none}
+#atlasAvatar{transition:opacity .25s ease;width:min(100%,220px);filter:drop-shadow(0 18px 24px #0008);background:transparent}#atlasAvatar .head,#atlasAvatar .eyes,#atlasAvatar .brows,#atlasAvatar .mouth{transition:transform .4s ease}#atlasAvatar .mouth-neutral{display:block}#atlasAvatar .mouth-talk{display:none}
+#atlasAvatar[data-mode="CONVERSANDO"] .head{transform:translateY(-2px)}#atlasAvatar[data-mode="OBSERVANDO"] .head{transform:rotate(-2deg);transform-origin:140px 130px}#atlasAvatar[data-mode="REAGINDO"] .brows{transform:translateY(-3px)}#atlasAvatar[data-expression="CURIOSO"] .head{transform:rotate(4deg);transform-origin:140px 130px}#atlasAvatar[data-expression="ATENTO"] .brows{transform:translateY(-2px)}#atlasAvatar.speaking .mouth-neutral{display:none}#atlasAvatar.speaking .mouth-talk{display:block;animation:talk .28s infinite alternate}#atlasAvatar.listening .eyes{animation:listen 1.6s infinite ease-in-out}#atlasAvatar.thinking .effects{animation:think 1.2s infinite ease-in-out}
+@keyframes talk{from{transform:scaleY(.65);transform-origin:140px 180px}to{transform:scaleY(1.15);transform-origin:140px 180px}}@keyframes listen{50%{transform:scale(1.035);transform-origin:140px 145px}}@keyframes think{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){#atlasAvatar *{animation:none!important;transition:none!important}}
+@media(max-width:850px){.half,.third,.twoThird{grid-column:span 12}.top{align-items:start;flex-direction:column}.kv{grid-template-columns:110px 1fr}.avatarCard{grid-template-columns:1fr}.avatarMeta{grid-template-columns:1fr 1fr}}
+</style>
+</head><body>
+<main>
+  <div class="top"><div><div class="label">DevEx HomeLab</div><h1>Atlas Observability Dashboard</h1><div class="muted">Pentium via LAN &middot; canal operacional Atlas</div></div><div style="display:flex;gap:12px;align-items:center"><button id="atlasSoundBtn" type="button" style="background:#131f33;border:1px solid #2ee4b0;color:#2ee4b0;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer">&#128263; Som (Mudo)</button><div id="lastUpdate" class="muted">aguardando dados&hellip;</div></div></div>
+  <div class="grid">
+    <section class="card wide avatarCard">
+      <div class="avatarStage">
+        <div id="atlasPixiStage" aria-hidden="true"></div>
+        <svg id="atlasAvatar" data-mode="OCIOSO" data-expression="SERENO" viewBox="0 0 280 340" role="img" aria-label="Avatar cognitivo do Atlas">
+          <image id="atlasAvatarAnimeImg" href="/assets/atlas-pet-standing.png" x="10" y="10" width="260" height="320" preserveAspectRatio="xMidYMid meet"/>
+          <g class="effects" style="display:none" opacity=".8">
+            <circle cx="140" cy="126" r="112" fill="none" stroke="#8f7cff" stroke-width="2" opacity=".28"/>
+            <circle cx="140" cy="126" r="96" fill="none" stroke="#2ee4b0" stroke-width="1" opacity=".22"/>
+          </g>
+          <g class="body" style="display:none">
+            <path d="M72 322c8-72 36-103 68-103s60 31 68 103" fill="#132238" stroke="#223a5e" stroke-width="3"/>
+            <path d="M118 219h44l22 103H96z" fill="#f0f4fa" opacity=".95"/>
+            <circle cx="140" cy="245" r="7" fill="#2ee4b0"/>
+            <circle cx="140" cy="245" r="12" fill="#43d17d" opacity=".3"/>
+            <circle cx="140" cy="245" r="3" fill="#ffffff"/>
+          </g>
+          <g class="hair" style="display:none">
+            <path d="M64 125c0-74 42-106 76-106 54 0 84 46 77 114l-14 134-38-34-25 24-28-22-40 33z" fill="#3e2d58" stroke="#614885" stroke-width="3"/>
+          </g>
+          <g class="head" style="display:none">
+            <path d="M92 90c-4 50 12 88 48 98 36-10 52-48 48-98-8-44-40-55-48-55s-40 11-48 55z" fill="#f5ded3"/>
+            <rect x="86" y="132" width="6" height="20" rx="3" fill="#182436" stroke="#2ee4b0" stroke-width="1.5"/>
+            <rect x="188" y="132" width="6" height="20" rx="3" fill="#182436" stroke="#2ee4b0" stroke-width="1.5"/>
+            <ellipse cx="114" cy="154" rx="10" ry="5" fill="#ff6b8b" opacity=".45"/>
+            <line x1="110" y1="156" x2="113" y2="152" stroke="#ff9bb0" stroke-width="1.5"/>
+            <line x1="114" y1="156" x2="117" y2="152" stroke="#ff9bb0" stroke-width="1.5"/>
+            <ellipse cx="166" cy="154" rx="10" ry="5" fill="#ff6b8b" opacity=".45"/>
+            <line x1="163" y1="156" x2="166" y2="152" stroke="#ff9bb0" stroke-width="1.5"/>
+            <line x1="167" y1="156" x2="170" y2="152" stroke="#ff9bb0" stroke-width="1.5"/>
+            <path d="M86 112c14-68 52-82 72-78 32 4 56 26 64 76-24-14-42-38-52-62-20 30-47 48-84 64z" fill="#523b72"/>
+            <path d="M90 115l14 45-6-35 18 20-8-30 20 15 12-25 10 20 18-18-6 32 16-24-8 45" stroke="#76569e" stroke-width="2" fill="none"/>
+            <path d="M106 72q34-18 68 0" stroke="#b599dd" stroke-width="3" stroke-linecap="round" fill="none" opacity=".7"/>
+            <g class="brows" stroke="#483256" stroke-width="2.5" stroke-linecap="round">
+              <path d="M102 124q16-6 30 0"/>
+              <path d="M148 124q16-6 30 0"/>
+            </g>
+            <g class="eyes">
+              <ellipse cx="117" cy="142" rx="12" ry="9" fill="#f6faff"/>
+              <ellipse cx="163" cy="142" rx="12" ry="9" fill="#f6faff"/>
+              <path d="M104 140q13-8 26 0l4-4" stroke="#18141f" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+              <path d="M150 140q13-8 26 0l4-4" stroke="#18141f" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+              <circle cx="118" cy="142" r="6" fill="#0f5b3a"/>
+              <circle cx="118" cy="142" r="5" fill="#2ee4b0"/>
+              <circle cx="118" cy="142" r="2.8" fill="#0b1612"/>
+              <circle cx="162" cy="142" r="6" fill="#0f5b3a"/>
+              <circle cx="162" cy="142" r="5" fill="#2ee4b0"/>
+              <circle cx="162" cy="142" r="2.8" fill="#0b1612"/>
+              <circle cx="116" cy="140" r="2.4" fill="#ffffff"/>
+              <circle cx="120" cy="144" r="1.3" fill="#ffffff"/>
+              <circle cx="160" cy="140" r="2.4" fill="#ffffff"/>
+              <circle cx="164" cy="144" r="1.3" fill="#ffffff"/>
+            </g>
+            <g class="mouth">
+              <path class="mouth-neutral" d="M131 174q9 4 18 0" fill="none" stroke="#9e4c5e" stroke-width="2.5" stroke-linecap="round"/>
+              <ellipse class="mouth-talk" cx="140" cy="176" rx="10" ry="6" fill="#8c4b59"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div>
+        <div class="label">Presen&ccedil;a cognitiva</div><div id="avatarHeadline" class="value">Atlas &middot; Ocioso</div><div id="avatarSource" class="muted">estado visual aguardando fonte can&ocirc;nica</div>
+        <div class="avatarMeta">
+          <div class="metric"><span class="muted">Modo</span><strong id="avatarMode">OCIOSO</strong></div><div class="metric"><span class="muted">Express&atilde;o</span><strong id="avatarExpression">SERENO</strong></div>
+          <div class="metric"><span class="muted">Foco</span><strong id="avatarFocus">neutro</strong></div><div class="metric"><span class="muted">Intensidade</span><strong id="avatarIntensity">25%</strong></div>
+        </div>
+        <div class="flags"><span id="flagListening" class="flag">ouvindo</span><span id="flagThinking" class="flag">pensando</span><span id="flagSpeaking" class="flag">falando</span><span id="flagIdentity" class="flag">d&uacute;vida identidade</span></div>
+        <div class="patrolBar">
+          <span class="muted" style="font-size:11px">🚶‍♀️ Pet Atlas (Mundo 3D):</span>
+          <button class="patrolBtn" data-target="mind" type="button">Mente</button>
+          <button class="patrolBtn" data-target="chat" type="button">Chat</button>
+          <button class="patrolBtn" data-target="services" type="button">Servi&ccedil;os</button>
+          <button class="patrolBtn" data-target="sit" type="button">🪑 Sentar</button>
+          <button class="patrolBtn" data-target="poke" type="button">✨ Carinho</button>
+          <button class="patrolBtn" data-target="auto" type="button">Patrulha Livre</button>
+        </div>
+      </div>
+    </section>
+    <section class="card wide" id="cognitionPanel"><div class="label">Mente do Atlas</div><div id="cognitionStatus" class="value">CONTEXTO INDISPON&Iacute;VEL</div><div id="cognitionDetail" class="muted">aguardando proje&ccedil;&atilde;o cognitiva</div><div class="avatarMeta" style="margin:12px 0"><div class="metric"><span class="muted">Hermes Runtime</span><strong id="qwenRuntime">INATIVO</strong></div><div class="metric"><span class="muted">Backend</span><strong id="qwenBackend">&mdash;</strong></div><div class="metric"><span class="muted">Lat&ecirc;ncia</span><strong id="qwenLatency">&mdash;</strong></div><div class="metric"><span class="muted">Motivo</span><strong id="qwenReason">&mdash;</strong></div></div><div id="cognitionPipeline" class="pipeline"><div class="stage">Percep&ccedil;&atilde;o</div><div class="arrow">&rarr;</div><div class="stage">Afeto</div><div class="arrow">&rarr;</div><div class="stage">Foco/Emo&ccedil;&atilde;o</div><div class="arrow">&rarr;</div><div class="stage">Contexto Cognitivo</div></div><div class="grid"><div class="card third"><div class="label">A1 &middot; Afeto</div><div id="a1Metrics" class="kv"></div></div><div class="card third"><div class="label">A3 &middot; Percep&ccedil;&atilde;o</div><div id="a3Perception" class="kv"></div></div><div class="card third"><div class="label">A4 &middot; Foco/Emo&ccedil;&atilde;o</div><div id="a4Emotion" class="kv"></div></div></div><div class="label" style="margin-top:14px">Mudan&ccedil;as recentes</div><div id="cognitionChanges" class="events"></div></section>
+    <section class="card wide" id="cogActivityPanel">
+      <div class="label">O que a Atlas est&aacute; fazendo agora</div>
+      <div id="cogNowState" class="value">AGUARDANDO</div>
+      <div id="cogNowActivity" class="muted">sem atividade cognitiva observ&aacute;vel</div>
+      <div class="avatarMeta" style="margin:12px 0">
+        <div class="metric"><span class="muted">Tarefa</span><strong id="cogNowTask">&mdash;</strong></div>
+        <div class="metric"><span class="muted">Motivo</span><strong id="cogNowReason">&mdash;</strong></div>
+        <div class="metric"><span class="muted">Resumo</span><strong id="cogNowSummary">&mdash;</strong></div>
+        <div class="metric"><span class="muted">Inten&ccedil;&atilde;o</span><strong id="cogNowIntention">&mdash;</strong></div>
+        <div class="metric"><span class="muted">Confian&ccedil;a</span><strong id="cogNowConfidence">&mdash;</strong></div>
+        <div class="metric"><span class="muted">Decis&atilde;o</span><strong id="cogNowDecision">&mdash;</strong></div>
+      </div>
+      <div class="label">Timeline cognitiva</div><div id="cogTimeline" class="events"></div>
+    </section>
+    <section class="card wide" id="atlasChatPanel">
+      <div class="label">Chat com Atlas</div><div class="chatMeta"><div id="atlasChatBackend" class="chatBackend">Hermes &middot; auto</div><div id="atlasChatState" class="chatState">PRONTO</div></div><div id="atlasChatHistory" class="chatHistory"><div class="muted">sem mensagens</div></div>
+      <div class="chatComposer"><input id="atlasChatInput" maxlength="512" placeholder="Fale com a Atlas..." autocomplete="off"><button id="atlasChatSend" type="button">Enviar</button></div>
+      <div id="atlasChatStatus" class="muted" style="margin-top:8px">canal pronto</div>
+    </section>
+    <section class="card half" id="actionPlanPanel">
+      <div class="label">Decis&atilde;o / Plano de a&ccedil;&atilde;o</div><div id="actionPlanObjective" class="value">SEM PLANO</div>
+      <div class="muted">Confian&ccedil;a: <span id="actionPlanConfidence">&mdash;</span> &middot; Origem: <span id="actionPlanTrigger">&mdash;</span></div>
+      <div id="actionPlanActions" style="margin-top:12px"><div class="muted">nenhuma a&ccedil;&atilde;o</div></div>
+    </section>
+    <section class="card wide" id="operationalTimelinePanel"><div class="label">Timeline operacional</div><div id="operationalTimeline" class="events"></div></section>
+    <section class="card third"><div class="label">Atlas</div><div id="atlasHealth" class="value">UNKNOWN</div><div id="atlasSha" class="muted">SHA &mdash;</div></section>
+    <section class="card third"><div class="label">Voice</div><div id="voiceState" class="value">UNKNOWN</div><div id="voiceDetail" class="muted">&mdash;</div></section>
+    <section class="card third"><div class="label">ANC</div><div id="ancState" class="value">UNKNOWN</div><div id="ancDetail" class="muted">&mdash;</div></section>
+    <section class="card wide"><div class="label">Pipeline de intera&ccedil;&atilde;o</div><div class="pipeline"><div class="stage">MIC</div><div class="arrow">&rarr;</div><div class="stage">ANC</div><div class="arrow">&rarr;</div><div class="stage">VAD</div><div class="arrow">&rarr;</div><div class="stage">Whisper</div><div class="arrow">&rarr;</div><div class="stage">Wake</div><div class="arrow">&rarr;</div><div class="stage">Hermes<br><span class="muted">auto</span></div><div class="arrow">&rarr;</div><div class="stage">TTS</div></div></section>
+    <section class="card half"><div class="label">Servi&ccedil;os</div><div id="services" class="kv"></div></section><section class="card half"><div class="label">&Aacute;udio / microfones</div><div id="audio" class="kv"></div></section>
+    <section class="card half"><div class="label">Sistema</div><div id="system" class="kv"></div></section><section class="card half"><div class="label">Rede</div><div id="network" class="kv"></div></section>
+    <section class="card wide"><div class="label">Timeline t&eacute;cnica</div><div id="events" class="events"></div></section>
+  </div>
+</main>
+<script src="/assets/pixi.min.js"></script>
+<script src="/assets/atlas-avatar-motion.js"></script>
+<script src="/assets/atlas-avatar-engine.js"></script>
+<script src="/assets/atlas-avatar-renderer.js"></script>
+<script>
+const $ = id => document.getElementById(id); const esc = value => String(value ?? 'unknown').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function kv(target,obj){target.innerHTML=Object.entries(obj||{}).map(([k,v])=>`<div class="muted">${esc(k)}</div><div>${esc(typeof v==='object'?JSON.stringify(v):v)}</div>`).join('')||'<div class="muted">sem dados</div>';}
+function renderCognition(cognition){
+  const c=cognition||{status:'unavailable'}; const state=String(c.status||'unavailable');
+  $('cognitionStatus').textContent=state==='available'?'CONTEXTO DISPON\u00cdVEL':state==='stale'?'CONTEXTO STALE':'CONTEXTO INDISPON\u00cdVEL';
+  $('cognitionDetail').textContent=state==='available'?`${c.entity_id||'unknown'} \u00b7 ${Math.round(Number(c.age_s)||0)}s \u00b7 ${c.source_stimulus_id||'sem est\u00edmulo'}`:(c.reason||state);
+  if(state!=='available'){kv($('a1Metrics'),{});kv($('a3Perception'),{});kv($('a4Emotion'),{});$('cognitionChanges').innerHTML='<div class="muted">sem contexto cognitivo confi\u00e1vel</div>';return;}
+  const a=c.affective_state||{}, p=c.perception||{}, e=c.emotion||{}, f=c.focus||{};
+  kv($('a1Metrics'),{'val\u00eancia':`${a.valence_percent??0}%`,'ativa\u00e7\u00e3o':`${a.activation_percent??0}%`,'estresse':`${a.stress_percent??0}%`,'confian\u00e7a':`${a.confidence_percent??0}%`,'engajamento':`${a.engagement_percent??0}%`,'curiosidade':`${a.curiosity_percent??0}%`});
+  kv($('a3Perception'),{'entidade':c.entity_id,'estado':p.estado,'confian\u00e7a':`${p.confidence_percent??0}%`,'conflito':p.conflito_evidencias?'sim':'n\u00e3o'});
+  kv($('a4Emotion'),{'emo\u00e7\u00e3o':e.principal,'nuances':(e.nuances||[]).join(', '),'foco':f.principal?.assunto_id||'nenhum'});
+  $('cognitionChanges').innerHTML=(c.recent_changes||[]).slice().reverse().map(x=>`<div class="event"><b>${esc(x.severity)}</b> \u00b7 ${esc(x.source)} \u00b7 ${esc(x.kind)} \u00b7 ${esc(x.stimulus_id)}</div>`).join('')||'<div class="muted">sem mudan\u00e7as recentes</div>';
+}
+function renderCognitiveRuntime(runtime){
+  const r=runtime||{status:'unavailable'}; const available=r.status==='available';
+  $('qwenRuntime').textContent=available?(r.activated?'ATIVADO':'EM ESPERA'):'INATIVO';
+  $('qwenBackend').textContent=available?(r.backend||'n/a'):'n/a';
+  $('atlasChatBackend').textContent=available&&r.backend?('Hermes / '+String(r.backend).replace(/^hermes\//,'')):'Hermes / auto';
+  if(available&&r.state==='INFERINDO') $('atlasChatState').textContent='PROCESSANDO';
+  $('qwenLatency').textContent=available&&r.duration_ms!=null?`${r.duration_ms} ms`:'n/a';
+  $('qwenReason').textContent=available?(r.motivo||r.reason||'sem ativacao'):'sem resultado';
+}
+function renderCognitiveActivity(runtime,events){
+  const r=runtime||{status:'unavailable'}, available=r.status==='available';
+  $('cogNowState').textContent=available?(r.state||'OBSERVANDO'):'INDISPONIVEL';
+  $('cogNowActivity').textContent=available?(r.detail||r.activity||'aguardando novo estimulo'):'runtime cognitivo indisponivel';
+  $('cogNowTask').textContent=available?(r.task||'nenhuma'):'n/a';
+  $('cogNowReason').textContent=available?(r.motivo||r.reason||'sem ativacao'):'n/a';
+  $('cogNowSummary').textContent=available?(r.summary||r.response_preview||r.detail||'sem conclusao'):'n/a';
+  $('cogNowIntention').textContent=available?(r.intention||'nenhuma'):'n/a';
+  $('cogNowConfidence').textContent=available&&r.confidence!=null?`${Math.round(Number(r.confidence)*100)}%`:'n/a';
+  const decision=!available?'n/a':r.requires_confirmation?'aguardando confirmacao':r.intention?(r.intention_authorized?'autorizada':'nao autorizada'):'nenhuma acao';
+  $('cogNowDecision').textContent=decision;
+  $('cogTimeline').innerHTML=(events||[]).slice().reverse().map(e=>`<div class="event"><b>${esc(e.state||'unknown')}</b> \u00b7 ${esc(e.activity||'unknown')} \u00b7 ${esc(e.motivo||'sem motivo')}<div class="muted">${esc(e.summary||e.intention||e.source_stimulus_id||'')}</div></div>`).join('')||'<div class="muted">sem atividade cognitiva registrada</div>';
+}
+function renderActionPlan(runtime){
+  const p=runtime?.action_plan;
+  $('actionPlanObjective').textContent=p?.objective||'SEM PLANO';
+  $('actionPlanConfidence').textContent=p&&p.confidence!=null?`${Math.round(Number(p.confidence)*100)}%`:'n/a';
+  $('actionPlanTrigger').textContent=p?.trigger_kind||'n/a';
+  $('actionPlanActions').innerHTML=(p?.actions||[]).map(a=>`<div class="actionRow"><b>${esc(a.type)}</b><span>${esc(a.status)}</span><span>${esc(a.target||a.reason||JSON.stringify(a.parameters||{}))}</span></div>`).join('')||'<div class="muted">nenhuma a\u00e7\u00e3o</div>';
+}
+function renderOperational(runtime){
+  const timeline=runtime?.operational_timeline||[];
+  $('operationalTimeline').innerHTML=timeline.slice().reverse().map(e=>`<div class="event"><b>#${esc(e.id)} ${esc(e.type)}</b> <span class="muted">${esc(e.payload?.status||e.payload?.role||e.payload?.reason||'')}</span><div>${esc(e.payload?.message||e.payload?.objective||e.payload?.target||e.payload?.error||e.payload?.action_id||'')}</div></div>`).join('')||'<div class="muted">sem eventos operacionais</div>';
+  const chat=runtime?.chat_history||[];
+  $('atlasChatHistory').innerHTML=chat.map(e=>`<div class="chatMsg ${e.payload?.role==='user'?'user':'atlas'}"><b>${e.payload?.role==='user'?'Voc\u00ea':'Atlas'}</b><div>${esc(e.payload?.message||'')}</div></div>`).join('')||'<div class="muted">sem mensagens</div>';
+  $('atlasChatHistory').scrollTop=$('atlasChatHistory').scrollHeight;
+  if(chat.length&&chat[chat.length-1]?.payload?.role==='atlas') $('atlasChatState').textContent='PRONTO';
+}
+async function sendAtlasChat(){
+  const input=$('atlasChatInput'), message=input.value.trim(); if(!message)return;
+  const client_message_id=(crypto.randomUUID?crypto.randomUUID():`web-${Date.now()}-${Math.random()}`);
+  $('atlasChatSend').disabled=true; $('atlasChatState').textContent='PROCESSANDO'; $('atlasChatStatus').textContent='enviando para Atlas...';
+  try{const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,client_message_id})}); const body=await res.json(); if(!res.ok)throw new Error(body.error||`HTTP ${res.status}`); input.value=''; $('atlasChatStatus').textContent=`recebido \u00b7 ${body.stimulus_id}`; await refreshAll();}
+  catch(error){$('atlasChatState').textContent='ERRO'; $('atlasChatStatus').textContent=`erro \u00b7 ${error.message}`;} finally{$('atlasChatSend').disabled=false;}
+}
+$('atlasChatSend').addEventListener('click',sendAtlasChat); $('atlasChatInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendAtlasChat();});
+const atlasEventStream=new EventSource('/api/stream');
+atlasEventStream.onmessage=()=>refreshAll();
+for(const type of ['cognitive_state','plan_created','action_status','chat_message','confirmation_required','runtime_error']) atlasEventStream.addEventListener(type,()=>refreshAll());
+atlasEventStream.addEventListener('visual_action', e => {
+  try {
+    const data = JSON.parse(e.data);
+    const eng = window.AtlasAvatarRenderer?.getEngine?.();
+    if (data.target && window.anchorPetTo) {
+      window.anchorPetTo(data.target);
+      if (eng?.visitPanel) eng.visitPanel(data.target);
+    }
+    if (data.action && eng) {
+      const act = String(data.action).toUpperCase();
+      if (act === 'POKE') {
+        if (eng.triggerPoke) eng.triggerPoke();
+        playChime(880, 'sine', 0.2);
+      } else if (act === 'SIT') {
+        eng.petMode = 'SIT';
+        eng.sitDwellTime = performance.now() + (Number(data.duration_ms) || 8000);
+        playChime(440, 'triangle', 0.2);
+      } else if (act === 'PATROL') {
+        eng.petMode = 'PATROL';
+        playChime(640, 'triangle', 0.16);
+      }
+    }
+    const expr = String(data.expression || '').replace('ExpressaoVisual.', '');
+    if (expr && eng) {
+      eng.updateState({
+        expressao: expr,
+        foco_visual: data.focus || data.target || 'neutro',
+        alvo_locomocao: data.target || 'auto',
+        acao_pet: data.action || 'PATROL',
+      });
+    }
+  } catch(err) {}
+  refreshAll();
+});
+atlasEventStream.onerror=()=>{$('atlasChatStatus').textContent='stream reconectando; polling ativo';};
+async function refreshAll(){try{
+  const [statusRes,eventRes]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/events',{cache:'no-store'})]);
+  if(!statusRes.ok||!eventRes.ok) throw new Error('HttpStatus');
+  const status=await statusRes.json(); const events=await eventRes.json();
+  AtlasAvatarRenderer.render(status.visual); renderCognition(status.cognition); renderCognitiveRuntime(status.cognitive_runtime); renderCognitiveActivity(status.cognitive_runtime,status.cognitive_runtime?.timeline); renderActionPlan(status.cognitive_runtime); renderOperational(status.cognitive_runtime);
+  $('atlasHealth').textContent=(status.atlas?.health||'unknown').toUpperCase(); $('atlasSha').textContent=`SHA ${status.atlas?.sha||'unknown'}`;
+  $('voiceState').textContent=(status.voice?.state||'unknown').toUpperCase(); $('voiceDetail').textContent=`servi\u00e7o ${status.services?.voice?.active||'unknown'} \u00b7 ${status.services?.voice?.enabled||'unknown'}`;
+  $('ancState').textContent=(status.anc?.state||'unknown').toUpperCase(); $('ancDetail').textContent=status.anc?.reason||'sem diagn\u00f3stico adicional';
+  kv($('services'),status.services); kv($('audio'),status.audio); kv($('system'),status.system); kv($('network'),status.network);
+  $('events').innerHTML=(events||[]).slice().reverse().map(e=>`<div class="event"><b>${esc(e.severity)}</b> \u00b7 ${esc(e.source)} \u00b7 ${esc(e.message)}</div>`).join('')||'<div class="muted">sem eventos t\u00e9cnicos recentes</div>';
+  $('lastUpdate').textContent=`atualizado ${new Date().toLocaleTimeString()}`;
+}catch(error){$('lastUpdate').textContent=`dashboard degradado \u00b7 ${error.name}`;}}
+let audioCtx=null,soundEnabled=false;
+const soundBtn=$('atlasSoundBtn');
+if(soundBtn){
+  soundBtn.addEventListener('click',()=>{
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    soundEnabled=!soundEnabled;
+    soundBtn.innerHTML=soundEnabled?'&#128266; Som Ativo':'&#128263; Som (Mudo)';
+    soundBtn.style.color=soundEnabled?'#43d17d':'#2ee4b0';
+    soundBtn.style.borderColor=soundEnabled?'#43d17d':'#2ee4b0';
+  });
+}
+function playChime(freq=660,type='sine',dur=0.2){
+  if(!soundEnabled||!audioCtx)return;
+  try{
+    const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
+    osc.type=type;osc.frequency.setValueAtTime(freq,audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq*1.4,audioCtx.currentTime+dur);
+    gain.gain.setValueAtTime(0.04,audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+    osc.connect(gain);gain.connect(audioCtx.destination);
+    osc.start();osc.stop(audioCtx.currentTime+dur);
+  }catch(e){}
+}
+let currentTargetPanel = 'presence';
+function anchorPetTo(target){
+  currentTargetPanel = target || currentTargetPanel;
+  const stage = document.getElementById('atlasPixiStage');
+  if(!stage) return;
+  const t = String(currentTargetPanel || 'auto').toLowerCase();
+  let el = null;
+  if(t === 'mind' || t === 'cognitionpanel') el = document.getElementById('cognitionPanel');
+  else if(t === 'chat' || t === 'atlaschatpanel') el = document.getElementById('atlasChatPanel');
+  else if(t === 'services') el = document.getElementById('services');
+  else if(t === 'activity' || t === 'cogactivitypanel') el = document.getElementById('cogActivityPanel');
+  else el = document.querySelector('.avatarStage') || document.querySelector('.avatarCard');
+
+  if(el){
+    const rect = el.getBoundingClientRect();
+    const isStage = el.classList?.contains('avatarStage') || el.classList?.contains('avatarCard');
+    const targetX = Math.max(10, Math.min(window.innerWidth - 350, rect.left + (rect.width / 2) - 170));
+    const targetY = isStage ? Math.max(20, rect.top - 80) : Math.max(20, rect.top - 255);
+    stage.style.left = `${targetX}px`;
+    stage.style.top = `${targetY}px`;
+  }
+}
+window.anchorPetTo = anchorPetTo;
+setTimeout(() => { anchorPetTo('presence'); }, 250);
+window.addEventListener('resize', () => anchorPetTo());
+window.addEventListener('scroll', () => anchorPetTo());
+
+document.querySelectorAll('.patrolBtn').forEach(btn=>{
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const t=btn.dataset.target;
+    anchorPetTo(t);
+    const eng=window.AtlasAvatarRenderer?.getEngine?.();
+    if(t==='poke'){
+      if(eng?.triggerPoke) eng.triggerPoke();
+      playChime(880,'sine',0.2);
+    } else if(t==='sit'){
+      if(eng){
+        eng.petMode = 'SIT';
+        eng.sitDwellTime = performance.now() + 8000;
+      }
+      playChime(440,'triangle',0.2);
+    } else {
+      if(eng?.visitPanel) eng.visitPanel(t);
+      playChime(640,'triangle',0.16);
+    }
+  });
+});
+document.querySelectorAll('.card').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('.card').forEach(x=>x.classList.remove('inspecting'));
+    c.classList.add('inspecting');
+    anchorPetTo(c.id);
+    const eng=window.AtlasAvatarRenderer?.getEngine?.();
+    if(eng?.visitPanel) eng.visitPanel(c.id||'auto');
+    playChime(520,'triangle',0.14);
+  });
+});
+refreshAll(); setInterval(refreshAll, 2000);
+</script>
+</body></html>

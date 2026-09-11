@@ -18,6 +18,13 @@ GDD → Domain/Architecture Design → PRD → Implementation Design
 
 O nível de documentação acompanha o risco; mudanças pequenas não precisam duplicar documentos, mas não podem perder rastreabilidade.
 
+## Gate de coerencia arquitetural e regras de negocio
+
+- Antes de iniciar cada slice, confirmar que o desenho proposto preserva ownership, limites bounded, fail-safe, seguranca e responsabilidades das camadas vigentes.
+- Cada regra de negocio nova ou alterada deve ser rastreada para o componente arquitetural que a implementa e para testes que comprovem o comportamento.
+- Divergencia entre codigo, arquitetura, PRD/regra de negocio ou governanca e blocker: parar a implementacao ou promocao e reconciliar a fonte de verdade antes de prosseguir.
+- Antes de marcar PR Ready ou promover um HEAD, repetir a verificacao arquitetura <-> regras de negocio sobre o diff final.
+
 ## Checkpoint
 
 Após cada slice, registrar comentário `/checkpoint` contendo:

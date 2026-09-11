@@ -6,7 +6,7 @@ from infrastructure.pentium.atlas.sampler_linux_cognitivo import LinuxCognitiveS
 
 
 class LinuxCognitiveSamplerTests(unittest.TestCase):
-    def test_coleta_memoria_swap_cpu_temperatura_e_rss(self):
+    def test_coleta_memoria_swap_cpu_temperatura_e_rss_atlas(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "meminfo").write_text(
@@ -16,20 +16,20 @@ class LinuxCognitiveSamplerTests(unittest.TestCase):
             (root / "stat").write_text("cpu  100 0 50 850 0 0 0 0 0 0\n", encoding="utf-8")
             (root / "thermal").write_text("57000\n", encoding="utf-8")
             (root / "atlas_status").write_text("VmRSS:\t1234 kB\n", encoding="utf-8")
-            (root / "llm_status").write_text("VmRSS:\t4321 kB\n", encoding="utf-8")
             sampler = LinuxCognitiveSampler(
                 meminfo_path=root / "meminfo",
                 proc_stat_path=root / "stat",
                 thermal_path=root / "thermal",
                 atlas_status_path=root / "atlas_status",
-                llm_status_path=root / "llm_status",
             )
             m = sampler.coletar()
             self.assertEqual(1234, m.rss_atlas_kib)
-            self.assertEqual(4321, m.rss_llm_kib)
+            self.assertIsNone(m.rss_llm_kib)
             self.assertEqual(250000, m.swap_usada_kib)
-            self.assertEqual(15.0, m.cpu_percent)
+            self.assertIsNone(m.cpu_percent)
             self.assertEqual(57.0, m.temperatura_c)
+            (root / "stat").write_text("cpu  120 0 50 930 0 0 0 0 0 0\n", encoding="utf-8")
+            self.assertEqual(20.0, sampler.coletar().cpu_percent)
 
     def test_fonte_ausente_vira_none_sem_excecao(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -39,7 +39,6 @@ class LinuxCognitiveSamplerTests(unittest.TestCase):
                 proc_stat_path=root / "missing2",
                 thermal_path=root / "missing3",
                 atlas_status_path=root / "missing4",
-                llm_status_path=root / "missing5",
             )
             m = sampler.coletar()
             self.assertIsNone(m.temperatura_c)

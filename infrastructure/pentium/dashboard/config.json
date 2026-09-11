@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "bind_host": "192.168.88.3",
+  "bind_port": 8765,
+  "health_path": "~/pentium-agent/data/health/latest.json",
+  "voice_config_path": "~/pentium-agent/atlas/config_voice.json",
+  "deploy_sha_path": "~/pentium-agent/runtime/deploy/current-sha",
+  "visual_state_path": "~/pentium-agent/atlas/runtime/visual-state.json",
+  "cognitive_snapshot_path": "~/pentium-agent/atlas/runtime/cognitive-observation-context.json",
+  "cognitive_health_path": "~/pentium-agent/atlas/runtime/observation-affective-health.json",
+  "cognitive_max_age_s": 180,
+  "cognitive_runtime_path": "~/pentium-agent/atlas/runtime/cognitive-runtime.json"
+}

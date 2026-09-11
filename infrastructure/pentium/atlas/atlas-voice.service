@@ -1,0 +1,16 @@
+[Unit]
+Description=Atlas always-on local voice runtime
+After=default.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=%h/pentium-agent
+ExecStart=/usr/bin/python3 -m atlas.voice_daemon
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

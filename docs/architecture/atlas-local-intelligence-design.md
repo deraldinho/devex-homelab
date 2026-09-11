@@ -14,8 +14,23 @@ O Atlas não substitui o Pentium Agent, o heartbeat, o Tailscale, o MikroTik nem
 4. **Baixo orçamento de recursos.** O Pentium é Pentium Dual-Core T4300, 2C/2T, ~2,5 GiB RAM e ~2,8 GiB swap; a plataforma deve preservar o papel 24/7 de control plane.
 5. **Expressão separada de severidade.** Um meme pode expressar emoção, mas nunca substitui um alerta técnico inequívoco.
 6. **Sem repetição excessiva.** Cooldown, histerese, anti-repeat e quiet hours são parte do contrato, não detalhes cosméticos.
+7. **Vocabulário semântico é interno.** Nenhum serviço externo depende do vocabulário, códigos ou registry semântico do Atlas; a tradução pertence à fronteira de percepção do Atlas.
 
 ## 3. Componentes
+
+A fronteira S1 preserva ownership dos contratos externos:
+
+```text
+contrato externo -> StimulusSource -> Stimulus -> FronteiraSemantica -> EventoSemantico
+```
+
+`FronteiraSemantica` é interna ao Atlas. Serviços observados continuam publicando seus próprios contratos e nunca precisam traduzir ou armazenar códigos cognitivos do Atlas.
+
+### Fast Router S2
+
+`EventoSemantico` entra no `FastRouter` determinístico antes de qualquer caminho lento. A decisão pode abrir lanes `FAST_REACTION`, `AFFECT`, `CACHE_LOOKUP` e `SLOW_LLM`; `DROP` é exclusivo.
+
+Eventos críticos e recuperações relevantes seguem o fast path sem aguardar LLM. `SLOW_LLM` é apenas deferência assíncrona para eventos novos na faixa ambígua; eventos conhecidos de baixa novidade preferem cache.
 
 ```text
 Observed State
@@ -93,6 +108,8 @@ Thresholds específicos ficam em configuração versionada e exigem duração m�
 
 O candidato inicial é `Qwen3-0.6B` em GGUF Q4 via `llama.cpp`, com contexto inicial limitado a 2048–4096 tokens. A promoção para serviço permanente depende de benchmark físico no Pentium: RAM, swap, CPU, tokens/s, latência e temperatura.
 
+A LLM fica fora do caminho crítico de percepção, emoção e reação imediata. Eventos semânticos e futuras decisões Fast Path continuam funcionando mesmo quando a LLM está lenta, indisponível ou em timeout.
+
 A LLM tem três funções permitidas:
 
 1. interpretar linguagem humana para intent estruturada;
@@ -131,3 +148,44 @@ A primeira promoção de voz será READ-only. Ações `CONTROL` só entram após
 ## 11. Limites da primeira slice
 
 A primeira slice não instala LLM, STT, TTS, não baixa memes e não altera rede. Ela cria o modelo de estado global, o Reaction Engine, o journal e o contrato de biblioteca sonora, consumindo contratos já versionados sempre que possível.
+
+### Fast Dispatch S3
+
+A S3 conecta `DecisaoFastRouter` a um `FastDispatcher` tipado e bounded. O dispatcher preserva a ordem das lanes e delega cada entrega por porta explícita, sem recalcular score, health, severidade ou autorização.
+
+`FAST_REACTION`, `AFFECT` e `CACHE_LOOKUP` são entregues aos respectivos owners. Falha em uma lane é registrada sem cancelar lanes independentes seguintes. `DROP` continua exclusivo e não chama nenhuma porta.
+
+`SLOW_LLM apenas agenda` uma intenção tipada em fila bounded para processamento posterior. A S3 não importa nem executa `llm_gateway` ou `ReactionLoopCognitivo` inline, mantendo inferência fora do caminho crítico.
+
+### Managed SSH READ M1
+
+A M1 generaliza o transporte SSH existente do Pentium para observacao profunda de hosts explicitamente `MANAGED`. O inventario gerenciado resolve `host_id`, identidade SSH, `known_hosts`, plataforma, bounds e allowlist READ antes de qualquer chamada remota.
+
+O contrato de transporte usa `BatchMode=yes`, `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes` e `UserKnownHostsFile` explicito. Mudanca inesperada de host key falha fechado; descoberta de rede nunca promove um equipamento para MANAGED.
+
+O `ManagedReadService` expõe somente operacoes tipadas (`cpu`, `memory`, `disk`, `uptime`, `temperature`, `services`, `processes`, `network`, `containers`, `logs`) resolvidas para comandos fixos por plataforma. Nao existe API publica de shell arbitrario.
+
+Saida remota e bounded por host antes de entrar no dominio. Falha SSH ou parsing degrada a evidencia daquele READ sem redefinir a saude tecnica do host. `x99.status` permanece como compatibilidade, agora consumindo a camada tipada M1 em vez de montar comandos SSH diretamente.
+
+M2 CONTROL permanece separada e fora desta slice.
+
+O contrato M1 opera sem shell arbitrario em toda a fronteira de alto nivel.
+
+### Managed CONTROL M2
+
+A M2 adiciona execucao administrativa tipada para hosts `MANAGED` sobre a fundacao SSH M1. `PolicyCapabilities` continua sendo a autoridade: o executor recebe somente uma decisao estruturada e aplica novamente inventario, operacao e alvo em regime default-deny antes de qualquer SSH.
+
+`START_SERVICE`, `STOP_SERVICE` e `RESTART_SERVICE` sao CONTROL. `REBOOT_HOST` permanece DESTRUCTIVE e exige confirmacao humana independente. A autorizacao efetiva e restrita a combinacao exata host + operacao + alvo; nenhum host ou servico e herdado por permissao generica.
+
+O `ManagedControlService` usa comandos fixos por plataforma, host-key estrita, timeout e output bounded herdados da M1. Nao existe API publica de shell arbitrario e nao ha retry autonomo de CONTROL.
+
+Toda execucao autorizada registra `attempt` antes do transporte e `result` depois. Falha de pre-audit bloqueia a operacao; falha SSH e registrada como evidencia degradada do canal sem inventar sucesso.
+
+
+### Observation Integration I1
+
+A I1 conecta `WIFI_OBSERVED` e `MANAGED` em um unico ObservationRuntime. `WifiPresenceSource` permanece dona da presenca Wi-Fi; `ManagedObservationSource` transforma somente READ tipado e bounded em `SourceSnapshot`.
+
+Falha ARP e falha SSH permanecem independentes. Erro em `wifi.presence` nao cancela `managed.*`, e erro em `managed.*` nao cancela descoberta Wi-Fi. Falha SSH descreve o canal administrativo e nao declara o host offline.
+
+CONTROL nao participa do polling. O composition root conhece `ManagedReadService`, mas nenhuma fonte de observacao expoe shell ou executor administrativo. A certificacao tecnica I1 exige evidencia simultanea das duas zonas e default-deny de CONTROL; certificacao fisica permanece um gate separado no Pentium.

@@ -93,3 +93,16 @@ class CorrelacionadorIncidentes:
 
     def incidentes_ativos(self) -> tuple[IncidenteTecnico, ...]:
         return tuple(self._ativos[chave] for chave in sorted(self._ativos))
+
+    def restaurar_ativos(self, incidentes) -> None:
+        restaurados = tuple(incidentes)
+        if len(restaurados) > self._capacidade:
+            raise OverflowError("incidentes restaurados excedem capacidade")
+        ativos: dict[str, IncidenteTecnico] = {}
+        for incidente in restaurados:
+            if incidente.estado_recuperacao is not EstadoRecuperacaoIncidente.ABERTO:
+                continue
+            if incidente.entidade_principal in ativos:
+                raise ValueError("entidade principal possui incidente ativo duplicado")
+            ativos[incidente.entidade_principal] = incidente
+        self._ativos = ativos

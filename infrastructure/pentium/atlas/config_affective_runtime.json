@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "visual_state_path": "~/pentium-agent/atlas/runtime/visual-state.json",
+  "tick_interval_ms": 500,
+  "visual_heartbeat_s": 30
+}

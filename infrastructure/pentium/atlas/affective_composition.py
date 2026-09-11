@@ -1,0 +1,247 @@
+from __future__ import annotations
+
+from collections import deque
+from dataclasses import dataclass, replace
+import json
+from pathlib import Path
+from typing import Callable
+
+from .adaptador_impacto_afetivo import AdaptadorImpactoAfetivo
+from .affective_runtime import AffectiveRuntime
+from .compositor_visual_afetivo import CompositorVisualAfetivo
+from .configuracao_afetiva import carregar_configuracao_afetiva
+from .configuracao_cognitiva import carregar_configuracao_cognitiva
+from .cognitive_observation_projection import CognitiveObservationPublisher
+from .contexto_foco_emocao import ContextoFocoEmocao
+from .grafo_dependencias import GrafoDependencias
+from .modelo_foco import PoliticaFoco
+from .modelo_visual_atlas import EstadoInteracaoVisual
+from .motor_afetivo import MotorEstadoAfetivo
+from .percepcao import PoliticaConfirmacaoPercepcao
+from .pipeline_afetivo_observacional import (
+    PipelineAfetivoObservacional,
+    carregar_config_observation_affective,
+)
+from .pipeline_percepcao_correlacao import PipelinePercepcaoCorrelacao
+from .adaptador_stimulus_percepcao import ConfigFontePercepcao
+from .persistencia_afetiva import RepositorioEstadoAfetivo, restaurar_estado
+from .persistencia_contexto_afetivo import RepositorioContextoAfetivo, restaurar_contexto
+from .persistencia_foco_emocao import RepositorioFocoEmocao, restaurar_foco_emocao
+from .persistencia_percepcao_correlacao import RepositorioPercepcaoCorrelacao
+from .stimulus_model import Stimulus
+from .visual_state_publisher import VisualStatePublisher
+
+@dataclass
+class AffectiveComposition:
+    pipeline: PipelineAfetivoObservacional
+    runtime_visual: AffectiveRuntime
+    pipeline_percepcao: PipelinePercepcaoCorrelacao
+    contexto_afetivo: object
+    motor_afetivo: MotorEstadoAfetivo
+    repo_a1: RepositorioEstadoAfetivo
+    repo_a2: RepositorioContextoAfetivo
+    repo_a3: RepositorioPercepcaoCorrelacao
+    repo_a4: RepositorioFocoEmocao
+    allowed_sources: frozenset[str]
+    restoration: dict[str, str]
+    errors_buffer: deque[str]
+    diagnostics_buffer: deque[str]
+    cognitive_publisher: object
+    recent_changes_buffer: deque[Stimulus]
+    cognitive_bridge_errors_buffer: deque[str]
+    bridge_last_publish_at: str | None = None
+    bridge_last_publish_stimulus_id: str | None = None
+    bridge_current_error: str | None = None
+
+    def errors(self) -> tuple[str, ...]:
+        return tuple(self.errors_buffer)
+
+    def diagnostics(self) -> tuple[str, ...]:
+        return tuple(self.diagnostics_buffer)
+
+    def cognitive_bridge_diagnostics(self) -> tuple[str, ...]:
+        return tuple(self.cognitive_bridge_errors_buffer)
+
+    def cognitive_bridge_status(self) -> dict[str, str | None]:
+        return {
+            "last_publish_at": self.bridge_last_publish_at,
+            "last_publish_stimulus_id": self.bridge_last_publish_stimulus_id,
+            "current_error": self.bridge_current_error,
+        }
+
+    def _normalizar(self, stimulus: Stimulus) -> Stimulus | None:
+        source = stimulus.source
+        if source in self.allowed_sources:
+            return stimulus
+        if source.startswith("managed."):
+            target = source.removeprefix("managed.")
+            if target in self.allowed_sources:
+                payload = dict(stimulus.payload)
+                payload["channel_healthy"] = payload.get("channel_status") == "healthy"
+                return replace(stimulus, source=target, payload=payload)
+        self.diagnostics_buffer.append(f"ignored_source:{source}")
+        return None
+
+    def _persistir(self, resultado) -> None:
+        operations = (
+            ("a3", lambda: self.repo_a3.salvar(self.pipeline_percepcao.percepcoes(), self.pipeline_percepcao.incidentes_ativos())),
+            ("a2", lambda: self.repo_a2.salvar(self.contexto_afetivo)),
+            ("a1", lambda: self.repo_a1.salvar(self.motor_afetivo.estado_atual)),
+            ("a4", lambda: self.repo_a4.salvar(resultado.resultado_foco_emocao)),
+        )
+        for name, operation in operations:
+            try:
+                operation()
+            except Exception as exc:
+                self.errors_buffer.append(f"persist:{name}:{type(exc).__name__}")
+
+    def _publicar_contexto_cognitivo(self, stimulus: Stimulus, resultado) -> None:
+        self.recent_changes_buffer.append(stimulus)
+        try:
+            self.cognitive_publisher.publish(
+                stimulus,
+                resultado.resultado_percepcao,
+                resultado.impacto,
+                resultado.resultado_foco_emocao,
+                tuple(self.recent_changes_buffer),
+            )
+            self.bridge_last_publish_at = stimulus.timestamp
+            self.bridge_last_publish_stimulus_id = stimulus.stimulus_id
+            self.bridge_current_error = None
+        except Exception as exc:
+            error = f"publish:{type(exc).__name__}"
+            self.bridge_current_error = error
+            self.cognitive_bridge_errors_buffer.append(error)
+
+    def processar(self, stimulus: Stimulus):
+        routed = self._normalizar(stimulus)
+        if routed is None:
+            return None
+        resultado = self.pipeline.processar(routed)
+        if resultado.aceito:
+            self._persistir(resultado)
+            self._publicar_contexto_cognitivo(routed, resultado)
+        return resultado
+
+def _load_perception(path: Path):
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("versao_esquema") != 1:
+        raise ValueError("config_percepcao versao_esquema deve ser 1")
+    configs = {
+        source: ConfigFontePercepcao(
+            source,
+            data["entidade_id"],
+            tuple(data["campos_alcance"]),
+            data["confianca"],
+        )
+        for source, data in payload["fontes"].items()
+    }
+    policy = PoliticaConfirmacaoPercepcao(**payload["politica"])
+    caps = payload["capacidades"]
+    graph = GrafoDependencias(int(caps["arestas_grafo"]))
+    for dependent, dependency in payload.get("dependencias", ()):
+        graph.adicionar_dependencia(dependent, dependency)
+    return configs, policy, caps, graph
+
+
+def _load_focus(path: Path):
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != 1:
+        raise ValueError("config_foco_emocao schema_version deve ser 1")
+    return PoliticaFoco(**payload["foco"]), int(payload["emocao"]["capacidade_nuances"])
+
+def build_affective_composition(
+    *,
+    config_root: Path,
+    state_dir: Path,
+    now: Callable[[], str],
+    id_factory: Callable[[], str],
+    expected_sha: str | None = None,
+) -> AffectiveComposition:
+    config_root = Path(config_root)
+    state_dir = Path(state_dir)
+    instant = now()
+    affective_cfg = carregar_configuracao_afetiva(config_root / "config_afetiva.json")
+    cognitive_cfg = carregar_configuracao_cognitiva(config_root / "config_cognitiva.json")
+    pipeline_cfg = carregar_config_observation_affective(config_root / "config_observation_affective.json")
+    source_cfgs, perception_policy, perception_caps, graph = _load_perception(config_root / "config_percepcao.json")
+    focus_policy, nuance_capacity = _load_focus(config_root / "config_foco_emocao.json")
+
+    repo_a1 = RepositorioEstadoAfetivo(state_dir / "affective-state.json")
+    repo_a2 = RepositorioContextoAfetivo(
+        state_dir / "affective-context.json",
+        max(8, pipeline_cfg.capacidade_incidentes * 2),
+    )
+    repo_a3 = RepositorioPercepcaoCorrelacao(state_dir / "perception-correlation.json")
+    repo_a4 = RepositorioFocoEmocao(state_dir / "focus-emotion.json")
+    restored_a1 = restaurar_estado(repo_a1, affective_cfg.personalidade, affective_cfg.decaimento, instant)
+    restored_a2 = restaurar_contexto(repo_a2)
+    restored_a3 = repo_a3.restaurar()
+    restored_a4 = restaurar_foco_emocao(repo_a4)
+
+    motor = MotorEstadoAfetivo(affective_cfg.personalidade, affective_cfg.decaimento,
+                               restored_a1.estado, now)
+    perception = PipelinePercepcaoCorrelacao(
+        source_cfgs, perception_policy, graph,
+        capacidade_evidencias_por_entidade=int(perception_caps["evidencias_por_entidade"]),
+        capacidade_incidentes=int(perception_caps["incidentes"]),
+        max_entidades_por_incidente=int(perception_caps["entidades_por_incidente"]),
+        id_factory=id_factory,
+    )
+    perception.restaurar(restored_a3.percepcoes, restored_a3.incidentes)
+    visual_runtime = AffectiveRuntime(
+        CompositorVisualAfetivo(),
+        VisualStatePublisher(state_dir / "visual-state.json"),
+        interacao_inicial=EstadoInteracaoVisual(atualizado_em=instant),
+    )
+    if (
+        restored_a4.snapshot is not None
+        and restored_a4.snapshot.estado_afetivo.atualizado_em == restored_a1.estado.atualizado_em
+    ):
+        visual_runtime.atualizar_resultado(restored_a4.snapshot)
+
+    focus_context = ContextoFocoEmocao(focus_policy, nuance_capacity)
+    pipeline = PipelineAfetivoObservacional(
+        pipeline_percepcao=perception,
+        contexto_afetivo=restored_a2.contexto,
+        adaptador=AdaptadorImpactoAfetivo(pipeline_cfg.impacto),
+        motor_afetivo=motor,
+        contexto_foco_emocao=focus_context,
+        affective_runtime=visual_runtime,
+        capacidade_stimulus_ids=pipeline_cfg.capacidade_stimulus_ids,
+        capacidade_incidentes=pipeline_cfg.capacidade_incidentes,
+        capacidade_assuntos=pipeline_cfg.capacidade_assuntos,
+        capacidade_erros=pipeline_cfg.capacidade_erros,
+        janela_reincidencia_s=pipeline_cfg.janela_reincidencia_s,
+        limite_repeticoes=pipeline_cfg.limite_repeticoes,
+    )
+    errors = deque(maxlen=pipeline_cfg.capacidade_erros)
+    diagnostics = deque(maxlen=pipeline_cfg.capacidade_erros)
+    bridge_errors = deque(maxlen=pipeline_cfg.capacidade_erros)
+    recent_changes = deque(maxlen=cognitive_cfg.contexto.max_mudancas_recentes)
+    cognitive_publisher = CognitiveObservationPublisher(
+        state_dir / "cognitive-observation-context.json",
+        cognitive_cfg.contexto,
+        expected_sha=expected_sha or "",
+    )
+    for origin, result in (
+        ("a1", restored_a1), ("a2", restored_a2), ("a3", restored_a3), ("a4", restored_a4),
+    ):
+        if getattr(result, "erro", None):
+            errors.append(f"restore:{origin}:{type(getattr(result, 'erro')).__name__}")
+    restoration = {
+        "a1": getattr(restored_a1.origem, "value", str(restored_a1.origem)),
+        "a2": getattr(restored_a2.origem, "value", str(restored_a2.origem)),
+        "a3": getattr(restored_a3.origem, "value", str(restored_a3.origem)),
+        "a4": str(restored_a4.origem),
+    }
+    return AffectiveComposition(
+        pipeline=pipeline, runtime_visual=visual_runtime, pipeline_percepcao=perception,
+        contexto_afetivo=restored_a2.contexto, motor_afetivo=motor,
+        repo_a1=repo_a1, repo_a2=repo_a2, repo_a3=repo_a3, repo_a4=repo_a4,
+        allowed_sources=frozenset(source_cfgs), restoration=restoration,
+        errors_buffer=errors, diagnostics_buffer=diagnostics,
+        cognitive_publisher=cognitive_publisher,
+        recent_changes_buffer=recent_changes,
+        cognitive_bridge_errors_buffer=bridge_errors,
+    )

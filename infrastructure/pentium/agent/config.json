@@ -1,9 +1,34 @@
 {
-  "schema_version": 1,
-  "x99": {
-    "user": "deral",
-    "host": "100.101.23.111",
-    "identity_file": "~/.ssh/id_ed25519_x99",
-    "connect_timeout_seconds": 5
-  }
+  "schema_version": 2,
+  "control_audit_file": "~/.local/state/devex-homelab/control-audit.jsonl",
+  "managed_hosts": [
+    {
+      "host_id": "core",
+      "enrollment": "MANAGED",
+      "user": "deraldinho",
+      "host": "100.97.105.116",
+      "identity_file": "~/.ssh/id_ed25519_core_control",
+      "known_hosts_file": "~/.ssh/known_hosts_core",
+      "platform": "linux",
+      "allowed_reads": ["cpu", "memory", "disk", "uptime", "temperature", "services", "processes", "network", "containers", "logs"],
+      "allowed_controls": [],
+      "allowed_services": [],
+      "connect_timeout_seconds": 5,
+      "max_output_bytes": 65536
+    },
+    {
+      "host_id": "x99",
+      "enrollment": "MANAGED",
+      "user": "deral",
+      "host": "100.101.23.111",
+      "identity_file": "~/.ssh/id_ed25519_x99_control",
+      "known_hosts_file": "~/.ssh/known_hosts_x99",
+      "platform": "windows",
+      "allowed_reads": ["cpu", "memory", "disk", "uptime", "temperature", "services", "processes", "network", "containers", "logs"],
+      "allowed_controls": [],
+      "allowed_services": [],
+      "connect_timeout_seconds": 5,
+      "max_output_bytes": 65536
+    }
+  ]
 }

@@ -1,15 +1,14 @@
 import io
 import json
-import sys
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from agent import Agent
-from cli import main
+from infrastructure.pentium.agent.agent import Agent
+from infrastructure.pentium.agent.cli import build_control_service, load_config, main
+from infrastructure.pentium.agent.managed_control import ControlAuthorization, ManagedControlOperation
+from infrastructure.pentium.agent.ssh_transport import SshResult
 
 
 class AgentCliTests(unittest.TestCase):
@@ -28,3 +27,52 @@ class AgentCliTests(unittest.TestCase):
             exit_code = main(["x99.shell"], agent=agent)
         self.assertEqual(exit_code, 2)
         self.assertIn("unknown action", error.getvalue())
+
+    def test_schema_v2_requires_explicit_managed_host_contract(self):
+        payload = {
+            "schema_version": 2,
+            "managed_hosts": [{
+                "host_id": "x99",
+                "enrollment": "MANAGED",
+                "user": "deral",
+                "host": "192.168.88.20",
+                "identity_file": "~/.ssh/id_ed25519_x99",
+                "known_hosts_file": "~/.ssh/known_hosts",
+                "platform": "windows",
+                "allowed_reads": ["uptime", "memory"],
+                "connect_timeout_seconds": 5,
+                "max_output_bytes": 65536,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            loaded = load_config(path)
+        self.assertEqual(loaded["schema_version"], 2)
+        self.assertEqual(loaded["managed_hosts"][0]["known_hosts_file"], "~/.ssh/known_hosts")
+
+    def test_build_control_service_uses_configured_allowlist_and_audit(self):
+        class FakeTransport:
+            def run(self, target, command):
+                return SshResult(0, "", "")
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = {
+                "schema_version": 2,
+                "control_audit_file": str(Path(tmp) / "audit.jsonl"),
+                "managed_hosts": [{
+                    "host_id": "x99", "enrollment": "MANAGED", "user": "deral", "host": "10.0.0.9",
+                    "identity_file": "key", "known_hosts_file": "known_hosts", "platform": "linux",
+                    "allowed_reads": ["uptime"], "allowed_controls": ["restart_service"],
+                    "allowed_services": ["docker"]
+                }],
+            }
+            path = Path(tmp) / "config.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            service = build_control_service(path, transport=FakeTransport())
+            result = service.execute(ControlAuthorization(True, "x99", ManagedControlOperation.RESTART_SERVICE, "docker", reason="test"))
+            self.assertEqual(result["status"], "success")
+            self.assertTrue((Path(tmp) / "audit.jsonl").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

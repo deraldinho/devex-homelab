@@ -1,0 +1,23 @@
+[Unit]
+Description=Atlas Discord conversation gateway
+After=network-online.target atlas-cognitive.service
+Wants=network-online.target atlas-cognitive.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/pentium-agent
+EnvironmentFile=-%h/pentium-agent/atlas/runtime/discord.env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env %h/pentium-agent/.venv-discord/bin/python -m atlas.discord_gateway
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/pentium-agent/atlas/runtime
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=default.target

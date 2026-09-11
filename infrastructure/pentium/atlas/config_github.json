@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "repositories": [
+    "deraldinho/devex-homelab",
+    "deraldinho/L2jToren"
+  ]
+}
