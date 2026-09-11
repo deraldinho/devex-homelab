@@ -166,6 +166,11 @@ class CognitiveDaemon:
             return mode,intent,fingerprint
         except Exception as exc:
             self._emit_action_event("continuous_intent_error",{"error":type(exc).__name__})
+            if self._intent_publisher is not None:
+                try:
+                    self._intent_publisher.publish(None,communication_mode="normal",material_fingerprint="")
+                except Exception as publish_exc:
+                    self._emit_action_event("continuous_intent_publish_error",{"error":type(publish_exc).__name__})
             return "normal",None,""
 
     def _process_action_plan(self,snapshot,response,*,trigger_kind="observation",chat_route=None,communication_mode="normal"):

@@ -106,14 +106,20 @@ class CognitiveContinuousIntentFallbackTests(unittest.TestCase):
         loop=FakeLoop(); events=[]
         class BrokenSelector:
             def select(self,*args,**kwargs): raise RuntimeError("selector")
+        published=FakeIntentPublisher()
         daemon=CognitiveDaemon(
             lambda:snapshot("s1"), lambda:{}, loop, FakeObservable(),
             behavior_selector=BrokenSelector(),
             intent_machine=ContinuousIntentMachine(id_factory=lambda:"i1"),
             habituation_engine=HabituationEngine(clock=lambda:10.0),
+            intent_publisher=published,
             event_sink=lambda kind,payload:events.append((kind,payload)),
         )
         response=daemon.run_once()
         self.assertTrue(response.ativado)
         self.assertEqual(1,len(loop.calls))
         self.assertEqual("continuous_intent_error",events[0][0])
+        self.assertEqual(1, len(published.items))
+        self.assertIsNone(published.items[0][0])
+        self.assertEqual("normal", published.items[0][1])
+        self.assertEqual("", published.items[0][2])
