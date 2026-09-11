@@ -10,6 +10,9 @@
       this.host = host;
       this.ready = false;
       this.state = null;
+      this.baseState = null;
+      this.intentBehavior = null;
+      this.intentBehaviorUntil = 0;
       this.app = null;
       this.rig = null;
       this.startedAt = performance.now();
@@ -131,9 +134,26 @@
 
     render(state) {
       if (!this.ready || !state || !MODES.has(state.modo) || !EXPRESSIONS.has(state.expressao)) return false;
-      this.state = state;
+      this.baseState = state;
+      const visual = this.intentBehavior?.visual || null;
+      this.state = visual ? Object.freeze({ ...state, ...visual }) : state;
       this.#applyState();
       return true;
+    }
+
+    applyIntentBehavior(behavior) {
+      const next = behavior && typeof behavior === 'object' ? behavior : { clear: true };
+      if (next.clear) {
+        this.intentBehavior = null; this.intentBehaviorUntil = 0;
+        if (this.baseState) { this.state = this.baseState; this.#applyState(); }
+        if (next.returnToPatrol) { this.petMode = 'PATROL'; this.walking = true; }
+        return;
+      }
+      this.intentBehavior = next;
+      this.intentBehaviorUntil = next.oneShot ? performance.now() + Math.max(300, Number(next.durationMs) || 1600) : Number.POSITIVE_INFINITY;
+      if (next.target) this.visitPanel(next.target);
+      if (next.petMode === 'SIT') { this.petMode = 'SIT'; this.walking = false; this.sitDwellTime = Number.POSITIVE_INFINITY; }
+      if (this.baseState) { this.state = Object.freeze({ ...this.baseState, ...(next.visual || {}) }); this.#applyState(); }
     }
 
     triggerPoke() {
@@ -585,7 +605,7 @@
       r.armR._targetRotation = rightGesture ? (g === 'ESCUTA' ? .48 : g === 'ABERTO' ? .22 : g === 'SURPRESA' ? -.34 : g === 'ACENO' ? .58 : -.08) : -.08;
       r.forearmL._targetRotation = leftGesture ? (g === 'ACENO' ? -.45 : g === 'DUVIDA' ? -.2 : 0) : 0;
       r.forearmR._targetRotation = rightGesture ? (g === 'ESCUTA' ? -.62 : g === 'ABERTO' ? .12 : g === 'SURPRESA' ? .28 : g === 'ACENO' ? -.36 : 0) : 0;
-      r.torso._semanticRotation = semanticPosture === 'ABERTO' ? -.015 : semanticPosture === 'FECHADO' ? .025 : 0;
+      r.torso._semanticRotation = semanticPosture === 'ABERTO' ? -.015 : semanticPosture === 'FECHADO' ? .025 : semanticPosture === 'ATENTO' ? -.008 : 0;
 
       const pressure = s.expressao === 'SOB_PRESSAO' || s.expressao === 'PREOCUPADO';
       r.browL._targetRotation = pressure ? -.12 : (s.expressao === 'CURIOSO' ? .10 : 0);
@@ -633,6 +653,12 @@
       const s = this.state, r = this.rig;
       const dt = Math.min(.05, Math.max(0, deltaMs / 1000));
       const now = performance.now();
+      if (this.intentBehavior && Number.isFinite(this.intentBehaviorUntil) && now >= this.intentBehaviorUntil) {
+        const returnToPatrol = Boolean(this.intentBehavior.returnToPatrol);
+        this.intentBehavior = null; this.intentBehaviorUntil = 0;
+        if (this.baseState) { this.state = this.baseState; this.#applyState(); }
+        if (returnToPatrol) { this.petMode = 'PATROL'; this.walking = true; this.nextPatrolTime = now + 1200; }
+      }
       const t = (now - this.startedAt) / 1000;
       const motion = this.reducedMotion ? 0 : s.intensidade_movimento;
       const alive = this.motion.step({ ...s, intensidade_movimento: motion }, dt, t);
@@ -666,7 +692,8 @@
       else if (this.petMode === 'POKE') {
         hopY = -Math.abs(Math.sin((now - (this.pokeUntil - 1200)) * 0.012)) * 22;
         if (now >= this.pokeUntil) {
-          this.petMode = 'PATROL';
+          if (this.intentBehavior?.petMode === 'SIT') { this.petMode = 'SIT'; this.walking = false; this.sitDwellTime = Number.POSITIVE_INFINITY; }
+          else this.petMode = 'PATROL';
           if (r.sparkles) r.sparkles.visible = false;
         }
       }
