@@ -479,31 +479,50 @@
       vectorRig.visible = !hasSprites;
       vectorRig.addChild(legL, legR, hairBack, torso, L.upper, R.upper, head);
 
-      // Sprites Anime 2D de Alta Resolucao (Pet Shimeji Poses)
+      // Sprites e Mesh 2D Deformavel (FFD - Free-Form Deformation)
       const spriteContainer = new PIXI.Container();
       spriteContainer.name = "spriteContainer";
       spriteContainer.visible = hasSprites;
 
-      const spriteStanding = hasSprites ? new PIXI.Sprite(textures.stand) : PIXI.Sprite.from('/assets/atlas-pet-standing.png');
-      spriteStanding.name = "spriteStanding";
-      spriteStanding.anchor.set(0.513, 0.98);
-      spriteStanding.position.set(0, 114);
-      spriteStanding.scale.set(0.208);
+      const COLS = 8, ROWS = 12;
+      function createDeformableMesh(tex, name, anchorY = 0.98) {
+        if (!tex) return null;
+        if (PIXI.MeshPlane) {
+          try {
+            const mesh = new PIXI.MeshPlane({ texture: tex, verticesX: COLS, verticesY: ROWS });
+            mesh.name = name;
+            mesh.pivot.set(tex.width * 0.513, tex.height * anchorY);
+            mesh.position.set(0, 114);
+            mesh.scale.set(0.208);
+            const orig = new Float32Array(mesh.geometry.buffers[0].data);
+            return { mesh, orig };
+          } catch (e) {
+            console.warn("[AtlasAvatarEngine] MeshPlane creation failed, using Sprite fallback:", e);
+          }
+        }
+        const spr = new PIXI.Sprite(tex);
+        spr.name = name;
+        spr.anchor.set(0.513, anchorY);
+        spr.position.set(0, 114);
+        spr.scale.set(0.208);
+        return { mesh: spr, orig: null };
+      }
+
+      const resStand = hasSprites ? createDeformableMesh(textures.stand, "spriteStanding", 0.98) : null;
+      const resSit = hasSprites ? createDeformableMesh(textures.sit, "spriteSitting", 0.96) : null;
+      const resPoke = hasSprites ? createDeformableMesh(textures.poke, "spritePoke", 0.98) : null;
+
+      const spriteStanding = resStand?.mesh || PIXI.Sprite.from('/assets/atlas-pet-standing.png');
+      const spriteSitting = resSit?.mesh || PIXI.Sprite.from('/assets/atlas-pet-sitting.png');
+      const spritePoke = resPoke?.mesh || PIXI.Sprite.from('/assets/atlas-pet-poke.png');
+
       spriteStanding.visible = true;
-
-      const spriteSitting = hasSprites ? new PIXI.Sprite(textures.sit) : PIXI.Sprite.from('/assets/atlas-pet-sitting.png');
-      spriteSitting.name = "spriteSitting";
-      spriteSitting.anchor.set(0.513, 0.96);
-      spriteSitting.position.set(0, 114);
-      spriteSitting.scale.set(0.208);
       spriteSitting.visible = false;
-
-      const spritePoke = hasSprites ? new PIXI.Sprite(textures.poke) : PIXI.Sprite.from('/assets/atlas-pet-poke.png');
-      spritePoke.name = "spritePoke";
-      spritePoke.anchor.set(0.513, 0.98);
-      spritePoke.position.set(0, 114);
-      spritePoke.scale.set(0.208);
       spritePoke.visible = false;
+
+      const origStanding = resStand?.orig || null;
+      const origSitting = resSit?.orig || null;
+      const origPoke = resPoke?.orig || null;
 
       spriteContainer.addChild(spriteStanding, spriteSitting, spritePoke);
 
@@ -538,6 +557,9 @@
         spriteStanding,
         spriteSitting,
         spritePoke,
+        origStanding,
+        origSitting,
+        origPoke,
       };
     }
 
@@ -737,6 +759,15 @@
       }
       r.head.rotation = M.smoothExp(r.head.rotation, headTilt, dt, 9);
 
+      // Deformacao de Malha 2D (FFD): articulacao organica de respiracao, cabelo e pernas
+      if (this.petMode === 'SIT' && r.origSitting) {
+        this.#deformMesh(r.spriteSitting, r.origSitting, 8, 12, dt, t, { hairLag: alive.hairLag, headTilt }, false, this.stepPhase, this.petMode);
+      } else if (this.petMode === 'POKE' && r.origPoke) {
+        this.#deformMesh(r.spritePoke, r.origPoke, 8, 12, dt, t, { hairLag: alive.hairLag, headTilt }, false, this.stepPhase, this.petMode);
+      } else if (r.origStanding) {
+        this.#deformMesh(r.spriteStanding, r.origStanding, 8, 12, dt, t, { hairLag: alive.hairLag, headTilt }, isWalking, this.stepPhase, this.petMode);
+      }
+
       // Braços no Walk Cycle contralateral
       r.armL.rotation = M.smoothExp(r.armL.rotation, (r.armL._targetRotation || 0) - armSwing, dt, 7);
       r.armR.rotation = M.smoothExp(r.armR.rotation, (r.armR._targetRotation || 0) + armSwing, dt, 7);
@@ -791,6 +822,77 @@
       if (r.hudPanel && r.hudPanel.visible) {
         r.hudPanel.y = -44 + Math.sin(t * 2.2) * 3;
       }
+    }
+
+    #deformMesh(mesh, orig, cols, rows, dt, t, state, isWalking, stepPhase, petMode) {
+      if (!mesh?.geometry?.buffers?.[0]?.data || !orig) return;
+      const buf = mesh.geometry.buffers[0];
+      const verts = buf.data;
+      const isSit = petMode === 'SIT';
+      const isPoke = petMode === 'POKE';
+
+      const breath = Math.sin(t * 2.2) * 3.2;
+      const hairWave = Math.sin(t * 3.6) * 4.5 + (state.hairLag || 0) * 22;
+      const walkLeg = isWalking ? Math.sin(stepPhase) * 14 : 0;
+      const headTilt = state.headTilt || 0;
+
+      for (let r = 0; r < rows; r++) {
+        const vY = r / (rows - 1);
+        let hairOffset = 0;
+        if (vY < 0.38) {
+          const hairWeight = (1 - (vY / 0.38));
+          hairOffset = Math.sin(t * 3.2 + vY * 3.8) * hairWave * hairWeight;
+        }
+        let chestExpand = 0;
+        if (vY >= 0.28 && vY <= 0.68) {
+          const chestWeight = Math.sin(((vY - 0.28) / 0.40) * Math.PI);
+          chestExpand = breath * chestWeight;
+        }
+
+        for (let c = 0; c < cols; c++) {
+          const idx = (r * cols + c) * 2;
+          const ox = orig[idx];
+          const oy = orig[idx + 1];
+          const vX = c / (cols - 1);
+          const signX = vX < 0.5 ? -1 : 1;
+
+          let dx = signX * chestExpand;
+          dx += hairOffset * (vX < 0.35 ? 1.3 : vX > 0.65 ? 1.3 : 0.35);
+
+          let dy = 0;
+
+          if (vY < 0.40) {
+            dx += headTilt * (0.40 - vY) * 65;
+          }
+
+          if (vY > 0.62 && isWalking) {
+            const legWeight = (vY - 0.62) / 0.38;
+            if (vX < 0.5) {
+              dy -= Math.abs(walkLeg) * legWeight * 0.45;
+              dx += walkLeg * legWeight * 0.85;
+            } else {
+              dy -= Math.abs(-walkLeg) * legWeight * 0.45;
+              dx -= walkLeg * legWeight * 0.85;
+            }
+          }
+
+          if (vY > 0.68 && isSit) {
+            const sitWeight = (vY - 0.68) / 0.32;
+            dx += Math.sin(t * 3.0 + c * 0.8) * 3.0 * sitWeight;
+            dy -= 8 * sitWeight;
+          }
+
+          if (isPoke) {
+            const squash = Math.sin(t * 16.0) * 4.5;
+            dy += (vY - 0.5) * squash;
+            dx -= signX * squash * 0.6;
+          }
+
+          verts[idx] = ox + dx;
+          verts[idx + 1] = oy + dy;
+        }
+      }
+      buf.update();
     }
   }
 
