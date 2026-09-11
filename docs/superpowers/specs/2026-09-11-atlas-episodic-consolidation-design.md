@@ -18,7 +18,7 @@ A slice reduz write-through de eventos isolados, agrupa experiências coerentes 
 
 ## Fluxo canônico
 
-`observação validada -> EpisodicBuffer -> Segmentador -> episódio OPEN -> fechamento -> EpisodicConsolidator -> MemoryManager.remember -> MemoryStore`
+`observação validada -> adapter -> EpisodicBuffer -> Segmentador -> episódio OPEN -> fechamento -> EpisodicConsolidator -> persistência exactly-once -> MemoryStore + provenance`
 
 A leitura permanece:
 
@@ -45,6 +45,10 @@ Um segmento OPEN fecha quando ocorrer a primeira condição aplicável:
 
 Mudança de geração fecha o segmento anterior com `closure_reason=generation_fence`; eventos da nova geração nunca são anexados ao segmento antigo.
 
+## Bounds e configuração
+
+Além dos limites por segmento (`max_events` e `max_bytes`), a M2 define `max_open_segments`, `max_pending_bytes` e `idle_timeout_s`. Todos os valores efetivos no runtime devem ser positivos; saturação fecha ou rejeita de forma determinística sem crescimento ilimitado. Para preservar compatibilidade do `config_memory.json` schema 1, o loader aceita ausência das novas chaves e aplica defaults seguros; quando presentes, elas são validadas explicitamente. A versão interna do banco SQLite permanece independente desse schema de configuração.
+
 ## Consolidação
 
 O consolidator produz no máximo um conjunto pequeno e bounded de `MemoryRecord` a partir de um segmento CLOSED. A primeira versão usa regras determinísticas para conteúdo, score e deduplicação. Um summarizer por LLM poderá ser plugado depois apenas como produtor de `MemoryCandidate`, sujeito à mesma validação do `MemoryManager`.
@@ -57,21 +61,27 @@ A provenance preserva a origem de cada memória consolidada sem armazenar payloa
 
 Memórias consolidadas recebem confiança calculada a partir das evidências aceitas; evidência não verificada ou de baixa confiabilidade não pode elevar a confiança final.
 
-## Generation fencing
+## Generation fencing e restart
 
-`generation_id` identifica a geração lógica do runtime/contexto que produziu o evento. O buffer rejeita append em segmento cuja geração difere da evidência. O consolidator rejeita segmentos com mistura de gerações, mesmo que o store esteja corrompido ou tenha sido manipulado externamente.
+`generation_id` identifica a execução lógica do runtime que produziu o evento e muda a cada novo processo/runtime. O buffer rejeita append em segmento cuja geração difere da evidência. O consolidator rejeita segmentos com mistura de gerações, mesmo que o store esteja corrompido ou tenha sido manipulado externamente.
+
+Um segmento OPEN recuperado após restart pertence necessariamente à geração anterior. Ele é carregado apenas para recuperação, fechado com `closure_reason=restart_recovery` e consolidado de forma idempotente; nenhum evento da nova geração pode ser anexado a ele. Isso preserva eventos pendentes sem enfraquecer a fence.
 
 O `MemoryRetriever` não precisa esconder memórias históricas de gerações anteriores por padrão; geração é provenance, não TTL. Porém, memórias WORKING ou candidatos ainda não consolidados nunca atravessam a fence.
 
-## Persistência e schema
+## Persistência, provenance e schema
 
-O `MemoryStore` evolui de schema v1 para v2 por migração transacional e idempotente. A tabela `memories` mantém compatibilidade lógica, enquanto novas tabelas armazenam segmentos e evidências com foreign keys e índices por `status`, `generation_id`, `entity_id` e tempo.
+O schema interno do banco evolui de v1 para v2 por migração transacional e idempotente. Essa versão de banco é independente do `schema_version` do arquivo `config_memory.json`, que continua versionando apenas o contrato de configuração.
 
-A migração v1 -> v2 não apaga nem reescreve memórias existentes. Versão desconhecida continua falhando fechado. Segmentos CLOSED só são marcados `CONSOLIDATED` depois que o `MemoryManager.remember` confirma persistência.
+A tabela `memories` mantém compatibilidade lógica. Novas tabelas armazenam segmentos, evidências e `memory_provenance`, com foreign keys e índices por `status`, `generation_id`, `entity_id` e tempo. `MemoryRecord` não recebe campos novos de provenance nesta slice; o vínculo é externo por `memory_id`, preservando callers M1.
 
-## Integração e compatibilidade
+A migração v1 -> v2 não apaga nem reescreve memórias existentes. Versão desconhecida continua falhando fechado. A consolidação usa uma operação transacional e idempotente, conceitualmente `remember_consolidated(segment_id, records, provenance)`, que grava memória, provenance e transição `CLOSED -> CONSOLIDATED` na mesma transação SQLite. Reprocessar o mesmo `segment_id` não pode incrementar `frequency` nem criar efeitos duplicados.
 
-Nenhum caller existente de `MemoryRetriever` ou `ReactionLoopCognitivo` muda nesta slice. A nova ingestão episódica é adicionada antes de `MemoryManager.remember`; caminhos legados que gravam memória diretamente continuam válidos até migração explícita e mensurável.
+## Integração, ingestão e compatibilidade
+
+Nenhum caller existente de `MemoryRetriever` ou `ReactionLoopCognitivo` muda nesta slice. A nova ingestão episódica entra antes da persistência canônica, mas não recebe `Stimulus.payload` bruto.
+
+Para infraestrutura, apenas percepção validada/correlação ou outro resultado determinístico aceito passa por um adapter explícito que produz `EpisodicEvidence` reduzida. Interação humana, desenvolvimento/GitHub e novas fontes exigem adapters próprios, com allowlist de campos, redução de conteúdo e política de reliability. Caminhos legados que gravam memória diretamente continuam válidos até migração explícita e mensurável.
 
 `ContextoAfetivo`, vínculos, expectativas e experiências operacionais não são reimplementados nem espelhados automaticamente em memória técnica. Quando uma experiência afetiva gerar uma memória relacional no futuro, isso exigirá um adaptador explícito e testado.
 
@@ -82,11 +92,12 @@ Métricas mínimas: `episodes_open`, `episodes_closed_total`, `episode_events_to
 ## Testes e gates
 
 - TDD para modelo, buffer, fechamento, fencing, store e consolidator.
-- Teste de restart com segmento OPEN persistido e retomado sem duplicação.
+- Teste de restart com segmento OPEN da geração anterior: recuperação fecha como `restart_recovery`, consolida uma única vez e não aceita append da nova geração.
 - Teste de mistura de gerações deve falhar fechado.
 - Teste de fechamento por evento terminal, idle, bytes e quantidade.
-- Teste de transação: falha ao persistir memória mantém segmento CLOSED e reprocessável.
-- Teste de idempotência: reprocessar segmento consolidado não cria memória duplicada.
+- Testes de saturação para `max_open_segments` e `max_pending_bytes` sem crescimento ilimitado.
+- Teste de transação: falha antes do commit mantém segmento CLOSED e reprocessável sem memória parcial.
+- Teste exactly-once: crash/retry do mesmo `segment_id` não duplica memória, provenance nem `frequency`.
 - Teste de regressão do Reaction Loop e do `ContextoAfetivo` sem alteração comportamental.
 - Teste de migração v1 -> v2 preservando todas as memórias existentes.
 - Suite M1 existente deve permanecer GREEN.
