@@ -62,6 +62,12 @@ for file in \
   memory_manager.py \
   memory_retriever.py \
   config_memory.py \
+  episodic_model.py \
+  episodic_metrics.py \
+  episodic_buffer.py \
+  episodic_consolidator.py \
+  episodic_adapters.py \
+  episodic_ingestion.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
@@ -124,6 +130,12 @@ python3 -m py_compile \
   "${TARGET_DIR}/memory_manager.py" \
   "${TARGET_DIR}/memory_retriever.py" \
   "${TARGET_DIR}/config_memory.py" \
+  "${TARGET_DIR}/episodic_model.py" \
+  "${TARGET_DIR}/episodic_metrics.py" \
+  "${TARGET_DIR}/episodic_buffer.py" \
+  "${TARGET_DIR}/episodic_consolidator.py" \
+  "${TARGET_DIR}/episodic_adapters.py" \
+  "${TARGET_DIR}/episodic_ingestion.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
@@ -148,4 +160,5 @@ echo "ATLAS_COGNITIVO_C3_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C4_INSTALL_PASS"
 echo "ATLAS_COGNITIVO_C5_HARNESS_INSTALL_PASS"
 echo "ATLAS_MEMORY_M1_INSTALL_PASS"
+echo "ATLAS_MEMORY_M2_INSTALL_PASS"
 echo "run=cd ${TARGET_ROOT} && python3 -m atlas.cli --input <snapshot.json>"

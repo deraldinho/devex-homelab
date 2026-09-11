@@ -31,6 +31,7 @@ class PipelinePercepcaoCorrelacao:
         capacidade_incidentes: int,
         max_entidades_por_incidente: int,
         id_factory: Callable[[], str],
+        episodic_sink: Callable[[ResultadoPipelinePercepcaoCorrelacao], None] | None = None,
     ):
         if capacidade_evidencias_por_entidade <= 0:
             raise ValueError("capacidade_evidencias_por_entidade deve ser > 0")
@@ -46,6 +47,7 @@ class PipelinePercepcaoCorrelacao:
             max_entidades_por_incidente=max_entidades_por_incidente,
             id_factory=id_factory,
         )
+        self._episodic_sink = episodic_sink
 
     def processar(self, stimulus: Stimulus) -> ResultadoPipelinePercepcaoCorrelacao:
         config = self._configs.get(stimulus.source)
@@ -74,7 +76,13 @@ class PipelinePercepcaoCorrelacao:
         )
         self._percepcoes[entidade_id] = percepcao
         incidentes = self._correlacionador.atualizar(self._percepcoes, stimulus.timestamp)
-        return ResultadoPipelinePercepcaoCorrelacao(True, percepcao, incidentes)
+        result = ResultadoPipelinePercepcaoCorrelacao(True, percepcao, incidentes)
+        if self._episodic_sink is not None:
+            try:
+                self._episodic_sink(result)
+            except Exception:
+                pass
+        return result
 
     def percepcoes(self) -> tuple[EstadoPercepcao, ...]:
         return tuple(self._percepcoes[chave] for chave in sorted(self._percepcoes))
