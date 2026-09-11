@@ -157,6 +157,7 @@ def build_affective_composition(
     now: Callable[[], str],
     id_factory: Callable[[], str],
     expected_sha: str | None = None,
+    episodic_sink: Callable | None = None,
 ) -> AffectiveComposition:
     config_root = Path(config_root)
     state_dir = Path(state_dir)
@@ -187,6 +188,7 @@ def build_affective_composition(
         capacidade_incidentes=int(perception_caps["incidentes"]),
         max_entidades_por_incidente=int(perception_caps["entidades_por_incidente"]),
         id_factory=id_factory,
+        episodic_sink=episodic_sink,
     )
     perception.restaurar(restored_a3.percepcoes, restored_a3.incidentes)
     visual_runtime = AffectiveRuntime(

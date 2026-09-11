@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from contextlib import ExitStack
 from datetime import datetime, timezone
 import json
 import os
@@ -25,6 +26,10 @@ from .affective_composition import AffectiveComposition, build_affective_composi
 from .affective_interaction_ipc import InteractionDatagramListener
 from .dual_zone_runtime import build_dual_zone_runtime
 from .github_observation import GitHubCliClient, build_github_sources
+from .config_memory import load_memory_config
+from .episodic_ingestion import EpisodicMemorySink
+from .memory_manager import MemoryManager, MemoryPolicy
+from .memory_store import MemoryStore
 from .local_health import collect_pentium_self
 from .observation_runtime import load_observation_config
 from .presence_persistence import PresenceRepository
@@ -63,7 +68,10 @@ class ObservationDaemonContext:
     cognitive_interaction_listener: object
     health_path: Path
     expected_sha: str | None
+    memory_store: MemoryStore
+    episodic_sink: EpisodicMemorySink
     last_cycle_at: str | None = None
+    memory_error: str | None = None
 
     def close(self) -> None:
         try:
@@ -72,7 +80,10 @@ class ObservationDaemonContext:
             try:
                 self.cognitive_interaction_listener.close()
             finally:
-                self.runtime.close()
+                try:
+                    self.runtime.close()
+                finally:
+                    self.memory_store.close()
 
 
 
@@ -152,41 +163,61 @@ def build_observation_context(
         max_devices=int(wifi_cfg["max_devices"]),
         repository=PresenceRepository(state_dir / "presence.json", max_devices=int(wifi_cfg["max_devices"])),
     )
-    composition = build_affective_composition(
-        config_root=config_root,
-        state_dir=state_dir,
-        now=_utc_now,
-        id_factory=lambda: str(uuid.uuid4()),
-        expected_sha=expected_sha,
-    )
-    bus = StimulusBus(capacity=128)
-    journal_path = state_dir / "stimulus.jsonl"
-    runtime = build_dual_zone_runtime(
-        wifi_source=wifi,
-        managed_read_service=service,
-        managed_hosts=managed_hosts,
-        local_sources=local_sources,
-        extra_sources=github_sources,
-        bus=bus,
-        journal=lambda stimulus: append_stimulus(
-            journal_path, stimulus, {"expected_sha": expected_sha}
-        ),
-        schedule=schedules,
-        accepted_stimulus_sink=composition.processar,
-    )
-    listener = interaction_listener or InteractionDatagramListener(
-        state_dir / "affective-interaction.sock",
-        composition.runtime_visual.atualizar_interacao,
-    )
-    cognitive_listener = cognitive_interaction_listener or _listener_or_null(
-        state_dir / "cognitive-interaction.sock",
-        composition.runtime_visual.atualizar_cognicao,
-    )
-    return ObservationDaemonContext(
-        runtime, bus, composition, listener, cognitive_listener,
-        state_dir / "observation-affective-health.json",
-        expected_sha,
-    )
+    memory_config = load_memory_config(config_root / "config_memory.json")
+    with ExitStack() as resources:
+        memory_store = MemoryStore(state_dir / "memory.sqlite3")
+        resources.callback(memory_store.close)
+        memory_policy = MemoryPolicy(
+            memory_config.max_records, memory_config.max_bytes,
+            memory_config.cleanup_ratio, memory_config.consolidate_ratio, memory_config.evict_ratio,
+        )
+        episodic_sink = EpisodicMemorySink(
+            memory_store, memory_config, MemoryManager(memory_store, memory_policy),
+            generation_id=str(uuid.uuid4()), id_factory=lambda: str(uuid.uuid4()),
+        )
+        episodic_sink.recover(_utc_now())
+        composition = build_affective_composition(
+            config_root=config_root,
+            state_dir=state_dir,
+            now=_utc_now,
+            id_factory=lambda: str(uuid.uuid4()),
+            expected_sha=expected_sha,
+            episodic_sink=episodic_sink,
+        )
+        bus = StimulusBus(capacity=128)
+        journal_path = state_dir / "stimulus.jsonl"
+        runtime = build_dual_zone_runtime(
+            wifi_source=wifi,
+            managed_read_service=service,
+            managed_hosts=managed_hosts,
+            local_sources=local_sources,
+            extra_sources=github_sources,
+            bus=bus,
+            journal=lambda stimulus: append_stimulus(
+                journal_path, stimulus, {"expected_sha": expected_sha}
+            ),
+            schedule=schedules,
+            accepted_stimulus_sink=composition.processar,
+        )
+        resources.callback(runtime.close)
+        listener = interaction_listener or InteractionDatagramListener(
+            state_dir / "affective-interaction.sock",
+            composition.runtime_visual.atualizar_interacao,
+        )
+        resources.callback(listener.close)
+        cognitive_listener = cognitive_interaction_listener or _listener_or_null(
+            state_dir / "cognitive-interaction.sock",
+            composition.runtime_visual.atualizar_cognicao,
+        )
+        resources.callback(cognitive_listener.close)
+        context = ObservationDaemonContext(
+            runtime, bus, composition, listener, cognitive_listener,
+            state_dir / "observation-affective-health.json",
+            expected_sha, memory_store, episodic_sink,
+        )
+        resources.pop_all()
+        return context
+
 
 def _drain_bus(bus: StimulusBus) -> None:
     while bus.poll() is not None:
@@ -200,7 +231,7 @@ def _health_payload(context: ObservationDaemonContext) -> dict:
     cognitive_interaction_errors = context.cognitive_interaction_listener.errors()
     bridge_status = context.composition.cognitive_bridge_status()
     bridge_error = bridge_status["current_error"]
-    status = "degraded" if runtime_errors or composition_errors or interaction_errors or cognitive_interaction_errors or bridge_error else "healthy"
+    status = "degraded" if runtime_errors or composition_errors or interaction_errors or cognitive_interaction_errors or bridge_error or context.memory_error else "healthy"
     return {
         "schema_version": 1,
         "status": status,
@@ -214,12 +245,14 @@ def _health_payload(context: ObservationDaemonContext) -> dict:
             "interaction": list(interaction_errors[-16:]),
             "cognitive_interaction": list(cognitive_interaction_errors[-16:]),
             "cognitive_bridge": [bridge_error] if bridge_error else [],
+            "episodic_memory": [context.memory_error] if context.memory_error else [],
         },
         "diagnostics": {
             "affective": list(context.composition.diagnostics()[-16:]),
             "cognitive_bridge": list(context.composition.cognitive_bridge_diagnostics()[-16:]),
         },
         "cognitive_bridge": bridge_status,
+        "episodic_memory": context.episodic_sink.metrics.snapshot(),
         "visual_present": (context.health_path.parent / "visual-state.json").is_file(),
     }
 
@@ -231,6 +264,11 @@ def run_daemon_cycle(context: ObservationDaemonContext) -> float:
     context.cognitive_interaction_listener.run_once(timeout_s=0.01)
     _drain_bus(context.bus)
     context.last_cycle_at = _utc_now()
+    try:
+        context.episodic_sink.flush_idle(context.last_cycle_at)
+        context.memory_error = None
+    except Exception as exc:
+        context.memory_error = type(exc).__name__
     _atomic_json(context.health_path, _health_payload(context))
     return delay
 
