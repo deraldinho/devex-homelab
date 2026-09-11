@@ -39,4 +39,3 @@
 
   window.AtlasAvatarMotion=Object.freeze({clamp,smoothExp,BlinkScheduler,SaccadeController,SecondaryMotion,MotionState});
 })();
-

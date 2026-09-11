@@ -69,4 +69,3 @@ class SafeLocalCapabilityExecutor:
             raise VerificationFailedError(f"closed-loop verification failed for service {service}")
         if self._on_executed is not None:
             self._on_executed(capability, arguments)
-
