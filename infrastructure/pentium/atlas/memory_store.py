@@ -290,6 +290,63 @@ class MemoryStore:
             row[0], row[1], row[2], tuple(json.loads(row[3])), row[4], row[5], row[6]
         )
 
+    def find_by_dedupe_key(self, dedupe_key: str | None) -> MemoryRecord | None:
+        if not dedupe_key:
+            return None
+        row = self._db.execute(
+            "SELECT * FROM memories WHERE dedupe_key=? ORDER BY created_at,memory_id LIMIT 1",
+            (dedupe_key,),
+        ).fetchone()
+        return self._memory_row(row) if row else None
+
+    def persist_consolidated(self, segment_id: str, record: MemoryRecord,
+                             provenance: MemoryProvenance) -> bool:
+        try:
+            with self._db:
+                row = self._db.execute(
+                    "SELECT status FROM episodic_segments WHERE segment_id=?", (segment_id,),
+                ).fetchone()
+                if row is None:
+                    raise MemoryStoreError("segmento inexistente")
+                if row[0] == SegmentStatus.CONSOLIDATED.value:
+                    return False
+                if row[0] != SegmentStatus.CLOSED.value:
+                    raise MemoryStoreError("segmento nao esta CLOSED")
+                existing = self.find_by_dedupe_key(record.dedupe_key)
+                if existing is None:
+                    self._write_memory(record)
+                    memory_id = record.memory_id
+                else:
+                    merged = replace(
+                        existing,
+                        frequency=existing.frequency + record.frequency,
+                        importance=max(existing.importance, record.importance),
+                        confidence=max(existing.confidence, record.confidence),
+                        criticality=max(existing.criticality, record.criticality),
+                        pinned=existing.pinned or record.pinned,
+                        protected=existing.protected or record.protected,
+                    )
+                    self._db.execute(
+                        "UPDATE memories SET frequency=?,importance=?,confidence=?,criticality=?,pinned=?,protected=? WHERE memory_id=?",
+                        (merged.frequency, merged.importance, merged.confidence, merged.criticality,
+                         int(merged.pinned), int(merged.protected), merged.memory_id),
+                    )
+                    memory_id = existing.memory_id
+                bound = replace(provenance, memory_id=memory_id)
+                self._db.execute(
+                    "INSERT INTO memory_provenance VALUES (?,?,?,?,?,?,?)",
+                    (bound.segment_id, bound.memory_id, bound.generation_id,
+                     json.dumps(bound.sources, ensure_ascii=False), bound.started_at,
+                     bound.ended_at, bound.evidence_count),
+                )
+                self._db.execute(
+                    "UPDATE episodic_segments SET status='consolidated' WHERE segment_id=?",
+                    (segment_id,),
+                )
+            return True
+        except sqlite3.Error as exc:
+            raise MemoryStoreError(str(exc)) from exc
+
     def close(self) -> None:
         self._db.close()
 

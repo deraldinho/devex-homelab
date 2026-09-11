@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import Enum
 
+from .episodic_model import EpisodicSegment, MemoryProvenance
 from .memory_model import MemoryLayer, MemoryRecord
 from .memory_store import MemoryStore
 
@@ -82,6 +83,16 @@ class MemoryManager:
             return False
         self._store.save(record)
         return True
+
+    def remember_consolidated(self, segment: EpisodicSegment, record: MemoryRecord,
+                              provenance: MemoryProvenance, now: str) -> bool:
+        if segment.segment_id != provenance.segment_id:
+            raise ValueError("provenance nao corresponde ao segmento")
+        existing = self._store.find_by_dedupe_key(record.dedupe_key)
+        current = self._policy.classify(self.pressure_ratio())
+        if current is MemoryPressure.FULL and existing is None and not (record.protected or record.pinned):
+            return False
+        return self._store.persist_consolidated(segment.segment_id, record, provenance)
 
     def maintain(self, now: str) -> MemoryMaintenanceResult:
         ratio_before = self.pressure_ratio()
