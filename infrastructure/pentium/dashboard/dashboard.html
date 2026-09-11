@@ -102,7 +102,13 @@ main{position:relative;z-index:1;max-width:1500px;margin:auto;padding:24px}
           <div class="metric"><span class="muted">Modo</span><strong id="avatarMode">OCIOSO</strong></div><div class="metric"><span class="muted">Express&atilde;o</span><strong id="avatarExpression">SERENO</strong></div>
           <div class="metric"><span class="muted">Foco</span><strong id="avatarFocus">neutro</strong></div><div class="metric"><span class="muted">Intensidade</span><strong id="avatarIntensity">25%</strong></div>
         </div>
-        <div class="flags"><span id="flagListening" class="flag">ouvindo</span><span id="flagThinking" class="flag">pensando</span><span id="flagSpeaking" class="flag">falando</span><span id="flagIdentity" class="flag">d&uacute;vida identidade</span></div>
+        <div class="flags"><span id="flagListening" class="flag">ouvindo</span><span id="flagThinking" class="flag">pensando</span><span id="flagSpeaking" class="flag">falando</span><span id="flagIdentity" class="flag">d&uacute;vida identidade</span><span id="flagTracking" class="flag">acompanhando</span><span id="flagWaitingHuman" class="flag">aguardando voc&ecirc;</span></div>
+        <div class="avatarMeta" style="margin-top:12px">
+          <div class="metric"><span class="muted">Intenção contínua</span><strong id="continuousIntentState">OBSERVANDO</strong></div>
+          <div class="metric"><span class="muted">Assunto</span><strong id="continuousIntentSubject">nenhum</strong></div>
+          <div class="metric"><span class="muted">Comunicação</span><strong id="continuousIntentMode">normal</strong></div>
+          <div class="metric"><span class="muted">Duração</span><strong id="continuousIntentDuration">0s</strong></div>
+        </div>
         <div class="patrolBar">
           <span class="muted" style="font-size:11px">🚶‍♀️ Pet Atlas (Mundo 3D):</span>
           <button class="patrolBtn" data-target="mind" type="button">Mente</button>
@@ -166,6 +172,19 @@ function renderCognition(cognition){
   kv($('a3Perception'),{'entidade':c.entity_id,'estado':p.estado,'confian\u00e7a':`${p.confidence_percent??0}%`,'conflito':p.conflito_evidencias?'sim':'n\u00e3o'});
   kv($('a4Emotion'),{'emo\u00e7\u00e3o':e.principal,'nuances':(e.nuances||[]).join(', '),'foco':f.principal?.assunto_id||'nenhum'});
   $('cognitionChanges').innerHTML=(c.recent_changes||[]).slice().reverse().map(x=>`<div class="event"><b>${esc(x.severity)}</b> \u00b7 ${esc(x.source)} \u00b7 ${esc(x.kind)} \u00b7 ${esc(x.stimulus_id)}</div>`).join('')||'<div class="muted">sem mudan\u00e7as recentes</div>';
+}
+function renderContinuousIntent(payload){
+  const p=payload||{status:'unavailable',intent:null}, intent=p.intent||null;
+  const state=String(intent?.estado||'').toUpperCase();
+  const labels={ATIVA:'ACOMPANHANDO',AGUARDANDO:'AGUARDANDO VOCÊ',CONCLUIDA:'RECUPERADO',CANCELADA:'ENCERRADO',EXPIRADA:'EXPIRADO'};
+  const visible=intent?(labels[state]||state||'OBSERVANDO'):'OBSERVANDO';
+  $('continuousIntentState').textContent=visible;
+  $('continuousIntentSubject').textContent=intent?.assunto_id||intent?.entidade_id||'nenhum';
+  $('continuousIntentMode').textContent=p.communication_mode||'normal';
+  let duration='0s';
+  if(intent?.iniciado_em){const start=Date.parse(intent.iniciado_em);if(Number.isFinite(start))duration=`${Math.max(0,Math.floor((Date.now()-start)/1000))}s`;}
+  $('continuousIntentDuration').textContent=duration;
+  AtlasAvatarRenderer.renderIntent(p);
 }
 function renderCognitiveRuntime(runtime){
   const r=runtime||{status:'unavailable'}; const available=r.status==='available';
@@ -254,7 +273,7 @@ async function refreshAll(){try{
   const [statusRes,eventRes]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/events',{cache:'no-store'})]);
   if(!statusRes.ok||!eventRes.ok) throw new Error('HttpStatus');
   const status=await statusRes.json(); const events=await eventRes.json();
-  AtlasAvatarRenderer.render(status.visual); renderCognition(status.cognition); renderCognitiveRuntime(status.cognitive_runtime); renderCognitiveActivity(status.cognitive_runtime,status.cognitive_runtime?.timeline); renderActionPlan(status.cognitive_runtime); renderOperational(status.cognitive_runtime);
+  AtlasAvatarRenderer.render(status.visual); renderContinuousIntent(status.continuous_intent); renderCognition(status.cognition); renderCognitiveRuntime(status.cognitive_runtime); renderCognitiveActivity(status.cognitive_runtime,status.cognitive_runtime?.timeline); renderActionPlan(status.cognitive_runtime); renderOperational(status.cognitive_runtime);
   $('atlasHealth').textContent=(status.atlas?.health||'unknown').toUpperCase(); $('atlasSha').textContent=`SHA ${status.atlas?.sha||'unknown'}`;
   $('voiceState').textContent=(status.voice?.state||'unknown').toUpperCase(); $('voiceDetail').textContent=`servi\u00e7o ${status.services?.voice?.active||'unknown'} \u00b7 ${status.services?.voice?.enabled||'unknown'}`;
   $('ancState').textContent=(status.anc?.state||'unknown').toUpperCase(); $('ancDetail').textContent=status.anc?.reason||'sem diagn\u00f3stico adicional';

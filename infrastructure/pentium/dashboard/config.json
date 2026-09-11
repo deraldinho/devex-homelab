@@ -9,5 +9,6 @@
   "cognitive_snapshot_path": "~/pentium-agent/atlas/runtime/cognitive-observation-context.json",
   "cognitive_health_path": "~/pentium-agent/atlas/runtime/observation-affective-health.json",
   "cognitive_max_age_s": 180,
-  "cognitive_runtime_path": "~/pentium-agent/atlas/runtime/cognitive-runtime.json"
+  "cognitive_runtime_path": "~/pentium-agent/atlas/runtime/cognitive-runtime.json",
+  "continuous_intent_path": "~/pentium-agent/atlas/runtime/continuous-intent.json"
 }
