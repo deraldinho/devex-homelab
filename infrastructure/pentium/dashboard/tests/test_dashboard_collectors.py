@@ -24,7 +24,7 @@ class CollectorTests(unittest.TestCase):
     def test_collect_status_always_has_stable_groups(self):
         cfg = dc.default_config()
         status = dc.collect_status(cfg, command_runner=lambda *_: dc.CommandResult(1, "", "x"))
-        self.assertEqual(set(status), {"atlas", "services", "voice", "audio", "anc", "system", "network", "visual", "cognition"})
+        self.assertEqual(set(status), {"atlas", "services", "voice", "audio", "anc", "system", "network", "visual", "cognition", "cognitive_runtime"})
 
     def test_parse_arecord_lists_internal_and_usb_capture_devices(self):
         text = """card 0: Intel [HDA Intel], device 0: ALC272 Analog [ALC272 Analog]\ncard 1: Device [USB Composite Device], device 0: USB Audio [USB Audio]\n"""
@@ -145,3 +145,19 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(status["visual"]["modo"], "OCIOSO")
         self.assertEqual(status["visual"]["expressao"], "SERENO")
         self.assertEqual(status["visual"]["source"], "fallback")
+
+
+class DashboardRuntimeTruthTests(unittest.TestCase):
+    def test_collect_status_exposes_observation_service(self):
+        cfg = dc.default_config()
+
+        def runner(command, timeout):
+            if command[:3] == ["systemctl", "--user", "is-enabled"]:
+                return dc.CommandResult(0, "enabled\n", "")
+            if command[:3] == ["systemctl", "--user", "is-active"]:
+                return dc.CommandResult(0, "active\n", "")
+            return dc.CommandResult(1, "", "")
+
+        status = dc.collect_status(cfg, command_runner=runner)
+        self.assertEqual(status["services"]["observation"]["enabled"], "enabled")
+        self.assertEqual(status["services"]["observation"]["active"], "active")

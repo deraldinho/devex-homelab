@@ -83,20 +83,37 @@ if ! probe="$(docker compose exec -T sim-pentium sh -c 'printf probe | nc -w 2 s
 fi
 assert_eq single_probe DEVEX_SIM_CORE_OK "${probe}"
 
-if ! docker compose exec -T sim-pentium sh -eu -c '
+if ! timeout 10s docker compose exec -T sim-pentium sh -eu -c '
   pids=""
-  for _ in 1 2 3 4 5 6 7 8; do
+  probe_id=1
+  while [ "$probe_id" -le 8 ]; do
+    current_probe="$probe_id"
     (
-      result="$(printf probe | nc -w 2 sim-core 8080 | tr -d "\r")"
-      [ "$result" = "DEVEX_SIM_CORE_OK" ]
+      started="$(date +%s%3N)"
+      result="$(printf probe | nc -w 5 sim-core 8080 | tr -d "\r")"
+      rc=$?
+      finished="$(date +%s%3N)"
+      duration_ms=$((finished - started))
+      if [ "$rc" -ne 0 ]; then
+        printf "DEVEX_SIMULATION_CONCURRENCY_PROBE_FAIL probe=%s rc=%s duration_ms=%s reason=transport\n"           "$current_probe" "$rc" "$duration_ms" >&2
+        exit 1
+      fi
+      if [ "$result" != "DEVEX_SIM_CORE_OK" ]; then
+        printf "DEVEX_SIMULATION_CONCURRENCY_PROBE_FAIL probe=%s rc=0 duration_ms=%s reason=response actual=%s\n"           "$current_probe" "$duration_ms" "$result" >&2
+        exit 1
+      fi
+      printf "DEVEX_SIMULATION_CONCURRENCY_PROBE_PASS probe=%s duration_ms=%s\n"         "$current_probe" "$duration_ms"
     ) &
     pids="$pids $!"
+    probe_id=$((probe_id + 1))
   done
+  failed=0
   for pid in $pids; do
-    wait "$pid"
+    wait "$pid" || failed=1
   done
+  exit "$failed"
 '; then
-  printf 'DEVEX_SIMULATION_ASSERT_FAIL check=concurrency_probe command_failed\n' >&2
+  printf 'DEVEX_SIMULATION_ASSERT_FAIL check=concurrency_probe command_failed_or_deadline\n' >&2
   exit 1
 fi
 printf 'DEVEX_SIMULATION_ASSERT_PASS check=concurrency_probe\n'

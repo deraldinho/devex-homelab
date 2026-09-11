@@ -64,6 +64,10 @@ class EstadoVisualAtlas:
     duvida_identidade: bool
     transicao_ms: int
     versao_avatar: int = 1
+    postura_atual: str = "NEUTRO"
+    lado_gesto: str = "none"
+    alvo_locomocao: str = "auto"
+    acao_pet: str = "PATROL"
 
     def __post_init__(self):
         object.__setattr__(self, "modo", _enum(self.modo, ModoVisual))

@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import socket
 import threading
 import uuid
 
@@ -23,11 +24,13 @@ except ImportError:
 from .affective_composition import AffectiveComposition, build_affective_composition
 from .affective_interaction_ipc import InteractionDatagramListener
 from .dual_zone_runtime import build_dual_zone_runtime
+from .github_observation import GitHubCliClient, build_github_sources
+from .local_health import collect_pentium_self
 from .observation_runtime import load_observation_config
 from .presence_persistence import PresenceRepository
 from .stimulus_bus import StimulusBus
 from .stimulus_journal import append_stimulus
-from .stimulus_sources import WifiPresenceSource
+from .stimulus_sources import PentiumSelfSource, WifiPresenceSource
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_STATE_DIR = Path.home() / "pentium-agent" / "atlas" / "runtime"
@@ -57,6 +60,7 @@ class ObservationDaemonContext:
     bus: StimulusBus
     composition: AffectiveComposition
     interaction_listener: object
+    cognitive_interaction_listener: object
     health_path: Path
     expected_sha: str | None
     last_cycle_at: str | None = None
@@ -65,7 +69,25 @@ class ObservationDaemonContext:
         try:
             self.interaction_listener.close()
         finally:
-            self.runtime.close()
+            try:
+                self.cognitive_interaction_listener.close()
+            finally:
+                self.runtime.close()
+
+
+
+class _NullInteractionListener:
+    def run_once(self, *, timeout_s: float = 0.2) -> bool:
+        return False
+    def errors(self) -> tuple[str, ...]:
+        return ()
+    def close(self) -> None:
+        return None
+
+def _listener_or_null(path: Path, sink):
+    if not hasattr(socket, "AF_UNIX"):
+        return _NullInteractionListener()
+    return InteractionDatagramListener(path, sink)
 
 def _managed_service(agent_config_path: Path):
     payload = load_agent_config(agent_config_path)
@@ -80,8 +102,10 @@ def build_observation_context(
     state_dir: Path = DEFAULT_STATE_DIR,
     wifi_interface: str,
     managed_read_service=None,
+    github_client=None,
     scanner=None,
     interaction_listener=None,
+    cognitive_interaction_listener=None,
     expected_sha: str | None = None,
 ) -> ObservationDaemonContext:
     config_root = Path(config_root)
@@ -103,8 +127,23 @@ def build_observation_context(
         managed_hosts[str(item["host_id"])] = operations
     if not managed_hosts:
         raise ValueError("no MANAGED hosts configured for observation")
-    source_names = {"wifi.presence", *(f"managed.{host}" for host in managed_hosts)}
+    github_sources = ()
+    github_config = config_root / "config_github.json"
+    if github_config.is_file():
+        payload = json.loads(github_config.read_text(encoding="utf-8"))
+        if payload.get("schema_version") != 1:
+            raise ValueError("github config schema_version must be 1")
+        repositories = tuple(payload.get("repositories") or ())
+        if payload.get("enabled", False) and repositories:
+            github_sources = build_github_sources(repositories, client=github_client or GitHubCliClient())
+    source_names = {
+        "pentium.self",
+        "wifi.presence",
+        *(f"managed.{host}" for host in managed_hosts),
+        *(source.name for source in github_sources),
+    }
     schedules = {name: schedules_all[name] for name in source_names}
+    local_sources = (PentiumSelfSource(collect_pentium_self),)
     wifi_cfg = observation_payload["sources"]["wifi.presence"]
     wifi = WifiPresenceSource(
         wifi_interface,
@@ -126,6 +165,8 @@ def build_observation_context(
         wifi_source=wifi,
         managed_read_service=service,
         managed_hosts=managed_hosts,
+        local_sources=local_sources,
+        extra_sources=github_sources,
         bus=bus,
         journal=lambda stimulus: append_stimulus(
             journal_path, stimulus, {"expected_sha": expected_sha}
@@ -137,8 +178,12 @@ def build_observation_context(
         state_dir / "affective-interaction.sock",
         composition.runtime_visual.atualizar_interacao,
     )
+    cognitive_listener = cognitive_interaction_listener or _listener_or_null(
+        state_dir / "cognitive-interaction.sock",
+        composition.runtime_visual.atualizar_cognicao,
+    )
     return ObservationDaemonContext(
-        runtime, bus, composition, listener,
+        runtime, bus, composition, listener, cognitive_listener,
         state_dir / "observation-affective-health.json",
         expected_sha,
     )
@@ -152,9 +197,10 @@ def _health_payload(context: ObservationDaemonContext) -> dict:
     runtime_errors = context.runtime.errors()
     composition_errors = context.composition.errors()
     interaction_errors = context.interaction_listener.errors()
+    cognitive_interaction_errors = context.cognitive_interaction_listener.errors()
     bridge_status = context.composition.cognitive_bridge_status()
     bridge_error = bridge_status["current_error"]
-    status = "degraded" if runtime_errors or composition_errors or interaction_errors or bridge_error else "healthy"
+    status = "degraded" if runtime_errors or composition_errors or interaction_errors or cognitive_interaction_errors or bridge_error else "healthy"
     return {
         "schema_version": 1,
         "status": status,
@@ -166,6 +212,7 @@ def _health_payload(context: ObservationDaemonContext) -> dict:
             "observation": list(runtime_errors[-16:]),
             "affective": list(composition_errors[-16:]),
             "interaction": list(interaction_errors[-16:]),
+            "cognitive_interaction": list(cognitive_interaction_errors[-16:]),
             "cognitive_bridge": [bridge_error] if bridge_error else [],
         },
         "diagnostics": {
@@ -181,6 +228,7 @@ def run_daemon_cycle(context: ObservationDaemonContext) -> float:
     delay = context.runtime.run_scheduled_cycle()
     timeout = min(1.0, max(0.01, float(delay)))
     context.interaction_listener.run_once(timeout_s=timeout)
+    context.cognitive_interaction_listener.run_once(timeout_s=0.01)
     _drain_bus(context.bus)
     context.last_cycle_at = _utc_now()
     _atomic_json(context.health_path, _health_payload(context))

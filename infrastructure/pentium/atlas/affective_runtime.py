@@ -8,6 +8,7 @@ class AffectiveRuntime:
         self._compositor = compositor
         self._publisher = publisher
         self._interacao = interacao_inicial
+        self._cognicao = EstadoInteracaoVisual(atualizado_em=interacao_inicial.atualizado_em)
         self._ultimo_resultado = None
         self.ultimo_visual = None
         self.ultimo_erro_publicacao = None
@@ -17,9 +18,17 @@ class AffectiveRuntime:
         if self._ultimo_resultado is None:
             return self.ultimo_visual
         try:
+            efetiva = EstadoInteracaoVisual(
+                ouvindo=self._interacao.ouvindo,
+                pensando=self._interacao.pensando or self._cognicao.pensando,
+                falando=self._interacao.falando,
+                duvida_identidade=self._interacao.duvida_identidade or self._cognicao.duvida_identidade,
+                degradado=self._interacao.degradado or self._cognicao.degradado,
+                atualizado_em=max(self._interacao.atualizado_em, self._cognicao.atualizado_em),
+            )
             visual = self._compositor.compor(
                 self._ultimo_resultado,
-                self._interacao,
+                efetiva,
                 reacao_critica=reacao_critica,
             )
             self.ultimo_erro_composicao = None
@@ -44,6 +53,12 @@ class AffectiveRuntime:
 
     def atualizar_interacao(self, interacao: EstadoInteracaoVisual):
         self._interacao = interacao
+        if self._ultimo_resultado is None:
+            return None
+        return self._recompor()
+
+    def atualizar_cognicao(self, interacao: EstadoInteracaoVisual):
+        self._cognicao = interacao
         if self._ultimo_resultado is None:
             return None
         return self._recompor()

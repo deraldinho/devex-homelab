@@ -76,7 +76,7 @@ class ReactionLoopCognitivoTests(unittest.TestCase):
             sinais_ativacao={"interacao_humana": True}, dados_contexto={}
         )
         self.assertTrue(resposta.ativado)
-        self.assertEqual("llm_indisponivel", resposta.razao)
+        self.assertEqual("cognitive_backend_unavailable", resposta.razao)
         self.assertIsNone(resposta.texto)
         self.assertEqual([("fp-3", "2026-09-05T20:12:00+00:00", False)], policy.registros)
 

@@ -1,0 +1,8 @@
+{
+    "schema_version":  1,
+    "profile":  "atlas",
+    "binary":  "hermes",
+    "timeout_s":  45.0,
+    "max_context_tokens":  4096,
+    "max_response_bytes":  16384
+}

@@ -7,7 +7,24 @@ from .human_context import CognitiveContextUnavailable
 from .stimulus_model import Stimulus, StimulusSeverity
 
 
-_ALLOWED_SOURCES = frozenset(("human.voice", "human.cli"))
+_ALLOWED_SOURCES = frozenset(("human.voice", "human.cli", "human.dashboard", "human.discord"))
+
+
+def build_human_stimulus(text: str, *, source: str, stimulus_id: str | None = None,
+                         timestamp: str | None = None, max_text_chars: int = 512) -> Stimulus:
+    if source not in _ALLOWED_SOURCES:
+        raise ValueError("human interaction source is not allowed")
+    clean=str(text).strip()
+    if not clean:
+        raise ValueError("human interaction text is required")
+    if len(clean)>int(max_text_chars):
+        raise ValueError("human interaction exceeds max_text_chars")
+    now=timestamp or datetime.now(timezone.utc).isoformat()
+    fingerprint=hashlib.sha256(clean.encode("utf-8")).hexdigest()
+    sid=str(stimulus_id or f"human-{fingerprint[:16]}")
+    return Stimulus(stimulus_id=sid,source=source,kind="human_interaction",
+                    severity=StimulusSeverity.INFO,timestamp=now,payload={"text":clean},
+                    novelty=1.0,correlation_id=sid)
 
 
 class HumanInteractionGateway:
@@ -26,14 +43,9 @@ class HumanInteractionGateway:
             return None
         if len(clean) > self._max_text_chars:
             raise ValueError("human interaction exceeds max_text_chars")
-        now = datetime.now(timezone.utc).isoformat()
+        stimulus = build_human_stimulus(clean, source=source, max_text_chars=self._max_text_chars)
+        now = stimulus.timestamp
         fingerprint = hashlib.sha256(clean.encode("utf-8")).hexdigest()
-        stimulus = Stimulus(
-            stimulus_id=f"human-{fingerprint[:16]}", source=source,
-            kind="human_interaction", severity=StimulusSeverity.INFO,
-            timestamp=now, payload={"text": clean}, novelty=1.0,
-            correlation_id=f"human-{fingerprint[:16]}",
-        )
         try:
             context = dict(self._context_provider())
         except CognitiveContextUnavailable:

@@ -21,6 +21,7 @@ class RespostaCognitiva:
     confianca: float | None = None
     requer_confirmacao: bool = False
     intencao_autorizada: bool = False
+    solicitar_fala: bool = False
 
 
 class ReactionLoopCognitivo:
@@ -85,7 +86,7 @@ class ReactionLoopCognitivo:
                 True,
                 motivo.value if motivo is not None else None,
                 None,
-                "llm_indisponivel",
+                "cognitive_backend_unavailable",
                 resultado.backend,
                 resultado.duracao_ms,
             )

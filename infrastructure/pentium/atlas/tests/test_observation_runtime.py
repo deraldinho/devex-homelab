@@ -401,7 +401,10 @@ class ObservationSchedulingTests(unittest.TestCase):
 
         config_path = Path(__file__).resolve().parents[1] / "observation_config.json"
         policies = load_observation_policies(config_path)
-        self.assertEqual(set(policies), {"pentium.self", "core", "x99", "managed.x99", "wifi.presence"})
+        self.assertEqual(set(policies), {
+            "pentium.self", "core", "x99", "managed.core", "managed.x99", "wifi.presence",
+            "github.deraldinho.devex-homelab", "github.deraldinho.L2jToren",
+        })
         self.assertEqual(policies["pentium.self"].cooldown_s, 60.0)
         self.assertEqual(policies["core"].cooldown_s, 60.0)
         self.assertEqual(policies["x99"].cooldown_s, 60.0)
@@ -412,7 +415,10 @@ class ObservationSchedulingTests(unittest.TestCase):
 
         config_path = Path(__file__).resolve().parents[1] / "observation_config.json"
         schedules = load_observation_config(config_path)
-        self.assertEqual(set(schedules), {"pentium.self", "core", "x99", "managed.x99", "wifi.presence"})
+        self.assertEqual(set(schedules), {
+            "pentium.self", "core", "x99", "managed.core", "managed.x99", "wifi.presence",
+            "github.deraldinho.devex-homelab", "github.deraldinho.L2jToren",
+        })
         self.assertLessEqual(schedules["pentium.self"].timeout_seconds, 5.0)
         self.assertLessEqual(schedules["core"].timeout_seconds, 8.0)
         self.assertLessEqual(schedules["x99"].timeout_seconds, 8.0)

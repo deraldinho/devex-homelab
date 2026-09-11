@@ -26,6 +26,12 @@ class DashboardPackagingTests(unittest.TestCase):
         self.assertIn("systemctl --user restart atlas-dashboard.service", script)
         self.assertIn("cognitive_panel_certification.py", script)
 
+    def test_installer_packages_avatar_assets_and_fetches_pixi(self):
+        script = (ROOT / "install-user.sh").read_text(encoding="utf-8")
+        for name in ("atlas-avatar-engine.js", "atlas-avatar-renderer.js", "fetch-pixi.sh", "pixi.min.js"):
+            self.assertIn(name, script)
+        self.assertNotIn("node --check", script)
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -35,3 +41,7 @@ class DashboardEncodingTests(unittest.TestCase):
         raw = (ROOT / "config.json").read_bytes()
         self.assertFalse(raw.startswith(b"\xef\xbb\xbf"))
         raw.decode("utf-8")
+
+    def test_chat_has_narrow_runtime_write_access(self):
+        unit = (ROOT / 'systemd' / 'atlas-dashboard.service').read_text(encoding='utf-8')
+        self.assertIn('ReadWritePaths=%h/pentium-agent/atlas/runtime', unit)

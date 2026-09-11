@@ -62,6 +62,7 @@ class PentiumSelfSource:
         metrics = observed.get("metrics", {})
         payload = {
             "status": status,
+            "self_healthy": bool(observed.get("self_healthy", status == "healthy")),
             "checks": checks,
             "metrics": {
                 key: metrics[key]

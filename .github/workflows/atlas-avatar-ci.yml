@@ -1,0 +1,75 @@
+name: Atlas Avatar CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atlas-avatar-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-avatar:
+    name: Validate Atlas Avatar v1.1
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout do HEAD exato
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Validar SHA e diff
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_REF: ${{ github.base_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          if [[ -n "$BASE_REF" ]]; then
+            git diff --check "origin/${BASE_REF}...HEAD"
+          else
+            git diff --check HEAD^ HEAD || git diff --check
+          fi
+
+      - name: Validar contratos do dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          dashboard='infrastructure/pentium/dashboard'
+          python3 -m py_compile "$dashboard/atlas_dashboard.py" "$dashboard/dashboard_collectors.py" "$dashboard/dashboard_chat.py" "$dashboard/dashboard_event_store.py"
+          node --check "$dashboard/atlas-avatar-motion.js"
+          node --check "$dashboard/atlas-avatar-engine.js"
+          node --check "$dashboard/atlas-avatar-renderer.js"
+          bash -n "$dashboard/install-user.sh"
+          bash -n "$dashboard/fetch-pixi.sh"
+          python3 -m unittest discover -s "$dashboard/tests" -p 'test_*.py' -v
+          echo 'DEVEX_HOMELAB_ATLAS_AVATAR_MOTION_V12_PASS'
+          echo 'DEVEX_HOMELAB_ATLAS_AVATAR_CONTRACT_PASS'
+          echo 'DEVEX_HOMELAB_ATLAS_DASHBOARD_CHAT_PASS'
+
+      - name: Validar bundle oficial PixiJS
+        shell: bash
+        run: |
+          set -euo pipefail
+          dashboard='infrastructure/pentium/dashboard'
+          target="$(mktemp --suffix=.js)"
+          trap 'rm -f "$target"' EXIT
+          bash "$dashboard/fetch-pixi.sh" "$target"
+          test "$(stat -c %s "$target")" -le 1048576
+          node --check "$target"
+          echo 'DEVEX_HOMELAB_ATLAS_AVATAR_PIXIJS_ASSET_PASS'
+
+      - name: Registrar evidência
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'DEVEX_HOMELAB_ATLAS_AVATAR_PIXIJS_PASS'
+          echo "head=$(git rev-parse HEAD)"
+          echo "runner=${RUNNER_NAME}"

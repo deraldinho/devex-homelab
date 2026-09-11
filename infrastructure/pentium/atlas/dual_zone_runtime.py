@@ -27,6 +27,8 @@ def build_dual_zone_runtime(
     wifi_source,
     managed_read_service,
     managed_hosts: Mapping[str, tuple[str, ...]],
+    local_sources=(),
+    extra_sources=(),
     bus,
     journal,
     schedule: Mapping[str, SourceSchedule],
@@ -40,8 +42,10 @@ def build_dual_zone_runtime(
         ManagedObservationSource(host_id, adapter, operations=tuple(operations))
         for host_id, operations in managed_hosts.items()
     ]
-    sources = [wifi_source, *managed_sources]
+    sources = [*tuple(local_sources), wifi_source, *managed_sources, *tuple(extra_sources)]
     source_names = {source.name for source in sources}
+    if len(source_names) != len(sources):
+        raise ValueError("observation source names must be unique")
     if set(schedule) != source_names:
         raise ValueError("schedule sources must exactly match I1 sources")
 

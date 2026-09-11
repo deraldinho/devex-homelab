@@ -2,6 +2,6 @@
   "schema_version": 1,
   "max_entries": 64,
   "ttl_s": 300,
-  "model_id": "Qwen3-0.6B-Q4",
+  "model_id": "hermes/openai-codex",
   "policy_version": "k1-v1"
 }

@@ -22,6 +22,14 @@
       "cooldown_seconds": 60,
       "jitter_seconds": 0
     },
+    "managed.core": {
+      "interval_seconds": 30,
+      "timeout_seconds": 8,
+      "max_backoff_seconds": 180,
+      "cooldown_seconds": 60,
+      "jitter_seconds": 0,
+      "operations": ["uptime", "cpu", "memory"]
+    },
     "managed.x99": {
       "interval_seconds": 60,
       "timeout_seconds": 8,
@@ -29,6 +37,20 @@
       "cooldown_seconds": 60,
       "jitter_seconds": 0,
       "operations": ["uptime", "cpu", "memory"]
+    },
+    "github.deraldinho.devex-homelab": {
+      "interval_seconds": 120,
+      "timeout_seconds": 10,
+      "max_backoff_seconds": 600,
+      "cooldown_seconds": 120,
+      "jitter_seconds": 10
+    },
+    "github.deraldinho.L2jToren": {
+      "interval_seconds": 120,
+      "timeout_seconds": 10,
+      "max_backoff_seconds": 600,
+      "cooldown_seconds": 120,
+      "jitter_seconds": 10
     },
     "wifi.presence": {
       "interval_seconds": 60,
