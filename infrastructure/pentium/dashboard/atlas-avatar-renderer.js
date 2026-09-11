@@ -92,6 +92,37 @@
     toggleFlag("flagIdentity", v.duvida_identidade);
   }
 
+  let lastIntentBehaviorKey = null;
+  let lastIntentBehaviorEngine = null;
+
+  function intentTarget(intent) {
+    const subject = String(intent?.assunto_id || "").toLowerCase();
+    const entity = String(intent?.entidade_id || "").toLowerCase();
+    if (["core", "x99", "pentium"].includes(entity) || /core|x99|pentium/.test(subject)) return "services";
+    return "activity";
+  }
+
+  function projectIntentBehavior(intentState) {
+    const payload = intentState && typeof intentState === "object" ? intentState : {};
+    const intent = payload.intent && typeof payload.intent === "object" ? payload.intent : null;
+    if (!intent) return Object.freeze({key:"none", clear:true, returnToPatrol:true});
+    const state = String(intent.estado || "").toUpperCase();
+    const key = `${intent.intencao_id || "unknown"}:${state}`;
+    if (state === "ATIVA") return Object.freeze({key,target:intentTarget(intent),petMode:"SIT",visual:{expressao:"ATENTO",gesto_atual:"ESCUTA",postura_atual:"ATENTO",velocidade_movimento:.22,intensidade_movimento:.30}});
+    if (state === "AGUARDANDO") return Object.freeze({key,target:"chat",petMode:"SIT",visual:{expressao:"ENGAJADO",gesto_atual:"ESCUTA",postura_atual:"ABERTO",velocidade_movimento:.12,intensidade_movimento:.18}});
+    if (state === "CONCLUIDA") return Object.freeze({key,target:intentTarget(intent),petMode:"SIT",oneShot:true,durationMs:1600,returnToPatrol:true,visual:{expressao:"RECUPERANDO",gesto_atual:"ALIVIO",postura_atual:"ABERTO",velocidade_movimento:.28,intensidade_movimento:.42}});
+    return Object.freeze({key,clear:true,returnToPatrol:true});
+  }
+
+  function applyIntentBehavior(targetEngine, intentState) {
+    if (!targetEngine || typeof targetEngine.applyIntentBehavior !== "function") return false;
+    const projection = projectIntentBehavior(intentState);
+    if (targetEngine === lastIntentBehaviorEngine && projection.key === lastIntentBehaviorKey) return false;
+    targetEngine.applyIntentBehavior(projection);
+    lastIntentBehaviorEngine = targetEngine; lastIntentBehaviorKey = projection.key;
+    return true;
+  }
+
   function renderIntent(intentState) {
     const payload = intentState && typeof intentState === "object" ? intentState : {};
     const intent = payload.intent && typeof payload.intent === "object" ? payload.intent : null;
@@ -104,6 +135,7 @@
     if (headline) headline.textContent = currentIntentHeadline;
     toggleFlag("flagTracking", state === "ATIVA");
     toggleFlag("flagWaitingHuman", state === "AGUARDANDO");
+    applyIntentBehavior(engine, intentState);
     return intentHeadline;
   }
 
@@ -144,6 +176,8 @@
   window.AtlasAvatarRenderer = Object.freeze({
     render,
     renderIntent,
+    projectIntentBehavior,
+    applyIntentBehavior,
     normalize,
     settleVisualState,
     resetTransitionState,
