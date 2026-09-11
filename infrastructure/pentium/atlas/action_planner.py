@@ -34,9 +34,9 @@ class ActionPlanner:
         name=getattr(response,"intencao",None)
         params=dict(getattr(response,"parametros_intencao",None) or {})
 
-        # 1. Intenções explícitas de movimento/pet
-        if name in {"mover_para","navegar","navigate_to","ir_para"}:
-            target=params.get("target") or params.get("alvo") or entity_id or "center"
+        # 1. Intenções explícitas de movimento/pet do Hermes
+        if name in {"mover_para","navegar","navigate_to","ir_para","walk_to","andar_para","pular_para","jump_to"}:
+            target=params.get("target") or params.get("alvo") or entity_id or "auto"
             mode=params.get("mode") or "hop"
             actions.append(AtlasAction.create(ActionType.NAVIGATE_TO,target=str(target),
                 parameters={"target":str(target),"mode":str(mode)}))
@@ -45,6 +45,19 @@ class ActionPlanner:
             dur=int(params.get("duration_ms") or 6000)
             actions.append(AtlasAction.create(ActionType.SET_PET_ACTION,
                 parameters={"action":str(act).upper(),"duration_ms":dur}))
+        elif name in {"sentar","sit","repousar"}:
+            dur=int(params.get("duration_ms") or 8000)
+            actions.append(AtlasAction.create(ActionType.SET_PET_ACTION,
+                parameters={"action":"SIT","duration_ms":dur}))
+        elif name in {"pular","hop","saltar"}:
+            actions.append(AtlasAction.create(ActionType.SET_PET_ACTION,
+                parameters={"action":"HOP","duration_ms":1000}))
+        elif name in {"carinho","poke"}:
+            actions.append(AtlasAction.create(ActionType.SET_PET_ACTION,
+                parameters={"action":"POKE","duration_ms":1200}))
+        elif name in {"patrulhar","patrol","andar"}:
+            actions.append(AtlasAction.create(ActionType.SET_PET_ACTION,
+                parameters={"action":"PATROL","duration_ms":10000}))
 
         # 2. Orquestração contextual
         motivo=str(getattr(response,"motivo","") or "")
@@ -59,12 +72,25 @@ class ActionPlanner:
             elif any(w in text for w in ("carinho","fofa","parabens","obrigad","poke")):
                 actions.append(AtlasAction.create(ActionType.SET_PET_ACTION,
                     parameters={"action":"POKE","duration_ms":1200}))
+            elif any(w in text for w in ("patrulha livre","ande livre","patrulhe","caminhe")):
+                actions.append(AtlasAction.create(ActionType.SET_PET_ACTION,
+                    parameters={"action":"PATROL","duration_ms":10000}))
             elif motivo=="recuperacao_importante":
                 actions.append(AtlasAction.create(ActionType.SET_PET_ACTION,
                     parameters={"action":"SIT","duration_ms":6000}))
 
         if not has_nav:
-            if trigger_kind=="chat" or motivo=="interacao_humana":
+            if any(w in text for w in ("painel mente","na mente","olhe a mente","vá para a mente","vá pra mente")):
+                actions.append(AtlasAction.create(ActionType.NAVIGATE_TO,target="mind",parameters={"target":"mind","mode":"hop"}))
+            elif any(w in text for w in ("painel serviços","painel servicos","nos serviços","em serviços","vá para serviços","verifique serviços")):
+                actions.append(AtlasAction.create(ActionType.NAVIGATE_TO,target="services",parameters={"target":"services","mode":"hop"}))
+            elif any(w in text for w in ("painel chat","no chat","venha pro chat","venha para o chat","aqui no chat")):
+                actions.append(AtlasAction.create(ActionType.NAVIGATE_TO,target="chat",parameters={"target":"chat","mode":"hop"}))
+            elif any(w in text for w in ("presença","presenca","painel presença","topo")):
+                actions.append(AtlasAction.create(ActionType.NAVIGATE_TO,target="presence",parameters={"target":"presence","mode":"hop"}))
+            elif any(w in text for w in ("patrulha livre","ande livre")):
+                actions.append(AtlasAction.create(ActionType.NAVIGATE_TO,target="auto",parameters={"target":"auto","mode":"hop"}))
+            elif trigger_kind=="chat" or motivo=="interacao_humana":
                 actions.append(AtlasAction.create(ActionType.NAVIGATE_TO,target="chat",
                     parameters={"target":"chat","mode":"hop"}))
             elif entity_id in {"services","core"}:

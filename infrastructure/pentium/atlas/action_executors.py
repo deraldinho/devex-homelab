@@ -6,9 +6,10 @@ from .action_plan import ActionStatus, ActionType, PlanoAcaoAtlas, transition_ac
 
 
 class ActionExecutorRegistry:
-    def __init__(self, visual_getter=None, visual_writer=None, *, chat_sink=None, tts_sink=None, capability_sink=None):
+    def __init__(self, visual_getter=None, visual_writer=None, *, chat_sink=None, tts_sink=None, capability_sink=None, event_sink=None):
         self._visual_getter=visual_getter; self._visual_writer=visual_writer
         self._chat_sink=chat_sink; self._tts_sink=tts_sink; self._capability_sink=capability_sink
+        self._event_sink=event_sink
 
     def _visual(self, action):
         if self._visual_getter is None or self._visual_writer is None:
@@ -28,6 +29,19 @@ class ActionExecutorRegistry:
         elif action.type is ActionType.SET_PET_ACTION:
             state=replace(state,acao_pet=str(p.get("action") or "PATROL"))
         self._visual_writer(state)
+        if self._event_sink is not None:
+            try:
+                self._event_sink("visual_action", {
+                    "action_type": action.type.value,
+                    "target": getattr(state, "alvo_locomocao", "auto"),
+                    "action": getattr(state, "acao_pet", "PATROL"),
+                    "expression": str(getattr(state, "expressao", "SERENO")),
+                    "focus": getattr(state, "foco_visual", "neutro"),
+                    "duration_ms": int(p.get("duration_ms") or 6000),
+                    "parameters": p,
+                })
+            except Exception:
+                pass
 
     def _execute_one(self, plan, action):
         if action.type in {ActionType.LOOK_AT,ActionType.SET_EXPRESSION,ActionType.SET_GESTURE,ActionType.SET_POSTURE,ActionType.NAVIGATE_TO,ActionType.SET_PET_ACTION}:

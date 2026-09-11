@@ -31,7 +31,8 @@ from .hermes_adapter import HermesAdapter
 from .llm_gateway import LLMGateway
 from .memory_retriever import MemoryRetriever
 from .memory_store import MemoryStore
-from .modelo_visual_atlas import EstadoInteracaoVisual
+from .modelo_visual_atlas import EstadoInteracaoVisual, EstadoVisualAtlas, ModoVisual, ExpressaoVisual
+from .visual_state_publisher import VisualStatePublisher
 from .policy_capabilities import PolicyCapabilities
 from .politica_ativacao_cognitiva import ActivationPolicy
 from .reaction_loop_cognitivo import ReactionLoopCognitivo
@@ -44,6 +45,52 @@ STATE_DIR=AGENT_ROOT/"atlas"/"runtime"
 
 def _utc_now()->str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def read_visual_state(path: Path) -> EstadoVisualAtlas:
+    path = Path(path)
+    if path.is_file():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return EstadoVisualAtlas(
+                modo=data.get("modo", ModoVisual.OCIOSO),
+                expressao=data.get("expressao", ExpressaoVisual.SERENO),
+                intensidade_expressao=float(data.get("intensidade_expressao", 0.5)),
+                foco_visual=str(data.get("foco_visual", "neutro")),
+                direcao_olhar=str(data.get("direcao_olhar", "centro")),
+                gesto_atual=str(data.get("gesto_atual", "NENHUM")),
+                velocidade_movimento=float(data.get("velocidade_movimento", 0.5)),
+                intensidade_movimento=float(data.get("intensidade_movimento", 0.5)),
+                falando=bool(data.get("falando", False)),
+                ouvindo=bool(data.get("ouvindo", False)),
+                pensando=bool(data.get("pensando", False)),
+                duvida_identidade=bool(data.get("duvida_identidade", False)),
+                transicao_ms=int(data.get("transicao_ms", 300)),
+                versao_avatar=int(data.get("versao_avatar", 1)),
+                postura_atual=str(data.get("postura_atual", "NEUTRO")),
+                lado_gesto=str(data.get("lado_gesto", "none")),
+                alvo_locomocao=str(data.get("alvo_locomocao", "auto")),
+                acao_pet=str(data.get("acao_pet", "PATROL")),
+            )
+        except Exception:
+            pass
+    return EstadoVisualAtlas(
+        modo=ModoVisual.OCIOSO,
+        expressao=ExpressaoVisual.SERENO,
+        intensidade_expressao=0.5,
+        foco_visual="neutro",
+        direcao_olhar="centro",
+        gesto_atual="NENHUM",
+        velocidade_movimento=0.5,
+        intensidade_movimento=0.5,
+        falando=False,
+        ouvindo=False,
+        pensando=False,
+        duvida_identidade=False,
+        transicao_ms=300,
+        alvo_locomocao="auto",
+        acao_pet="PATROL",
+    )
 
 
 class CognitiveResultPublisher:
@@ -188,8 +235,15 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     action_store=ActionPlanStore(state_dir/"action-plan-current.json",state_dir/"action-plan-history.jsonl",max_history=64,max_bytes=131072)
     action_planner=ActionPlanner()
     action_policy=ActionPolicy(capabilities)
+    visual_state_path=state_dir/"visual-state.json"
+    visual_publisher=VisualStatePublisher(visual_state_path)
     autonomy_executor=SafeLocalCapabilityExecutor(host="pentium",services=("atlas-observation.service","atlas-dashboard.service"),on_executed=capabilities.registrar_execucao)
-    action_executor=ActionExecutorRegistry(capability_sink=autonomy_executor)
+    action_executor=ActionExecutorRegistry(
+        visual_getter=lambda: read_visual_state(visual_state_path),
+        visual_writer=visual_publisher.publicar,
+        capability_sink=autonomy_executor,
+        event_sink=action_events.publish,
+    )
     chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512)
     daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox)
     return CognitiveRuntimeOwner(daemon,memory_store)

@@ -214,7 +214,40 @@ async function sendAtlasChat(){
 $('atlasChatSend').addEventListener('click',sendAtlasChat); $('atlasChatInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendAtlasChat();});
 const atlasEventStream=new EventSource('/api/stream');
 atlasEventStream.onmessage=()=>refreshAll();
-for(const type of ['cognitive_state','plan_created','action_status','chat_message','visual_action','confirmation_required','runtime_error']) atlasEventStream.addEventListener(type,()=>refreshAll());
+for(const type of ['cognitive_state','plan_created','action_status','chat_message','confirmation_required','runtime_error']) atlasEventStream.addEventListener(type,()=>refreshAll());
+atlasEventStream.addEventListener('visual_action', e => {
+  try {
+    const data = JSON.parse(e.data);
+    const eng = window.AtlasAvatarRenderer?.getEngine?.();
+    if (data.target && window.anchorPetTo) {
+      window.anchorPetTo(data.target);
+      if (eng?.visitPanel) eng.visitPanel(data.target);
+    }
+    if (data.action && eng) {
+      const act = String(data.action).toUpperCase();
+      if (act === 'POKE') {
+        if (eng.triggerPoke) eng.triggerPoke();
+        playChime(880, 'sine', 0.2);
+      } else if (act === 'SIT') {
+        eng.petMode = 'SIT';
+        eng.sitDwellTime = performance.now() + (Number(data.duration_ms) || 8000);
+        playChime(440, 'triangle', 0.2);
+      } else if (act === 'PATROL') {
+        eng.petMode = 'PATROL';
+        playChime(640, 'triangle', 0.16);
+      }
+    }
+    if (data.expression && eng) {
+      eng.updateState({
+        expressao: data.expression,
+        foco_visual: data.focus || data.target || 'neutro',
+        alvo_locomocao: data.target || 'auto',
+        acao_pet: data.action || 'PATROL',
+      });
+    }
+  } catch(err) {}
+  refreshAll();
+});
 atlasEventStream.onerror=()=>{$('atlasChatStatus').textContent='stream reconectando; polling ativo';};
 async function refreshAll(){try{
   const [statusRes,eventRes]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/events',{cache:'no-store'})]);
