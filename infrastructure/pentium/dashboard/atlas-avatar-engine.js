@@ -652,7 +652,7 @@
           this.petMode = Math.random() > 0.35 ? 'SIT' : 'PATROL';
           this.sitDwellTime = now + 4000 + Math.random() * 4500;
         }
-      } 
+      }
       // 2. Estado SIT (Sentar na borda da janela balançando perninhas)
       else if (this.petMode === 'SIT') {
         isSitting = true;
