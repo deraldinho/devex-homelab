@@ -72,6 +72,14 @@ class StimulusJournalTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), original)
             self.assertFalse(path.with_name(path.name + ".tmp").exists())
 
+    def test_cleanup_failure_never_masks_journal_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parent_file = Path(tmp) / "not-a-directory"
+            parent_file.write_text("x", encoding="utf-8")
+            path = parent_file / "stimuli.jsonl"
+            with patch.object(Path, "unlink", side_effect=NotADirectoryError("cleanup failed")):
+                with self.assertRaises(StimulusJournalError):
+                    append_stimulus(path, sample_stimulus(), {"runtime": "atlas"})
     def test_write_failure_is_wrapped(self):
         with tempfile.TemporaryDirectory() as tmp:
             parent_file = Path(tmp) / "not-a-directory"

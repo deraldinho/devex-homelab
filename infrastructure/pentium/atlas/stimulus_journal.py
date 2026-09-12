@@ -15,6 +15,12 @@ DEFAULT_MAX_BYTES = 8 * 1024 * 1024
 class StimulusJournalError(RuntimeError):
     pass
 
+def _safe_unlink(path: Path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
 
 def _journal_state(path: Path) -> tuple[int, int]:
     if not path.exists():
@@ -41,7 +47,7 @@ def _write_compacted(path: Path, lines: list[bytes], max_records: int, max_bytes
             os.fsync(handle.fileno())
         os.replace(temp, path)
     finally:
-        temp.unlink(missing_ok=True)
+        _safe_unlink(temp)
 
 
 def append_stimulus(
@@ -78,5 +84,5 @@ def append_stimulus(
         lines.append(encoded)
         _write_compacted(path, lines, max_records, max_bytes)
     except OSError as exc:
-        temp.unlink(missing_ok=True)
+        _safe_unlink(temp)
         raise StimulusJournalError(str(exc)) from exc
