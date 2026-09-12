@@ -66,5 +66,11 @@ class WorkspaceIndex:
     def count(self) -> int:
         return int(self._db.execute("SELECT COUNT(*) FROM docs").fetchone()[0])
 
+    def fingerprint(self) -> str:
+        import hashlib
+        rows = self._db.execute("SELECT path,sha256 FROM docs ORDER BY path").fetchall()
+        raw = "\n".join(f"{row['path']}:{row['sha256']}" for row in rows).encode("utf-8")
+        return hashlib.sha256(raw).hexdigest()
+
     def close(self) -> None:
         self._db.close()

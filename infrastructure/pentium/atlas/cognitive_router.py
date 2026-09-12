@@ -23,6 +23,14 @@ class CognitiveRouter:
     def __init__(self, governor: TokenBudgetGovernor):
         self._governor = governor
         self._last_fingerprint_by_kind: dict[str, str] = {}
+        self._metrics = {route.value: 0 for route in CognitiveRoute}
+
+    def metrics(self) -> dict[str, int]:
+        return dict(self._metrics)
+
+    def _count(self, route: CognitiveRoute) -> CognitiveRoute:
+        self._metrics[route.value] += 1
+        return route
 
     def route(
         self,
@@ -36,15 +44,15 @@ class CognitiveRouter:
     ) -> CognitiveRoute:
         kind = str(kind)
         if operation in self._DETERMINISTIC_OPERATIONS:
-            return CognitiveRoute.DETERMINISTIC
+            return self._count(CognitiveRoute.DETERMINISTIC)
         if cache_hit:
-            return CognitiveRoute.CACHE
+            return self._count(CognitiveRoute.CACHE)
         if retrieval_sufficient:
-            return CognitiveRoute.RETRIEVAL
+            return self._count(CognitiveRoute.RETRIEVAL)
         previous = self._last_fingerprint_by_kind.get(kind)
         self._last_fingerprint_by_kind[kind] = fingerprint
         if kind not in {"human", "incident"} and not deadline_due and previous == fingerprint:
-            return CognitiveRoute.NO_INFERENCE_REQUIRED
+            return self._count(CognitiveRoute.NO_INFERENCE_REQUIRED)
         if not self._governor.allow(kind):
-            return CognitiveRoute.NO_INFERENCE_REQUIRED
-        return CognitiveRoute.LLM
+            return self._count(CognitiveRoute.NO_INFERENCE_REQUIRED)
+        return self._count(CognitiveRoute.LLM)
