@@ -54,6 +54,50 @@ class StimulusJournalTests(unittest.TestCase):
             records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
             self.assertLessEqual(path.stat().st_size, 900)
             self.assertEqual(records[-1]["stimulus_id"], "stim-7")
+    def test_record_limit_compaction_creates_headroom(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stimuli.jsonl"
+            max_records = 64
+            for index in range(max_records):
+                append_stimulus(path, sample_stimulus(f"warm-{index}"), {}, max_records=max_records, max_bytes=65536)
+            real_replace = __import__("os").replace
+            replace_count = 0
+
+            def counted_replace(src, dst):
+                nonlocal replace_count
+                replace_count += 1
+                return real_replace(src, dst)
+
+            with patch("infrastructure.pentium.atlas.stimulus_journal.os.replace", side_effect=counted_replace):
+                for index in range(12):
+                    append_stimulus(path, sample_stimulus(f"hot-{index}"), {}, max_records=max_records, max_bytes=65536)
+            self.assertEqual(replace_count, 1)
+            records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+            self.assertLessEqual(len(records), max_records)
+            self.assertEqual(records[-1]["stimulus_id"], "hot-11")
+
+    def test_byte_limit_compaction_creates_headroom(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stimuli.jsonl"
+            max_bytes = 32768
+            index = 0
+            while path.stat().st_size < max_bytes * 0.95 if path.exists() else True:
+                append_stimulus(path, sample_stimulus(f"warm-{index}"), {"blob": "x" * 180}, max_records=8192, max_bytes=max_bytes)
+                index += 1
+            real_replace = __import__("os").replace
+            replace_count = 0
+
+            def counted_replace(src, dst):
+                nonlocal replace_count
+                replace_count += 1
+                return real_replace(src, dst)
+
+            with patch("infrastructure.pentium.atlas.stimulus_journal.os.replace", side_effect=counted_replace):
+                for index in range(12):
+                    append_stimulus(path, sample_stimulus(f"hot-{index}"), {"blob": "x" * 180}, max_records=8192, max_bytes=max_bytes)
+            self.assertEqual(replace_count, 1)
+            self.assertLessEqual(path.stat().st_size, max_bytes)
+
     def test_oversized_record_is_rejected_before_file_is_created(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "stimuli.jsonl"
