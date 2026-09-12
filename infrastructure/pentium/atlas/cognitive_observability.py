@@ -74,7 +74,15 @@ class CognitiveObservablePublisher:
         preview = _clip(getattr(response, "texto", None), self.max_text_chars)
         intention = _clip(getattr(response, "intencao", None), self.max_text_chars)
         activated = bool(getattr(response, "ativado", False))
-        state = "DEGRADADA" if reason else ("AGUARDANDO_CONFIRMACAO" if getattr(response, "requer_confirmacao", False) else "OBSERVANDO")
+        suppression_reasons = {"sem_motivo", "cooldown", "orcamento"}
+        if reason in suppression_reasons:
+            state = "OBSERVANDO"
+        elif reason:
+            state = "DEGRADADA"
+        elif getattr(response, "requer_confirmacao", False):
+            state = "AGUARDANDO_CONFIRMACAO"
+        else:
+            state = "OBSERVANDO"
         result = {
             "activated": activated, "reason": reason, "motivo": _clip(getattr(response, "motivo", None), self.max_text_chars),
             "summary": summary, "response_preview": preview, "intention": intention,

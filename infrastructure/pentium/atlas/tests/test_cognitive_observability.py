@@ -45,3 +45,28 @@ class CognitiveObservablePublisherTests(unittest.TestCase):
             publisher.publish_phase(self.snapshot(),state="ANALISANDO",activity="avaliando_estimulo")
             events=(root/"activity.jsonl").read_text(encoding="utf-8").splitlines()
         self.assertEqual(1,len(events))
+
+    def test_policy_suppression_reasons_are_not_reported_as_degraded(self):
+        for reason in ("sem_motivo", "cooldown", "orcamento"):
+            with self.subTest(reason=reason), TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                publisher = CognitiveObservablePublisher(root / "runtime.json", root / "activity.jsonl", max_events=8)
+                response = self.response()
+                response.ativado = False
+                response.razao = reason
+                response.resumo = None
+                publisher.publish_result(self.snapshot(), response)
+                state = json.loads((root / "runtime.json").read_text(encoding="utf-8"))
+                self.assertEqual("OBSERVANDO", state["state"])
+                self.assertEqual(reason, state["last_result"]["reason"])
+
+    def test_unexpected_reason_remains_degraded(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            publisher = CognitiveObservablePublisher(root / "runtime.json", root / "activity.jsonl", max_events=8)
+            response = self.response()
+            response.ativado = False
+            response.razao = "backend_unavailable"
+            publisher.publish_result(self.snapshot(), response)
+            state = json.loads((root / "runtime.json").read_text(encoding="utf-8"))
+        self.assertEqual("DEGRADADA", state["state"])
