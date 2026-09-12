@@ -14,6 +14,7 @@ RestartSec=5
 TimeoutStopSec=10
 MemoryHigh=128M
 MemoryMax=192M
+UMask=0077
 
 [Install]
 WantedBy=default.target

@@ -68,6 +68,11 @@ class CognitiveDaemonTests(unittest.TestCase):
         self.assertEqual("RuntimeError",pub.phases[-1]["detail"])
 
 class CognitiveDaemonPackagingTests(unittest.TestCase):
+    def test_cognitive_service_has_private_umask(self):
+        root=Path(__file__).resolve().parents[1]
+        unit=(root/'atlas-cognitive.service').read_text(encoding='utf-8')
+        self.assertIn('UMask=0077',unit)
+
     def test_cognitive_service_has_bounded_memory(self):
         root=Path(__file__).resolve().parents[1]
         unit=(root/'atlas-cognitive.service').read_text(encoding='utf-8')
