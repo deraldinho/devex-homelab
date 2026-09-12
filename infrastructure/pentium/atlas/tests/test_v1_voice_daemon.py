@@ -32,3 +32,21 @@ class VoiceDaemonTests(unittest.TestCase):
             with self.assertRaises(ValueError): load_voice_config(path)
 
 if __name__ == "__main__": unittest.main()
+
+
+class VoiceDaemonHealthWiringTests(unittest.TestCase):
+    def test_daemon_wires_voice_health_and_expected_sha(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "voice_daemon.py").read_text(encoding="utf-8")
+        self.assertIn("VoiceHealthPublisher", source)
+        self.assertIn("voice-health.json", source)
+        self.assertIn('os.environ.get("ATLAS_EXPECTED_SHA")', source)
+        self.assertIn('status="degraded"', source)
+
+    def test_installer_packages_voice_health_module(self):
+        root = Path(__file__).resolve().parents[1]
+        installer = (root / "install-user.sh").read_text(encoding="utf-8")
+        copy_section = installer.split("for config in", 1)[0]
+        compile_section = installer.split("python3 -m py_compile", 1)[1]
+        self.assertIn("voice_health.py", copy_section)
+        self.assertIn("voice_health.py", compile_section)

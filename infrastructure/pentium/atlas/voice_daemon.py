@@ -29,11 +29,13 @@ from .transcript_filter import NonSpeechTranscriptFilter
 from .streaming_vad import StreamingAdaptiveVad
 from .utterance_capture import StreamingUtteranceCapture
 from .voice_runtime import VoiceRuntime
+from .voice_health import VoiceHealthPublisher
 from .whisper_stt import SubprocessWhisperRunner, WhisperSttBackend
 
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_INTERACTION_SOCKET = Path.home() / "pentium-agent" / "atlas" / "runtime" / "affective-interaction.sock"
+DEFAULT_VOICE_HEALTH = Path.home() / "pentium-agent" / "atlas" / "runtime" / "voice-health.json"
 
 def build_visual_state_sink(path: Path = DEFAULT_INTERACTION_SOCKET):
     return InteractionDatagramClient(path).send
@@ -145,6 +147,9 @@ def build_runtime(config_path: Path = ROOT / "config_voice.json") -> VoiceRuntim
 def main() -> int:
     cfg = load_voice_config()
     runtime = build_runtime()
+    expected_sha = os.environ.get("ATLAS_EXPECTED_SHA") or None
+    health = VoiceHealthPublisher(DEFAULT_VOICE_HEALTH)
+    health.publish(status="healthy", state="LISTENING", reason=None, expected_sha=expected_sha)
     stopped = False
 
     def stop(*_):
@@ -157,9 +162,17 @@ def main() -> int:
     while not stopped:
         try:
             result = runtime.run_once()
+            health.publish(
+                status="healthy", state=result.state.value,
+                reason=result.reason, expected_sha=expected_sha,
+            )
             print(f"ATLAS_V1_VOICE_STATE={result.state.value} reason={result.reason or 'none'}", flush=True)
             time.sleep(float(cfg["idle_sleep_s"]))
         except Exception as exc:
+            health.publish(
+                status="degraded", state="DEGRADED",
+                reason=type(exc).__name__, expected_sha=expected_sha,
+            )
             print(f"ATLAS_V1_VOICE_DEGRADED type={type(exc).__name__}", flush=True)
             time.sleep(float(cfg["error_sleep_s"]))
     return 0
