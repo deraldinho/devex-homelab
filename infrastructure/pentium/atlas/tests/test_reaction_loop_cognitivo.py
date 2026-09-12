@@ -123,3 +123,30 @@ class ReactionLoopMemoryTests(unittest.TestCase):
         loop = ReactionLoopCognitivo(policy, builder, gateway, memory_retriever=FakeRetriever(error=RuntimeError("db")))
         loop.processar(fingerprint="fp", agora="2026-09-05T20:00:00+00:00", sinais_ativacao={}, dados_contexto={})
         self.assertEqual((), builder.kwargs["memorias_relevantes"])
+
+
+class FakeWorkspaceRetriever:
+    def __init__(self, result=(), error=None):
+        self.result=result; self.error=error; self.calls=[]
+    def retrieve(self, query, *, max_items=6, max_bytes=2048):
+        self.calls.append((query,max_items,max_bytes))
+        if self.error: raise self.error
+        return self.result
+
+
+class ReactionLoopWorkspaceTests(unittest.TestCase):
+    def test_workspace_retrieval_entra_em_secao_distinta_e_bounded(self):
+        policy=FakePolicy(DecisaoAtivacaoCognitiva(True, MotivoAtivacaoCognitiva.INTERACAO_HUMANA))
+        builder=FakeBuilder(); gateway=FakeGateway(ResultadoInferencia(True,"ok",None,2,"fake"))
+        retriever=FakeWorkspaceRetriever(({"path":"notes/core.md","digest":"Core runner"},))
+        loop=ReactionLoopCognitivo(policy,builder,gateway,workspace_retriever=retriever)
+        loop.processar(fingerprint="core runner",agora="2026-09-12T18:00:00+00:00",sinais_ativacao={"interacao_humana":True},dados_contexto={})
+        self.assertEqual("notes/core.md",builder.kwargs["workspace_relevante"][0]["path"])
+        self.assertEqual(2048,retriever.calls[0][2])
+
+    def test_workspace_retriever_failure_fails_open_without_workspace_context(self):
+        policy=FakePolicy(DecisaoAtivacaoCognitiva(True, MotivoAtivacaoCognitiva.INTERACAO_HUMANA))
+        builder=FakeBuilder(); gateway=FakeGateway(ResultadoInferencia(True,"ok",None,2,"fake"))
+        loop=ReactionLoopCognitivo(policy,builder,gateway,workspace_retriever=FakeWorkspaceRetriever(error=RuntimeError("db")))
+        loop.processar(fingerprint="fp",agora="2026-09-12T18:00:00+00:00",sinais_ativacao={},dados_contexto={})
+        self.assertEqual((),builder.kwargs["workspace_relevante"])

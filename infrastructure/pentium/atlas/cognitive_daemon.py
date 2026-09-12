@@ -123,12 +123,13 @@ class CognitiveResultPublisher:
 
 
 class CognitiveDaemon:
-    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None,chat_inbox=None,notification_policy=None,behavior_selector=None,intent_machine=None,habituation_engine=None,intent_publisher=None):
+    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None,chat_inbox=None,notification_policy=None,behavior_selector=None,intent_machine=None,habituation_engine=None,intent_publisher=None,cognitive_router=None,self_work_runtime=None):
         if reflection_interval_s<=0: raise ValueError("reflection_interval_s must be > 0")
         self._snapshot_loader=snapshot_loader;self._context_provider=context_provider;self._loop=loop;self._publisher=publisher
         self._reflection_interval_s=float(reflection_interval_s);self._clock=clock;self._last_id=None;self._last_at=None;self._last_affective=None;self._visual_state_sink=visual_state_sink
         self._planner=planner;self._action_policy=action_policy;self._action_executor=action_executor;self._action_store=action_store;self._event_sink=event_sink;self._chat_inbox=chat_inbox;self._notification_policy=notification_policy
         self._behavior_selector=behavior_selector;self._intent_machine=intent_machine;self._habituation_engine=habituation_engine;self._intent_publisher=intent_publisher
+        self._cognitive_router=cognitive_router;self._self_work_runtime=self_work_runtime
     def _delta(self,current):
         keys=("valencia","ativacao","estresse","confianca","engajamento","curiosidade")
         if self._last_affective is None:return 0.0
@@ -228,6 +229,12 @@ class CognitiveDaemon:
             snapshot=SimpleNamespace(source_stimulus_id=envelope.stimulus_id,entity_id=getattr(base_snapshot,"entity_id",None),generated_at=envelope.created_at,recent_changes=getattr(base_snapshot,"recent_changes",()),affective_state=getattr(base_snapshot,"affective_state",{}))
         reflection=envelope is None and self._last_id==snapshot.source_stimulus_id and self._last_at is not None and now-self._last_at>=self._reflection_interval_s
         if envelope is None and snapshot.source_stimulus_id==self._last_id and not reflection:return None
+        self_work_preempted=False
+        if envelope is not None and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
+            try:
+                self._self_work_runtime.pause_for_human(now=snapshot.generated_at);self_work_preempted=True
+            except Exception as exc:
+                self._emit_action_event("self_work_preempt_error",{"error":type(exc).__name__})
         thinking=False
         def inference_state(active):
             nonlocal thinking
@@ -248,15 +255,41 @@ class CognitiveDaemon:
                 recent=list(context.get("mudancas_recentes",()))
                 recent.append(stimulus); context["mudancas_recentes"]=recent
                 signals["interacao_humana"]=True
-            communication_mode,_,_=self._continuous_behavior(
+            communication_mode,intent,material_fingerprint=self._continuous_behavior(
                 base_snapshot,human_interaction=envelope is not None,now=snapshot.generated_at,
             )
+            self_work_cycle=False
+            if intent is not None and getattr(getattr(intent,"tipo",None),"value",None)=="SELF_WORK" and self._self_work_runtime is not None:
+                self_work_cycle=True
+                if self._self_work_runtime.current is None:
+                    area=str(getattr(intent,"assunto_id","scratch")).split(":",1)[-1] or "scratch"
+                    try:
+                        self._self_work_runtime.propose(getattr(intent,"motivo","self_work"),area,now=snapshot.generated_at)
+                        self._self_work_runtime.activate(now=snapshot.generated_at)
+                    except Exception as exc:
+                        self._emit_action_event("self_work_start_error",{"error":type(exc).__name__})
+            if self._cognitive_router is not None:
+                kind="human" if envelope is not None else ("incident" if getattr(base_snapshot,"incident",None) else ("self_work" if self_work_cycle else ("reflection" if reflection else "observation")))
+                route=self._cognitive_router.route(kind=kind,fingerprint=material_fingerprint or self._material_fingerprint(base_snapshot),deadline_due=reflection)
+                if getattr(route,"value",str(route))=="no_inference_required":
+                    self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
+                    if self_work_preempted and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
+                        self._self_work_runtime.resume_if_valid(now=snapshot.generated_at)
+                    return None
             response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context,on_inference=inference_state)
+            if self_work_cycle and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
+                current=self._self_work_runtime.current
+                if getattr(current.state,"value","")=="ACTIVE": self._self_work_runtime.begin_work(now=snapshot.generated_at)
+                if self._self_work_runtime.current is not None: self._self_work_runtime.record_inference(now=snapshot.generated_at)
             if envelope is None and not reflection and self._notification_policy is not None:
                 chat_route=self._notification_policy.route_for(base_snapshot)
             self._process_action_plan(snapshot,response,trigger_kind=trigger_kind,chat_route=chat_route,communication_mode=communication_mode)
             self._publisher.publish(snapshot,response)
-            if envelope is not None:self._chat_inbox.ack(envelope.message_id)
+            if envelope is not None:
+                self._chat_inbox.ack(envelope.message_id)
+                if self_work_preempted and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
+                    try: self._self_work_runtime.resume_if_valid(now=snapshot.generated_at)
+                    except Exception as exc: self._emit_action_event("self_work_resume_error",{"error":type(exc).__name__})
             self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
             return response
         except Exception as exc:

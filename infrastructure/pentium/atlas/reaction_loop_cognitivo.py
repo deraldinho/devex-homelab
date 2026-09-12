@@ -25,12 +25,13 @@ class RespostaCognitiva:
 
 
 class ReactionLoopCognitivo:
-    def __init__(self, policy, builder, gateway, *, capability_policy=None, memory_retriever=None, cognitive_cache=None):
+    def __init__(self, policy, builder, gateway, *, capability_policy=None, memory_retriever=None, workspace_retriever=None, cognitive_cache=None):
         self._policy = policy
         self._builder = builder
         self._gateway = gateway
         self._capability_policy = capability_policy
         self._memory_retriever = memory_retriever
+        self._workspace_retriever = workspace_retriever
         self._cognitive_cache = cognitive_cache
     def processar(self, *, fingerprint: str, agora: str,
                  sinais_ativacao: Mapping[str, Any], dados_contexto: Mapping[str, Any],
@@ -60,6 +61,14 @@ class ReactionLoopCognitivo:
             except Exception:
                 memorias_relevantes = ()
         dados_builder["memorias_relevantes"] = memorias_relevantes
+        workspace_relevante = ()
+        if self._workspace_retriever is not None:
+            try:
+                query = " ".join(part for part in (fingerprint, motivo.value if motivo is not None else "") if part)
+                workspace_relevante = self._workspace_retriever.retrieve(query, max_items=4, max_bytes=2048)
+            except Exception:
+                workspace_relevante = ()
+        dados_builder["workspace_relevante"] = workspace_relevante
         contexto = self._builder.construir(
             motivo=motivo,
             agora=agora,

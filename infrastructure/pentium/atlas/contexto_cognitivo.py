@@ -30,7 +30,7 @@ class ContextoCognitivoBuilder:
         return valor
 
     def construir(self, *, motivo, assessment, percepcao, incidente, estado_afetivo, emocao, foco,
-                  expectativa, mudancas_recentes, dependencias_afetadas, agora, memorias_relevantes=()) -> ContextoCognitivo:
+                  expectativa, mudancas_recentes, dependencias_afetadas, agora, memorias_relevantes=(), workspace_relevante=()) -> ContextoCognitivo:
         truncamentos: list[str] = []
         entidade = incidente.entidade_principal if incidente is not None else percepcao.entidade_id
         if not entidade and foco.principal is not None:
@@ -84,6 +84,11 @@ class ContextoCognitivoBuilder:
             for indice, item in enumerate(mudancas)
         )
 
+        workspace_reduzido = tuple(
+            self._reduzir_payload(dict(item), f"workspace_relevante[{indice}]", truncamentos)
+            for indice, item in enumerate(workspace_relevante)
+        )
+
         memorias_reduzidas = tuple(
             self._reduzir_payload(dict(item), f"memorias_relevantes[{indice}]", truncamentos)
             for indice, item in enumerate(memorias_relevantes)
@@ -116,8 +121,16 @@ class ContextoCognitivoBuilder:
             dependencias_afetadas=tuple(self._string(x, "dependencia", truncamentos) for x in dependencias),
             truncamentos=tuple(truncamentos),
             memorias_relevantes=memorias_reduzidas,
+            workspace_relevante=workspace_reduzido,
         )
 
+        while ctx.payload_bytes() > self._politica.max_payload_bytes and ctx.workspace_relevante:
+            truncamentos.append("payload:workspace_relevante")
+            ctx = ContextoCognitivo(**{
+                **ctx.__dict__,
+                "workspace_relevante": ctx.workspace_relevante[:-1],
+                "truncamentos": tuple(truncamentos),
+            })
         while ctx.payload_bytes() > self._politica.max_payload_bytes and ctx.memorias_relevantes:
             truncamentos.append("payload:memorias_relevantes")
             ctx = ContextoCognitivo(**{
