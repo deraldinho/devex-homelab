@@ -4,8 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="$HOME/pentium-agent/dashboard"
 USER_UNIT_DIR="$HOME/.config/systemd/user"
+RUNTIME_DIR="$HOME/pentium-agent/atlas/runtime"
 
 install -d -m 0755 "$TARGET_DIR" "$USER_UNIT_DIR"
+if [[ -d "${RUNTIME_DIR}" ]]; then
+  find "${RUNTIME_DIR}" -type f -exec chmod 0600 {} +
+fi
 install -m 0755 "$SCRIPT_DIR/atlas_dashboard.py" "$TARGET_DIR/atlas_dashboard.py"
 install -m 0644 "$SCRIPT_DIR/dashboard_collectors.py" "$TARGET_DIR/dashboard_collectors.py"
 install -m 0644 "$SCRIPT_DIR/dashboard_chat.py" "$TARGET_DIR/dashboard_chat.py"

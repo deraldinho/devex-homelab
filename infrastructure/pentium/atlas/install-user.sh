@@ -4,10 +4,14 @@ set -euo pipefail
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_ROOT="${HOME}/pentium-agent"
 TARGET_DIR="${TARGET_ROOT}/atlas"
+RUNTIME_DIR="${TARGET_DIR}/runtime"
 
 command -v hermes >/dev/null 2>&1 || { echo "Hermes CLI nao encontrado no PATH" >&2; exit 2; }
 
 install -d -m 0755 "${TARGET_DIR}"
+if [[ -d "${RUNTIME_DIR}" ]]; then
+  find "${RUNTIME_DIR}" -type f -exec chmod 0600 {} +
+fi
 
 for file in \
   __init__.py \
