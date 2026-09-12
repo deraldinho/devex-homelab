@@ -50,12 +50,13 @@ def resolve_workspace_path(root: Path, area: str, relative_path: str, policy: Wo
     suffix = raw.suffix.lower()
     if suffix and suffix not in policy.allowed_extensions:
         raise WorkspacePolicyError("extension_forbidden")
-    area_root = (root / area).resolve(strict=False)
-    candidate = (area_root / raw).resolve(strict=False)
+    area_root = root / area
+    lexical_candidate = area_root / raw
+    _reject_symlink_chain(root, lexical_candidate)
+    candidate = lexical_candidate.resolve(strict=False)
     try:
         if os.path.commonpath((str(root), str(candidate))) != str(root):
             raise WorkspacePolicyError("path_escape_forbidden")
     except ValueError as exc:
         raise WorkspacePolicyError("path_escape_forbidden") from exc
-    _reject_symlink_chain(root, area_root / raw)
-    return area_root / raw
+    return lexical_candidate
