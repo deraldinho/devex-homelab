@@ -7,6 +7,10 @@ WORKFLOW = ROOT / ".github" / "workflows" / "foundation-ci.yml"
 
 
 class AffectiveBootPackagingTests(unittest.TestCase):
+    def test_observation_service_has_private_umask(self):
+        service = (ATLAS / "atlas-observation.service").read_text(encoding="utf-8")
+        self.assertIn("UMask=0077", service)
+
     def test_observation_service_has_bounded_memory(self):
         service = (ATLAS / "atlas-observation.service").read_text(encoding="utf-8")
         self.assertIn("MemoryHigh=128M", service)
