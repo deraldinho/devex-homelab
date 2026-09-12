@@ -146,6 +146,7 @@ main{position:relative;z-index:1;max-width:1500px;margin:auto;padding:24px}
       <div id="actionPlanActions" style="margin-top:12px"><div class="muted">nenhuma a&ccedil;&atilde;o</div></div>
     </section>
     <section class="card wide" id="operationalTimelinePanel"><div class="label">Timeline operacional</div><div id="operationalTimeline" class="events"></div></section>
+    <section class="card wide" id="workspacePanel"><div class="label">Atlas Personal Workspace / Cognitive Economy</div><div class="avatarMeta"><div class="metric"><span class="muted">Workspace</span><strong id="workspaceUsage">INDISPON?VEL</strong></div><div class="metric"><span class="muted">Self Work</span><strong id="selfWorkState">INATIVO</strong></div><div class="metric"><span class="muted">Token Economy</span><strong id="tokenEconomyMode">UNKNOWN</strong></div><div class="metric"><span class="muted">Infer?ncias evitadas</span><strong id="avoidedInferenceCount">0</strong></div></div><div id="workspaceDetail" class="muted" style="margin-top:10px">somente leitura</div></section>
     <section class="card third"><div class="label">Atlas</div><div id="atlasHealth" class="value">UNKNOWN</div><div id="atlasSha" class="muted">SHA &mdash;</div></section>
     <section class="card third"><div class="label">Voice</div><div id="voiceState" class="value">UNKNOWN</div><div id="voiceDetail" class="muted">&mdash;</div></section>
     <section class="card third"><div class="label">ANC</div><div id="ancState" class="value">UNKNOWN</div><div id="ancDetail" class="muted">&mdash;</div></section>
@@ -162,6 +163,16 @@ main{position:relative;z-index:1;max-width:1500px;margin:auto;padding:24px}
 <script>
 const $ = id => document.getElementById(id); const esc = value => String(value ?? 'unknown').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function kv(target,obj){target.innerHTML=Object.entries(obj||{}).map(([k,v])=>`<div class="muted">${esc(k)}</div><div>${esc(typeof v==='object'?JSON.stringify(v):v)}</div>`).join('')||'<div class="muted">sem dados</div>';}
+function renderWorkspace(payload){
+  const p=payload||{status:'unavailable'}, w=p.workspace||{}, sw=p.self_work||{}, e=p.economy||{}, r=e.routes||{};
+  const used=Number(w.bytes||0), max=Number(w.max_bytes||0);
+  const pct=max>0?Math.round(used*100/max):0;
+  $('workspaceUsage').textContent=p.status==='healthy'?`${w.files||0} arquivos ? ${pct}%`:'INDISPON?VEL';
+  $('selfWorkState').textContent=sw.active?(sw.state||'ACTIVE'):'INATIVO';
+  $('tokenEconomyMode').textContent=String(e.mode||'unknown').toUpperCase();
+  $('avoidedInferenceCount').textContent=Number(r.no_inference_required||0)+Number(r.cache||0)+Number(r.retrieval||0)+Number(r.deterministic||0);
+  $('workspaceDetail').textContent=sw.active?`${sw.objective||'self work'} ? ops ${sw.operations_used||0} ? infer?ncias ${sw.inferences_used||0}`:`tokens ${e.tokens_used||0}/${e.window_budget||0} ? somente leitura`;
+}
 function renderCognition(cognition){
   const c=cognition||{status:'unavailable'}; const state=String(c.status||'unavailable');
   $('cognitionStatus').textContent=state==='available'?'CONTEXTO DISPON\u00cdVEL':state==='stale'?'CONTEXTO STALE':'CONTEXTO INDISPON\u00cdVEL';
@@ -273,7 +284,7 @@ async function refreshAll(){try{
   const [statusRes,eventRes]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/events',{cache:'no-store'})]);
   if(!statusRes.ok||!eventRes.ok) throw new Error('HttpStatus');
   const status=await statusRes.json(); const events=await eventRes.json();
-  AtlasAvatarRenderer.render(status.visual); renderContinuousIntent(status.continuous_intent); renderCognition(status.cognition); renderCognitiveRuntime(status.cognitive_runtime); renderCognitiveActivity(status.cognitive_runtime,status.cognitive_runtime?.timeline); renderActionPlan(status.cognitive_runtime); renderOperational(status.cognitive_runtime);
+  AtlasAvatarRenderer.render(status.visual); renderContinuousIntent(status.continuous_intent); renderCognition(status.cognition); renderCognitiveRuntime(status.cognitive_runtime); renderCognitiveActivity(status.cognitive_runtime,status.cognitive_runtime?.timeline); renderActionPlan(status.cognitive_runtime); renderOperational(status.cognitive_runtime); renderWorkspace(status.workspace);
   $('atlasHealth').textContent=(status.atlas?.health||'unknown').toUpperCase(); $('atlasSha').textContent=`SHA ${status.atlas?.sha||'unknown'}`;
   $('voiceState').textContent=(status.voice?.state||'unknown').toUpperCase(); $('voiceDetail').textContent=`servi\u00e7o ${status.services?.voice?.active||'unknown'} \u00b7 ${status.services?.voice?.enabled||'unknown'}`;
   $('ancState').textContent=(status.anc?.state||'unknown').toUpperCase(); $('ancDetail').textContent=status.anc?.reason||'sem diagn\u00f3stico adicional';

@@ -24,7 +24,7 @@ class CollectorTests(unittest.TestCase):
     def test_collect_status_always_has_stable_groups(self):
         cfg = dc.default_config()
         status = dc.collect_status(cfg, command_runner=lambda *_: dc.CommandResult(1, "", "x"))
-        self.assertEqual(set(status), {"atlas", "services", "voice", "audio", "anc", "system", "network", "visual", "cognition", "cognitive_runtime", "continuous_intent"})
+        self.assertEqual(set(status), {"atlas", "services", "voice", "audio", "anc", "system", "network", "visual", "cognition", "cognitive_runtime", "continuous_intent", "workspace"})
 
     def test_parse_arecord_lists_internal_and_usb_capture_devices(self):
         text = """card 0: Intel [HDA Intel], device 0: ALC272 Analog [ALC272 Analog]\ncard 1: Device [USB Composite Device], device 0: USB Audio [USB Audio]\n"""

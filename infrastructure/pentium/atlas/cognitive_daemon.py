@@ -43,6 +43,17 @@ from .behavior_selector import BehaviorSelector
 from .continuous_intent_machine import ContinuousIntentMachine
 from .continuous_intent_publisher import ContinuousIntentPublisher
 from .habituation_engine import HabituationEngine
+from .workspace_policy import WorkspacePolicy
+from .workspace_broker import WorkspaceBroker
+from .workspace_index import WorkspaceIndex
+from .workspace_retriever import WorkspaceRetriever
+from .workspace_context_cache import WorkspaceContextCache
+from .workspace_capability_executor import WorkspaceCapabilityExecutor
+from .capability_dispatch import CapabilityDispatcher
+from .workspace_health import WorkspaceEconomyPublisher
+from .token_budget_governor import TokenBudgetGovernor
+from .cognitive_router import CognitiveRouter
+from .self_work import SelfWorkRuntime
 
 ROOT=Path(__file__).resolve().parent
 AGENT_ROOT=Path.home()/"pentium-agent"
@@ -123,12 +134,13 @@ class CognitiveResultPublisher:
 
 
 class CognitiveDaemon:
-    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None,chat_inbox=None,notification_policy=None,behavior_selector=None,intent_machine=None,habituation_engine=None,intent_publisher=None):
+    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None,chat_inbox=None,notification_policy=None,behavior_selector=None,intent_machine=None,habituation_engine=None,intent_publisher=None,cognitive_router=None,self_work_runtime=None):
         if reflection_interval_s<=0: raise ValueError("reflection_interval_s must be > 0")
         self._snapshot_loader=snapshot_loader;self._context_provider=context_provider;self._loop=loop;self._publisher=publisher
         self._reflection_interval_s=float(reflection_interval_s);self._clock=clock;self._last_id=None;self._last_at=None;self._last_affective=None;self._visual_state_sink=visual_state_sink
         self._planner=planner;self._action_policy=action_policy;self._action_executor=action_executor;self._action_store=action_store;self._event_sink=event_sink;self._chat_inbox=chat_inbox;self._notification_policy=notification_policy
         self._behavior_selector=behavior_selector;self._intent_machine=intent_machine;self._habituation_engine=habituation_engine;self._intent_publisher=intent_publisher
+        self._cognitive_router=cognitive_router;self._self_work_runtime=self_work_runtime
     def _delta(self,current):
         keys=("valencia","ativacao","estresse","confianca","engajamento","curiosidade")
         if self._last_affective is None:return 0.0
@@ -228,6 +240,12 @@ class CognitiveDaemon:
             snapshot=SimpleNamespace(source_stimulus_id=envelope.stimulus_id,entity_id=getattr(base_snapshot,"entity_id",None),generated_at=envelope.created_at,recent_changes=getattr(base_snapshot,"recent_changes",()),affective_state=getattr(base_snapshot,"affective_state",{}))
         reflection=envelope is None and self._last_id==snapshot.source_stimulus_id and self._last_at is not None and now-self._last_at>=self._reflection_interval_s
         if envelope is None and snapshot.source_stimulus_id==self._last_id and not reflection:return None
+        self_work_preempted=False
+        if envelope is not None and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
+            try:
+                self._self_work_runtime.pause_for_human(now=snapshot.generated_at);self_work_preempted=True
+            except Exception as exc:
+                self._emit_action_event("self_work_preempt_error",{"error":type(exc).__name__})
         thinking=False
         def inference_state(active):
             nonlocal thinking
@@ -248,15 +266,41 @@ class CognitiveDaemon:
                 recent=list(context.get("mudancas_recentes",()))
                 recent.append(stimulus); context["mudancas_recentes"]=recent
                 signals["interacao_humana"]=True
-            communication_mode,_,_=self._continuous_behavior(
+            communication_mode,intent,material_fingerprint=self._continuous_behavior(
                 base_snapshot,human_interaction=envelope is not None,now=snapshot.generated_at,
             )
+            self_work_cycle=False
+            if intent is not None and getattr(getattr(intent,"tipo",None),"value",None)=="SELF_WORK" and self._self_work_runtime is not None:
+                self_work_cycle=True
+                if self._self_work_runtime.current is None:
+                    area=str(getattr(intent,"assunto_id","scratch")).split(":",1)[-1] or "scratch"
+                    try:
+                        self._self_work_runtime.propose(getattr(intent,"motivo","self_work"),area,now=snapshot.generated_at)
+                        self._self_work_runtime.activate(now=snapshot.generated_at)
+                    except Exception as exc:
+                        self._emit_action_event("self_work_start_error",{"error":type(exc).__name__})
+            if self._cognitive_router is not None:
+                kind="human" if envelope is not None else ("incident" if getattr(base_snapshot,"incident",None) else ("self_work" if self_work_cycle else ("reflection" if reflection else "observation")))
+                route=self._cognitive_router.route(kind=kind,fingerprint=material_fingerprint or self._material_fingerprint(base_snapshot),deadline_due=reflection)
+                if getattr(route,"value",str(route))=="no_inference_required":
+                    self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
+                    if self_work_preempted and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
+                        self._self_work_runtime.resume_if_valid(now=snapshot.generated_at)
+                    return None
             response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context,on_inference=inference_state)
+            if self_work_cycle and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
+                current=self._self_work_runtime.current
+                if getattr(current.state,"value","")=="ACTIVE": self._self_work_runtime.begin_work(now=snapshot.generated_at)
+                if self._self_work_runtime.current is not None: self._self_work_runtime.record_inference(now=snapshot.generated_at)
             if envelope is None and not reflection and self._notification_policy is not None:
                 chat_route=self._notification_policy.route_for(base_snapshot)
             self._process_action_plan(snapshot,response,trigger_kind=trigger_kind,chat_route=chat_route,communication_mode=communication_mode)
             self._publisher.publish(snapshot,response)
-            if envelope is not None:self._chat_inbox.ack(envelope.message_id)
+            if envelope is not None:
+                self._chat_inbox.ack(envelope.message_id)
+                if self_work_preempted and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
+                    try: self._self_work_runtime.resume_if_valid(now=snapshot.generated_at)
+                    except Exception as exc: self._emit_action_event("self_work_resume_error",{"error":type(exc).__name__})
             self._last_id=snapshot.source_stimulus_id;self._last_at=now;self._last_affective=dict(snapshot.affective_state)
             return response
         except Exception as exc:
@@ -271,47 +315,58 @@ class CognitiveDaemon:
 
 
 class CognitiveRuntimeOwner:
-    def __init__(self,daemon,memory_store,*,poll_interval_s=.5,sleeper=time.sleep):
+    def __init__(self,daemon,memory_store,*,health_publisher=None,health_dependencies=None,closeables=(),poll_interval_s=.5,sleeper=time.sleep):
         self.daemon=daemon;self.memory_store=memory_store;self.poll_interval_s=float(poll_interval_s);self.sleeper=sleeper
+        self._health_publisher=health_publisher;self._health_dependencies=dict(health_dependencies or {});self._closeables=tuple(closeables)
     def start(self):
         return None
+    def run_once(self):
+        try:
+            return self.daemon.run_once()
+        finally:
+            if self._health_publisher is not None:
+                self._health_publisher.publish(**self._health_dependencies)
     def close(self):
+        for item in reversed(self._closeables):
+            try: item.close()
+            except Exception: pass
         self.memory_store.close()
 
 
 def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     config_root=Path(config_root);state_dir=Path(state_dir);cognitive=carregar_configuracao_cognitiva(config_root/"config_cognitiva.json");hermes=load_hermes_config(config_root/"config_hermes.json")
+    governor=TokenBudgetGovernor(window_budget=120000)
+    router=CognitiveRouter(governor)
     backend=HermesAdapter(hermes)
-    gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=hermes.max_context_tokens,reasoning_policy=ReasoningPolicy())
+    gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=hermes.max_context_tokens,reasoning_policy=ReasoningPolicy(),token_recorder=lambda total:governor.record(total,category="llm"))
     memory_cfg=load_memory_config(config_root/"config_memory.json");memory_store=MemoryStore(state_dir/"memory.sqlite3");retriever=MemoryRetriever(memory_store,max_items=memory_cfg.retriever_max_items,max_bytes=memory_cfg.retriever_max_bytes)
-    cache=CognitiveCache(load_cache_config(config_root/"config_cache.json"));policy=ActivationPolicy(cognitive.ativacao);builder=ContextoCognitivoBuilder(cognitive.contexto);capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status",),control_allow=("restart_service",),auto_control_allow=("restart_service",),auto_hosts=("pentium",),auto_services=("atlas-observation.service","atlas-dashboard.service"))
-    loop=ReactionLoopCognitivo(policy,builder,gateway,capability_policy=capabilities,memory_retriever=retriever,cognitive_cache=cache)
+    workspace_root=AGENT_ROOT/"atlas-workspace"
+    workspace_policy=WorkspacePolicy();workspace_broker=WorkspaceBroker(workspace_root,workspace_policy)
+    workspace_index=WorkspaceIndex(workspace_root/".system"/"index.sqlite3")
+    workspace_cache=WorkspaceContextCache(workspace_root/".system"/"context-cache.sqlite3",ttl_s=300,max_entries=256)
+    workspace_retriever=WorkspaceRetriever(workspace_index,cache=workspace_cache)
+    self_work=SelfWorkRuntime(ttl_s=300,max_operations=20,max_inferences=2)
+    cache=CognitiveCache(load_cache_config(config_root/"config_cache.json"));policy=ActivationPolicy(cognitive.ativacao);builder=ContextoCognitivoBuilder(cognitive.contexto)
+    capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status","workspace_status","workspace_list","workspace_read","workspace_search"),control_allow=("restart_service",),auto_control_allow=("restart_service",),auto_hosts=("pentium",),auto_services=("atlas-observation.service","atlas-dashboard.service"),auto_unscoped_control_allow=("workspace_create_note","workspace_write","workspace_append","workspace_mkdir","workspace_move","workspace_archive","workspace_trash","workspace_restore"))
+    loop=ReactionLoopCognitivo(policy,builder,gateway,capability_policy=capabilities,memory_retriever=retriever,workspace_retriever=workspace_retriever,cognitive_cache=cache)
     expected_sha=(os.environ.get("ATLAS_EXPECTED_SHA") or None) if cognitive.observation_bridge.require_expected_sha else None
     snapshot_path=Path(os.path.expanduser(cognitive.observation_bridge.snapshot_path));provider=HumanContextProvider(state_dir/"observation-affective-health.json",snapshot_path,max_snapshot_age_s=cognitive.observation_bridge.max_snapshot_age_s,expected_sha=expected_sha)
     visual_sink=InteractionDatagramClient(state_dir/"cognitive-interaction.sock").send
     observable=CognitiveObservablePublisher(state_dir/"cognitive-runtime.json",state_dir/"cognitive-activity.jsonl",max_events=64,max_text_chars=cognitive.contexto.max_string_chars)
     action_events=CognitiveActionEventPublisher(state_dir/"dashboard-events.jsonl",max_events=128,max_bytes=262144)
     action_store=ActionPlanStore(state_dir/"action-plan-current.json",state_dir/"action-plan-history.jsonl",max_history=64,max_bytes=131072)
-    action_planner=ActionPlanner()
-    action_policy=ActionPolicy(capabilities)
-    visual_state_path=state_dir/"visual-state.json"
-    visual_publisher=VisualStatePublisher(visual_state_path)
+    action_planner=ActionPlanner();action_policy=ActionPolicy(capabilities)
+    visual_state_path=state_dir/"visual-state.json";visual_publisher=VisualStatePublisher(visual_state_path)
     autonomy_executor=SafeLocalCapabilityExecutor(host="pentium",services=("atlas-observation.service","atlas-dashboard.service"),on_executed=capabilities.registrar_execucao)
-    action_executor=ActionExecutorRegistry(
-        visual_getter=lambda: read_visual_state(visual_state_path),
-        visual_writer=visual_publisher.publicar,
-        capability_sink=autonomy_executor,
-        event_sink=action_events.publish,
-    )
-    chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512)
-    notification_policy=load_notification_policy(config_root)
-    behavior_selector=BehaviorSelector()
-    intent_machine=ContinuousIntentMachine(ttl_s=300.0,activation_threshold=.5)
-    habituation_engine=HabituationEngine(max_entries=64,ttl_s=300.0)
-    intent_publisher=ContinuousIntentPublisher(state_dir/"continuous-intent.json")
-    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox,notification_policy=notification_policy,behavior_selector=behavior_selector,intent_machine=intent_machine,habituation_engine=habituation_engine,intent_publisher=intent_publisher)
-    return CognitiveRuntimeOwner(daemon,memory_store)
-
+    workspace_executor=WorkspaceCapabilityExecutor(workspace_broker,searcher=workspace_retriever,indexer=workspace_index,self_work=self_work)
+    dispatcher=CapabilityDispatcher(autonomy_executor,workspace_executor)
+    action_executor=ActionExecutorRegistry(visual_getter=lambda:read_visual_state(visual_state_path),visual_writer=visual_publisher.publicar,capability_sink=dispatcher,event_sink=action_events.publish)
+    chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512);notification_policy=load_notification_policy(config_root)
+    behavior_selector=BehaviorSelector();intent_machine=ContinuousIntentMachine(ttl_s=300.0,activation_threshold=.5);habituation_engine=HabituationEngine(max_entries=64,ttl_s=300.0);intent_publisher=ContinuousIntentPublisher(state_dir/"continuous-intent.json")
+    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox,notification_policy=notification_policy,behavior_selector=behavior_selector,intent_machine=intent_machine,habituation_engine=habituation_engine,intent_publisher=intent_publisher,cognitive_router=router,self_work_runtime=self_work)
+    health=WorkspaceEconomyPublisher(state_dir/"workspace-economy-health.json")
+    deps={"broker":workspace_broker,"governor":governor,"router":router,"self_work":self_work,"expected_sha":expected_sha}
+    return CognitiveRuntimeOwner(daemon,memory_store,health_publisher=health,health_dependencies=deps,closeables=(workspace_index,workspace_cache))
 
 def main()->int:
     owner=build_owner();stop=False
@@ -321,7 +376,7 @@ def main()->int:
     try:
         owner.start();print("ATLAS_COGNITIVE_DAEMON_READY",flush=True)
         while not stop:
-            try: owner.daemon.run_once()
+            try: owner.run_once()
             except FileNotFoundError: pass
             except Exception as exc: print(f"ATLAS_COGNITIVE_DEGRADED type={type(exc).__name__}",flush=True)
             owner.sleeper(owner.poll_interval_s)

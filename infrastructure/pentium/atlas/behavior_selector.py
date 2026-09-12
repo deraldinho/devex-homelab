@@ -36,6 +36,13 @@ class BehaviorSelector:
         if bool(principal.get("recuperado", False)):
             return BehaviorDecision(IntentType.ENCERRAR_ACOMPANHAMENTO, assunto, entidade, "recuperacao", .95, .95)
 
+        if bool(principal.get("self_work_candidate", False)) and not getattr(snapshot, "incident", None):
+            novelty = _unit(principal.get("novidade"))
+            importance = _unit(principal.get("importancia"))
+            confidence = _unit(dict(getattr(snapshot, "perception", {}) or {}).get("confianca"), .5)
+            utility = max(0.0, min(1.0, .40 * novelty + .35 * importance + .25 * confidence))
+            return BehaviorDecision(IntentType.SELF_WORK, assunto, entidade, "self_work_candidate", max(.2, utility), utility)
+
         relevance = sum(_unit(principal.get(key)) for key in ("gravidade", "importancia", "urgencia", "novidade")) / 4.0
         benefit = (_unit(principal.get("impacto_afetivo")) + _unit(principal.get("recencia"), 1.0)) / 2.0
         perception = dict(getattr(snapshot, "perception", {}) or {})

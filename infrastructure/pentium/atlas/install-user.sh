@@ -92,6 +92,20 @@ for file in \
   affective_boot_certification.py \
   cognitive_observation_projection.py \
   cognitive_context_bridge_certification.py \
+  workspace_policy.py \
+  workspace_manifest.py \
+  workspace_broker.py \
+  workspace_index.py \
+  workspace_retriever.py \
+  workspace_context_cache.py \
+  token_budget_governor.py \
+  cognitive_router.py \
+  context_pack.py \
+  self_work.py \
+  workspace_capability_executor.py \
+  capability_dispatch.py \
+  workspace_health.py \
+  workspace_certification.py \
   cognitive_daemon.py \
   behavior_selector.py \
   continuous_intent.py \
@@ -235,6 +249,20 @@ python3 -m py_compile \
   "${TARGET_DIR}/affective_boot_certification.py" \
   "${TARGET_DIR}/cognitive_observation_projection.py" \
   "${TARGET_DIR}/cognitive_context_bridge_certification.py" \
+  "${TARGET_DIR}/workspace_policy.py" \
+  "${TARGET_DIR}/workspace_manifest.py" \
+  "${TARGET_DIR}/workspace_broker.py" \
+  "${TARGET_DIR}/workspace_index.py" \
+  "${TARGET_DIR}/workspace_retriever.py" \
+  "${TARGET_DIR}/workspace_context_cache.py" \
+  "${TARGET_DIR}/token_budget_governor.py" \
+  "${TARGET_DIR}/cognitive_router.py" \
+  "${TARGET_DIR}/context_pack.py" \
+  "${TARGET_DIR}/self_work.py" \
+  "${TARGET_DIR}/workspace_capability_executor.py" \
+  "${TARGET_DIR}/capability_dispatch.py" \
+  "${TARGET_DIR}/workspace_health.py" \
+  "${TARGET_DIR}/workspace_certification.py" \
   "${TARGET_DIR}/cognitive_daemon.py" \
   "${TARGET_DIR}/behavior_selector.py" \
   "${TARGET_DIR}/continuous_intent.py" \
