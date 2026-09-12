@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from enum import Enum
 
@@ -16,7 +16,7 @@ class CognitiveRoute(str, Enum):
 class CognitiveRouter:
     _DETERMINISTIC_OPERATIONS = frozenset({
         "workspace_status", "workspace_list", "workspace_read", "workspace_search",
-        "workspace_append", "workspace_move", "workspace_archive", "workspace_trash",
+        "workspace_create_note", "workspace_write", "workspace_append", "workspace_move", "workspace_archive", "workspace_trash",
         "workspace_restore", "workspace_mkdir",
     })
 
