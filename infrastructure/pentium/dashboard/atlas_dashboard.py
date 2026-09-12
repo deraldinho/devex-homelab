@@ -24,12 +24,15 @@ class Handler(BaseHTTPRequestHandler):
             body = b'{"error":"response_too_large"}'
             status = 503
             content_type = "application/json; charset=utf-8"
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            self.close_connection = True
 
     def _send_asset(self, filename: str) -> None:
         path = Path(__file__).with_name(filename)

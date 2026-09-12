@@ -21,6 +21,47 @@ class FakeCollectors:
         return [{"source": "voice", "severity": "info", "message": "paused", "timestamp": "now"}]
 
 
+class DisconnectingWriter:
+    def __init__(self, error):
+        self.error = error
+
+    def write(self, body):
+        raise self.error("client disconnected")
+
+
+class ResponseDisconnectTests(unittest.TestCase):
+    def test_client_disconnect_during_response_is_isolated(self):
+        for error_type in (BrokenPipeError, ConnectionResetError):
+            with self.subTest(error_type=error_type.__name__):
+                handler = object.__new__(atlas_dashboard.Handler)
+                handler.request_version = "HTTP/1.1"
+                handler.command = "GET"
+                handler.path = "/healthz"
+                handler.close_connection = False
+                handler.wfile = DisconnectingWriter(error_type)
+                handler.send_response = lambda status: None
+                handler.send_header = lambda *args: None
+                handler.end_headers = lambda: None
+
+                handler._send(200, "application/json", b"{}")
+
+                self.assertTrue(handler.close_connection)
+
+    def test_unexpected_response_write_error_is_not_hidden(self):
+        handler = object.__new__(atlas_dashboard.Handler)
+        handler.request_version = "HTTP/1.1"
+        handler.command = "GET"
+        handler.path = "/healthz"
+        handler.close_connection = False
+        handler.wfile = DisconnectingWriter(RuntimeError)
+        handler.send_response = lambda status: None
+        handler.send_header = lambda *args: None
+        handler.end_headers = lambda: None
+
+        with self.assertRaises(RuntimeError):
+            handler._send(200, "application/json", b"{}")
+
+
 class HttpContractTests(unittest.TestCase):
     def setUp(self):
         self.server = atlas_dashboard.build_server({"bind_host": "127.0.0.1", "bind_port": 0}, collectors=FakeCollectors)
