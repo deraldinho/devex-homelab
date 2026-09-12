@@ -12,6 +12,8 @@ ExecStart=/usr/bin/python3 -m atlas.observation_daemon
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=10
+MemoryHigh=128M
+MemoryMax=192M
 
 [Install]
 WantedBy=default.target
