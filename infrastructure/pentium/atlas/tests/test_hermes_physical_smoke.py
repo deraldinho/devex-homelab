@@ -83,3 +83,43 @@ class HermesPhysicalSmokeOutputTests(unittest.TestCase):
         rendered = repr(output)
         self.assertNotIn("segredo-nao-deve-vazar", rendered)
         self.assertNotIn("oauth_token", rendered)
+
+
+class HermesPhysicalSmokeVoiceEnabledTests(unittest.TestCase):
+    def runner(self, voice_active: bool):
+        def run(command, **kwargs):
+            if command[0] == "git":
+                return subprocess.CompletedProcess(command, 0, "a" * 40 + "\n", "")
+            if command[:3] == ["systemctl", "--user", "is-active"]:
+                if voice_active:
+                    return subprocess.CompletedProcess(command, 0, "active\n", "")
+                return subprocess.CompletedProcess(command, 3, "inactive\n", "")
+            raise AssertionError(command)
+        return run
+
+    def test_accepts_active_voice_when_expected(self):
+        result = HermesPhysicalSmoke(runner=self.runner(True)).check_runtime(
+            repo_root=Path("/repo"), expected_sha="a" * 40,
+            voice_expected_active=True,
+        )
+        self.assertTrue(result.ok)
+
+    def test_rejects_inactive_voice_when_active_is_expected(self):
+        result = HermesPhysicalSmoke(runner=self.runner(False)).check_runtime(
+            repo_root=Path("/repo"), expected_sha="a" * 40,
+            voice_expected_active=True,
+        )
+        self.assertFalse(result.ok)
+        self.assertEqual("voice_inactive", result.reason)
+
+
+class HermesPhysicalSmokeVoiceCliTests(unittest.TestCase):
+    def test_parser_accepts_voice_expected_active_flag(self):
+        from infrastructure.pentium.atlas.hermes_physical_smoke import construir_parser
+        args = construir_parser().parse_args([
+            "--repo-root", "/repo",
+            "--expected-sha", "a" * 40,
+            "--hermes-config", "/tmp/hermes.json",
+            "--voice-expected-active",
+        ])
+        self.assertTrue(args.voice_expected_active)

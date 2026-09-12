@@ -40,7 +40,8 @@ class HermesPhysicalSmoke:
         except (OSError, UnicodeError, subprocess.TimeoutExpired):
             return None
 
-    def check_runtime(self, *, repo_root: Path, expected_sha: str) -> RuntimeCheck:
+    def check_runtime(self, *, repo_root: Path, expected_sha: str,
+                      voice_expected_active: bool = False) -> RuntimeCheck:
         git = self._run(["git", "-C", str(repo_root), "rev-parse", "HEAD"])
         if git is None or git.returncode != 0:
             return RuntimeCheck(False, "sha_unavailable", None)
@@ -51,12 +52,19 @@ class HermesPhysicalSmoke:
         voice = self._run(["systemctl", "--user", "is-active", "atlas-voice.service"])
         if voice is None:
             return RuntimeCheck(False, "voice_state_unavailable", sha)
-        if voice.returncode == 0 or (voice.stdout or "").strip() == "active":
+        voice_active = voice.returncode == 0 or (voice.stdout or "").strip() == "active"
+        if voice_expected_active and not voice_active:
+            return RuntimeCheck(False, "voice_inactive", sha)
+        if not voice_expected_active and voice_active:
             return RuntimeCheck(False, "voice_active", sha)
         return RuntimeCheck(True, None, sha)
 
-    def execute(self, *, repo_root: Path, expected_sha: str, hermes_config: Path) -> dict[str, object]:
-        runtime = self.check_runtime(repo_root=repo_root, expected_sha=expected_sha)
+    def execute(self, *, repo_root: Path, expected_sha: str, hermes_config: Path,
+                voice_expected_active: bool = False) -> dict[str, object]:
+        runtime = self.check_runtime(
+            repo_root=repo_root, expected_sha=expected_sha,
+            voice_expected_active=voice_expected_active,
+        )
         if not runtime.ok:
             return {"ok": False, "reason": runtime.reason, "sha": runtime.sha}
         config = load_hermes_config(hermes_config)
@@ -85,7 +93,7 @@ class HermesPhysicalSmoke:
             "backend": result.backend,
             "profile": config.profile,
             "tool_count": preflight.tool_count,
-            "voice_active": False,
+            "voice_active": voice_expected_active,
         }
 
 def construir_parser() -> argparse.ArgumentParser:
@@ -93,6 +101,7 @@ def construir_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo-root", required=True, type=Path)
     parser.add_argument("--expected-sha", required=True, type=_sha40)
     parser.add_argument("--hermes-config", required=True, type=Path)
+    parser.add_argument("--voice-expected-active", action="store_true")
     return parser
 
 
@@ -102,6 +111,7 @@ def main() -> int:
         repo_root=args.repo_root.resolve(),
         expected_sha=args.expected_sha,
         hermes_config=args.hermes_config,
+        voice_expected_active=args.voice_expected_active,
     )
     print(json.dumps(output, ensure_ascii=True, sort_keys=True, separators=(",", ":")))
     return 0 if output.get("ok") is True else 2

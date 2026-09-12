@@ -18,6 +18,7 @@ class CognitiveContextBridgePhysicalEvidence:
     cli_real_context_ok: bool
     fail_safe_ok: bool
     restart_projection_ok: bool
+    voice_expected_active: bool = False
 
 
 @dataclass(frozen=True)
@@ -35,10 +36,16 @@ def certify_cognitive_context_bridge(
         failures.append("sha_mismatch")
     if evidence.observation_service_state != "active":
         failures.append("observation_service_not_active")
-    if evidence.voice_service_state != "inactive":
-        failures.append("voice_service_not_inactive")
-    if evidence.voice_service_enabled != "disabled":
-        failures.append("voice_service_not_disabled")
+    if evidence.voice_expected_active:
+        if evidence.voice_service_state != "active":
+            failures.append("voice_service_not_active")
+        if evidence.voice_service_enabled != "enabled":
+            failures.append("voice_service_not_enabled")
+    else:
+        if evidence.voice_service_state != "inactive":
+            failures.append("voice_service_not_inactive")
+        if evidence.voice_service_enabled != "disabled":
+            failures.append("voice_service_not_disabled")
 
     health = dict(evidence.health)
     if health.get("schema_version") != 1:
