@@ -10,6 +10,7 @@ from .stimulus_model import Stimulus
 
 DEFAULT_MAX_RECORDS = 8192
 DEFAULT_MAX_BYTES = 8 * 1024 * 1024
+COMPACTION_TARGET_RATIO = 0.75
 
 
 class StimulusJournalError(RuntimeError):
@@ -32,9 +33,11 @@ def _journal_state(path: Path) -> tuple[int, int]:
 
 
 def _write_compacted(path: Path, lines: list[bytes], max_records: int, max_bytes: int) -> None:
-    start = max(0, len(lines) - max_records)
+    target_records = max(1, int(max_records * COMPACTION_TARGET_RATIO))
+    target_bytes = max(1, int(max_bytes * COMPACTION_TARGET_RATIO))
+    start = max(0, len(lines) - target_records)
     total = sum(len(line) for line in lines[start:])
-    while total > max_bytes and start < len(lines) - 1:
+    while total > target_bytes and start < len(lines) - 1:
         total -= len(lines[start])
         start += 1
     selected = lines[start:]
