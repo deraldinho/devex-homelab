@@ -38,6 +38,7 @@ def default_config() -> dict:
         "cognitive_health_path": "~/pentium-agent/atlas/runtime/observation-affective-health.json",
         "cognitive_runtime_path": "~/pentium-agent/atlas/runtime/cognitive-runtime.json",
         "continuous_intent_path": "~/pentium-agent/atlas/runtime/continuous-intent.json",
+        "workspace_economy_path": "~/pentium-agent/atlas/runtime/workspace-economy-health.json",
         "cognitive_activity_path": "~/pentium-agent/atlas/runtime/cognitive-activity.jsonl",
         "action_plan_path": "~/pentium-agent/atlas/runtime/action-plan-current.json",
         "dashboard_events_path": "~/pentium-agent/atlas/runtime/dashboard-events.jsonl",
@@ -325,6 +326,27 @@ def collect_continuous_intent(config: dict) -> dict:
     }
 
 
+def collect_workspace_economy(config: dict) -> dict:
+    payload = _read_json(config.get("workspace_economy_path", ""))
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        return {"status": "unavailable", "workspace": {}, "self_work": {}, "economy": {}}
+    workspace = payload.get("workspace") if isinstance(payload.get("workspace"), dict) else {}
+    self_work = payload.get("self_work") if isinstance(payload.get("self_work"), dict) else {}
+    economy = payload.get("economy") if isinstance(payload.get("economy"), dict) else {}
+    routes = economy.get("routes") if isinstance(economy.get("routes"), dict) else {}
+    return {
+        "status": str(payload.get("status") or "unknown")[:32],
+        "generated_at": payload.get("generated_at"), "expected_sha": payload.get("expected_sha"),
+        "workspace": {k: workspace.get(k) for k in ("files","bytes","max_files","max_bytes")},
+        "self_work": {k: self_work.get(k) for k in ("active","item_id","objective","area","state","operations_used","inferences_used")},
+        "economy": {
+            "mode": economy.get("mode"), "tokens_used": economy.get("tokens_used"),
+            "window_budget": economy.get("window_budget"), "pressure": economy.get("pressure"),
+            "routes": {str(k): int(v) for k,v in routes.items() if isinstance(v,int)},
+        },
+    }
+
+
 def collect_cognitive_activity(config: dict, limit: int = 40) -> list[dict]:
     path=Path(config["cognitive_activity_path"]).expanduser()
     try: lines=path.read_text(encoding="utf-8").splitlines()[-max(1,min(100,int(limit))):]
@@ -370,6 +392,7 @@ def collect_status(config: dict, *, command_runner: CommandRunner = run_command,
         "cognition": collect_cognition(config, now=cognition_now),
         "cognitive_runtime": {**collect_cognitive_runtime(config), "timeline": collect_cognitive_activity(config)},
         "continuous_intent": collect_continuous_intent(config),
+        "workspace": collect_workspace_economy(config),
         "atlas": {"sha": _read_text(config["deploy_sha_path"]), "health": health.get("status", "unknown")},
         "services": {
             "agent": _unit("pentium-agent.service", command_runner),
