@@ -5,13 +5,31 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_ROOT="${HOME}/pentium-agent"
 TARGET_DIR="${TARGET_ROOT}/atlas"
 RUNTIME_DIR="${TARGET_DIR}/runtime"
+DEPLOY_SHA="${ATLAS_DEPLOY_SHA:-}"
+[[ "${DEPLOY_SHA}" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "ATLAS_DEPLOY_SHA deve ser um SHA Git de 40 hex" >&2; exit 2; }
+DEPLOY_SHA="$(printf "%s" "${DEPLOY_SHA}" | tr "[:upper:]" "[:lower:]")"
 
 command -v hermes >/dev/null 2>&1 || { echo "Hermes CLI nao encontrado no PATH" >&2; exit 2; }
 
 install -d -m 0755 "${TARGET_DIR}"
+install -d -m 0700 "${RUNTIME_DIR}"
 if [[ -d "${RUNTIME_DIR}" ]]; then
   find "${RUNTIME_DIR}" -type f -exec chmod 0600 {} +
 fi
+
+ENV_FILE="${RUNTIME_DIR}/observation.env"
+ENV_TMP="${ENV_FILE}.tmp"
+if [[ -f "${ENV_FILE}" ]]; then
+  grep -v '^ATLAS_EXPECTED_SHA=' "${ENV_FILE}" > "${ENV_TMP}" || true
+else
+  : > "${ENV_TMP}"
+fi
+printf "ATLAS_EXPECTED_SHA=%s\n" "${DEPLOY_SHA}" >> "${ENV_TMP}"
+chmod 0600 "${ENV_TMP}"
+mv "${ENV_TMP}" "${ENV_FILE}"
+printf "%s\n" "${DEPLOY_SHA}" > "${RUNTIME_DIR}/deployed-sha.tmp"
+chmod 0600 "${RUNTIME_DIR}/deployed-sha.tmp"
+mv "${RUNTIME_DIR}/deployed-sha.tmp" "${RUNTIME_DIR}/deployed-sha"
 
 for file in \
   __init__.py \
