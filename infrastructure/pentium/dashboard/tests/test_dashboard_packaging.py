@@ -5,6 +5,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DashboardPackagingTests(unittest.TestCase):
+    def test_dashboard_service_has_bounded_memory(self):
+        unit = (ROOT / "systemd" / "atlas-dashboard.service").read_text(encoding="utf-8")
+        self.assertIn("MemoryHigh=128M", unit)
+        self.assertIn("MemoryMax=192M", unit)
+
     def test_systemd_unit_binds_dashboard_service_only(self):
         unit = (ROOT / "systemd" / "atlas-dashboard.service").read_text(encoding="utf-8")
         self.assertIn("atlas_dashboard.py", unit)

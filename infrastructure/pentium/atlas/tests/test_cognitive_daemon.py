@@ -68,6 +68,12 @@ class CognitiveDaemonTests(unittest.TestCase):
         self.assertEqual("RuntimeError",pub.phases[-1]["detail"])
 
 class CognitiveDaemonPackagingTests(unittest.TestCase):
+    def test_cognitive_service_has_bounded_memory(self):
+        root=Path(__file__).resolve().parents[1]
+        unit=(root/'atlas-cognitive.service').read_text(encoding='utf-8')
+        self.assertIn('MemoryHigh=256M',unit)
+        self.assertIn('MemoryMax=384M',unit)
+
     def test_daemon_wires_hermes_without_llama_server_owner(self):
         root=Path(__file__).resolve().parents[1]
         source=(root/'cognitive_daemon.py').read_text(encoding='utf-8')
