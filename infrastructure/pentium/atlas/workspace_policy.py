@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from dataclasses import dataclass
@@ -38,7 +38,7 @@ def _reject_symlink_chain(root: Path, candidate: Path) -> None:
 
 def resolve_workspace_path(root: Path, area: str, relative_path: str, policy: WorkspacePolicy) -> Path:
     root = Path(root).resolve(strict=False)
-    if area not in policy.allowed_areas:
+    if area not in policy.allowed_areas or area.startswith("."):
         raise WorkspacePolicyError("area_forbidden")
     raw = Path(relative_path)
     if raw.is_absolute():

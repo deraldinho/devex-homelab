@@ -43,6 +43,17 @@ from .behavior_selector import BehaviorSelector
 from .continuous_intent_machine import ContinuousIntentMachine
 from .continuous_intent_publisher import ContinuousIntentPublisher
 from .habituation_engine import HabituationEngine
+from .workspace_policy import WorkspacePolicy
+from .workspace_broker import WorkspaceBroker
+from .workspace_index import WorkspaceIndex
+from .workspace_retriever import WorkspaceRetriever
+from .workspace_context_cache import WorkspaceContextCache
+from .workspace_capability_executor import WorkspaceCapabilityExecutor
+from .capability_dispatch import CapabilityDispatcher
+from .workspace_health import WorkspaceEconomyPublisher
+from .token_budget_governor import TokenBudgetGovernor
+from .cognitive_router import CognitiveRouter
+from .self_work import SelfWorkRuntime
 
 ROOT=Path(__file__).resolve().parent
 AGENT_ROOT=Path.home()/"pentium-agent"
@@ -304,47 +315,58 @@ class CognitiveDaemon:
 
 
 class CognitiveRuntimeOwner:
-    def __init__(self,daemon,memory_store,*,poll_interval_s=.5,sleeper=time.sleep):
+    def __init__(self,daemon,memory_store,*,health_publisher=None,health_dependencies=None,closeables=(),poll_interval_s=.5,sleeper=time.sleep):
         self.daemon=daemon;self.memory_store=memory_store;self.poll_interval_s=float(poll_interval_s);self.sleeper=sleeper
+        self._health_publisher=health_publisher;self._health_dependencies=dict(health_dependencies or {});self._closeables=tuple(closeables)
     def start(self):
         return None
+    def run_once(self):
+        try:
+            return self.daemon.run_once()
+        finally:
+            if self._health_publisher is not None:
+                self._health_publisher.publish(**self._health_dependencies)
     def close(self):
+        for item in reversed(self._closeables):
+            try: item.close()
+            except Exception: pass
         self.memory_store.close()
 
 
 def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     config_root=Path(config_root);state_dir=Path(state_dir);cognitive=carregar_configuracao_cognitiva(config_root/"config_cognitiva.json");hermes=load_hermes_config(config_root/"config_hermes.json")
+    governor=TokenBudgetGovernor(window_budget=120000)
+    router=CognitiveRouter(governor)
     backend=HermesAdapter(hermes)
-    gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=hermes.max_context_tokens,reasoning_policy=ReasoningPolicy())
+    gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=hermes.max_context_tokens,reasoning_policy=ReasoningPolicy(),token_recorder=lambda total:governor.record(total,category="llm"))
     memory_cfg=load_memory_config(config_root/"config_memory.json");memory_store=MemoryStore(state_dir/"memory.sqlite3");retriever=MemoryRetriever(memory_store,max_items=memory_cfg.retriever_max_items,max_bytes=memory_cfg.retriever_max_bytes)
-    cache=CognitiveCache(load_cache_config(config_root/"config_cache.json"));policy=ActivationPolicy(cognitive.ativacao);builder=ContextoCognitivoBuilder(cognitive.contexto);capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status",),control_allow=("restart_service",),auto_control_allow=("restart_service",),auto_hosts=("pentium",),auto_services=("atlas-observation.service","atlas-dashboard.service"))
-    loop=ReactionLoopCognitivo(policy,builder,gateway,capability_policy=capabilities,memory_retriever=retriever,cognitive_cache=cache)
+    workspace_root=AGENT_ROOT/"atlas-workspace"
+    workspace_policy=WorkspacePolicy();workspace_broker=WorkspaceBroker(workspace_root,workspace_policy)
+    workspace_index=WorkspaceIndex(workspace_root/".system"/"index.sqlite3")
+    workspace_cache=WorkspaceContextCache(workspace_root/".system"/"context-cache.sqlite3",ttl_s=300,max_entries=256)
+    workspace_retriever=WorkspaceRetriever(workspace_index,cache=workspace_cache)
+    self_work=SelfWorkRuntime(ttl_s=300,max_operations=20,max_inferences=2)
+    cache=CognitiveCache(load_cache_config(config_root/"config_cache.json"));policy=ActivationPolicy(cognitive.ativacao);builder=ContextoCognitivoBuilder(cognitive.contexto)
+    capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status","workspace_status","workspace_list","workspace_read","workspace_search"),control_allow=("restart_service",),auto_control_allow=("restart_service",),auto_hosts=("pentium",),auto_services=("atlas-observation.service","atlas-dashboard.service"),auto_unscoped_control_allow=("workspace_create_note","workspace_write","workspace_append","workspace_mkdir","workspace_move","workspace_archive","workspace_trash","workspace_restore"))
+    loop=ReactionLoopCognitivo(policy,builder,gateway,capability_policy=capabilities,memory_retriever=retriever,workspace_retriever=workspace_retriever,cognitive_cache=cache)
     expected_sha=(os.environ.get("ATLAS_EXPECTED_SHA") or None) if cognitive.observation_bridge.require_expected_sha else None
     snapshot_path=Path(os.path.expanduser(cognitive.observation_bridge.snapshot_path));provider=HumanContextProvider(state_dir/"observation-affective-health.json",snapshot_path,max_snapshot_age_s=cognitive.observation_bridge.max_snapshot_age_s,expected_sha=expected_sha)
     visual_sink=InteractionDatagramClient(state_dir/"cognitive-interaction.sock").send
     observable=CognitiveObservablePublisher(state_dir/"cognitive-runtime.json",state_dir/"cognitive-activity.jsonl",max_events=64,max_text_chars=cognitive.contexto.max_string_chars)
     action_events=CognitiveActionEventPublisher(state_dir/"dashboard-events.jsonl",max_events=128,max_bytes=262144)
     action_store=ActionPlanStore(state_dir/"action-plan-current.json",state_dir/"action-plan-history.jsonl",max_history=64,max_bytes=131072)
-    action_planner=ActionPlanner()
-    action_policy=ActionPolicy(capabilities)
-    visual_state_path=state_dir/"visual-state.json"
-    visual_publisher=VisualStatePublisher(visual_state_path)
+    action_planner=ActionPlanner();action_policy=ActionPolicy(capabilities)
+    visual_state_path=state_dir/"visual-state.json";visual_publisher=VisualStatePublisher(visual_state_path)
     autonomy_executor=SafeLocalCapabilityExecutor(host="pentium",services=("atlas-observation.service","atlas-dashboard.service"),on_executed=capabilities.registrar_execucao)
-    action_executor=ActionExecutorRegistry(
-        visual_getter=lambda: read_visual_state(visual_state_path),
-        visual_writer=visual_publisher.publicar,
-        capability_sink=autonomy_executor,
-        event_sink=action_events.publish,
-    )
-    chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512)
-    notification_policy=load_notification_policy(config_root)
-    behavior_selector=BehaviorSelector()
-    intent_machine=ContinuousIntentMachine(ttl_s=300.0,activation_threshold=.5)
-    habituation_engine=HabituationEngine(max_entries=64,ttl_s=300.0)
-    intent_publisher=ContinuousIntentPublisher(state_dir/"continuous-intent.json")
-    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox,notification_policy=notification_policy,behavior_selector=behavior_selector,intent_machine=intent_machine,habituation_engine=habituation_engine,intent_publisher=intent_publisher)
-    return CognitiveRuntimeOwner(daemon,memory_store)
-
+    workspace_executor=WorkspaceCapabilityExecutor(workspace_broker,searcher=workspace_retriever,indexer=workspace_index,self_work=self_work)
+    dispatcher=CapabilityDispatcher(autonomy_executor,workspace_executor)
+    action_executor=ActionExecutorRegistry(visual_getter=lambda:read_visual_state(visual_state_path),visual_writer=visual_publisher.publicar,capability_sink=dispatcher,event_sink=action_events.publish)
+    chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512);notification_policy=load_notification_policy(config_root)
+    behavior_selector=BehaviorSelector();intent_machine=ContinuousIntentMachine(ttl_s=300.0,activation_threshold=.5);habituation_engine=HabituationEngine(max_entries=64,ttl_s=300.0);intent_publisher=ContinuousIntentPublisher(state_dir/"continuous-intent.json")
+    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox,notification_policy=notification_policy,behavior_selector=behavior_selector,intent_machine=intent_machine,habituation_engine=habituation_engine,intent_publisher=intent_publisher,cognitive_router=router,self_work_runtime=self_work)
+    health=WorkspaceEconomyPublisher(state_dir/"workspace-economy-health.json")
+    deps={"broker":workspace_broker,"governor":governor,"router":router,"self_work":self_work,"expected_sha":expected_sha}
+    return CognitiveRuntimeOwner(daemon,memory_store,health_publisher=health,health_dependencies=deps,closeables=(workspace_index,workspace_cache))
 
 def main()->int:
     owner=build_owner();stop=False
@@ -354,7 +376,7 @@ def main()->int:
     try:
         owner.start();print("ATLAS_COGNITIVE_DAEMON_READY",flush=True)
         while not stop:
-            try: owner.daemon.run_once()
+            try: owner.run_once()
             except FileNotFoundError: pass
             except Exception as exc: print(f"ATLAS_COGNITIVE_DEGRADED type={type(exc).__name__}",flush=True)
             owner.sleeper(owner.poll_interval_s)
