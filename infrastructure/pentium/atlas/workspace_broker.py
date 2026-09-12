@@ -144,6 +144,56 @@ class WorkspaceBroker:
         self._audit("append", record)
         return record
 
+    def status(self) -> dict:
+        count, total = self._usage()
+        return {"files": count, "bytes": total, "max_files": self.policy.max_files, "max_bytes": self.policy.max_total_bytes}
+
+    def list(self, area: str) -> tuple[str, ...]:
+        if area not in self.policy.allowed_areas or area.startswith("."):
+            raise WorkspaceBrokerError("area_forbidden")
+        base = self.root / area
+        if not base.exists():
+            return ()
+        return tuple(sorted(p.relative_to(base).as_posix() for p in base.rglob("*") if p.is_file() and not p.is_symlink()))
+
+    def read(self, area: str, relative_path: str) -> str:
+        try:
+            path = resolve_workspace_path(self.root, area, relative_path, self.policy)
+        except WorkspacePolicyError as exc:
+            raise WorkspaceBrokerError(str(exc)) from exc
+        if not path.is_file() or path.is_symlink():
+            raise WorkspaceBrokerError("source_missing")
+        return path.read_text(encoding="utf-8")
+
+    def mkdir(self, area: str, relative_path: str) -> str:
+        if area not in self.policy.allowed_areas or area.startswith("."):
+            raise WorkspaceBrokerError("area_forbidden")
+        raw = Path(relative_path)
+        if raw.is_absolute() or ".." in raw.parts:
+            raise WorkspaceBrokerError("path_traversal_forbidden")
+        path = (self.root / area / raw).resolve(strict=False)
+        if os.path.commonpath((str(self.root.resolve(strict=False)), str(path))) != str(self.root.resolve(strict=False)):
+            raise WorkspaceBrokerError("path_escape_forbidden")
+        path.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chmod(path, 0o700)
+        except OSError:
+            pass
+        return f"{area}/{raw.as_posix()}"
+
+    def move(self, area: str, relative_path: str, destination_area: str, destination_path: str) -> WorkspaceRecord:
+        content = self.read(area, relative_path)
+        source = resolve_workspace_path(self.root, area, relative_path, self.policy)
+        record = self.write(destination_area, destination_path, content, reason="move")
+        source.unlink()
+        manifest = self._load_json(self._manifest_path)
+        manifest["files"].pop(f"{area}/{Path(relative_path).as_posix()}", None)
+        self._atomic_json(self._manifest_path, manifest)
+        return record
+
+    def archive(self, area: str, relative_path: str) -> WorkspaceRecord:
+        return self.move(area, relative_path, "archive", Path(relative_path).name)
+
     def trash(self, area: str, relative_path: str, *, reason: str = "atlas") -> TrashRecord:
         source = resolve_workspace_path(self.root, area, relative_path, self.policy)
         if not source.is_file():

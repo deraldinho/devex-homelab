@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -69,5 +69,18 @@ def atlas_capability_registry() -> CapabilityRegistry:
         CapabilitySpec("stop_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
         CapabilitySpec("restart_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
         CapabilitySpec("reboot_host", "DESTRUCTIVE", ("host",), tipos_parametros=(("host", "str"),)),
+        CapabilitySpec("workspace_status", "READ", ()),
+        CapabilitySpec("workspace_list", "READ", ("area",)),
+        CapabilitySpec("workspace_read", "READ", ("area", "path")),
+        CapabilitySpec("workspace_search", "READ", ("query",)),
+        CapabilitySpec("workspace_create_note", "CONTROL", ("path", "content")),
+        CapabilitySpec("workspace_write", "CONTROL", ("area", "path", "content")),
+        CapabilitySpec("workspace_append", "CONTROL", ("area", "path", "content")),
+        CapabilitySpec("workspace_mkdir", "CONTROL", ("area", "path")),
+        CapabilitySpec("workspace_move", "CONTROL", ("area", "path", "destination_area", "destination_path")),
+        CapabilitySpec("workspace_archive", "CONTROL", ("area", "path")),
+        CapabilitySpec("workspace_trash", "CONTROL", ("area", "path")),
+        CapabilitySpec("workspace_restore", "CONTROL", ("trash_id",)),
+        CapabilitySpec("workspace_purge", "DESTRUCTIVE", ("trash_id",)),
     ]
     return CapabilityRegistry(specs)
