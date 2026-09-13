@@ -57,23 +57,23 @@
 - [ ] **Step 3: Implement publisher and daemon wiring**; publish `healthy/LISTENING` after successful cycles and `degraded` on caught exceptions.
 - [ ] **Step 4: Package/compile the new module** in `install-user.sh` and run focused tests.
 - [ ] **Step 5: Commit** with `feat(atlas): publish voice runtime health`.
-### Task 3: Service hardening + ativador fail-closed
+### Task 3: Service hardening + preflight fail-closed
 
 **Files:**
 - Modify: `infrastructure/pentium/atlas/atlas-voice.service`
-- Create: `infrastructure/pentium/atlas/activate-voice.sh`
+- Create: `infrastructure/pentium/atlas/voice_activation_preflight.py`
 - Modify: `infrastructure/pentium/atlas/install-user.sh`
-- Test: `infrastructure/pentium/atlas/tests/test_voice_activation_packaging.py`
+- Test: `infrastructure/pentium/atlas/tests/test_voice_preflight.py`
 
 **Interfaces:**
-- `activate-voice.sh` exits non-zero unless: user has rw access to `/dev/snd/controlC0`, capture/playback PCM exist, Whisper binary/model exist, eSpeak/aplay/arecord runtime binaries exist, and `observation.env` contains a valid 40-hex `ATLAS_EXPECTED_SHA`.
-- On success it runs `systemctl --user enable --now atlas-voice.service` and verifies `is-active`.
+- `VoiceActivationPreflight.run()` retorna `ready=false` salvo quando grupo `audio`, acesso rw aos PCM, SHA implantado exato e bin?rios f?sicos est?o v?lidos.
+- O preflight ? somente leitura: ele nunca altera o estado de servi?os; a promo??o f?sica permanece uma a??o expl?cita do operador ap?s `ready=true`.
 
 - [ ] **Step 1: Write failing packaging/contract tests** for env loading, UMask, memory bounds and fail-closed preflight tokens.
 - [ ] **Step 2: Run tests** and verify RED against the current permissive service/install packaging.
-- [ ] **Step 3: Implement minimum hardening**: `EnvironmentFile=-%h/pentium-agent/atlas/runtime/observation.env`, `UMask=0077`, `MemoryHigh=256M`, `MemoryMax=384M`; package `activate-voice.sh` without auto-enabling Voice in the generic installer.
-- [ ] **Step 4: Run focused tests + `bash -n`** for installer and activator.
-- [ ] **Step 5: Commit** with `feat(atlas): add fail closed voice activation`.
+- [ ] **Step 3: Implement minimum hardening**: `EnvironmentFile=-%h/pentium-agent/atlas/runtime/observation.env`, `UMask=0077`, `MemoryHigh=256M`, `MemoryMax=384M`; package `voice_activation_preflight.py` sem autoativar Voice no installer gen?rico.
+- [ ] **Step 4: Run focused tests + `bash -n`** for installer and preflight packaging.
+- [ ] **Step 5: Commit** with `feat(atlas): add fail closed voice preflight`.
 
 ### Task 4: Full software gate and exact-HEAD CI
 
@@ -92,7 +92,7 @@
 - [ ] **Step 1:** Operator runs `sudo usermod -aG audio deraldinho`, then refreshes the login/user-manager session so new services inherit the group.
 - [ ] **Step 2:** Verify `id` includes `audio` and `arecord -l`/`aplay -l` expose card 0/device 0.
 - [ ] **Step 3:** Create backup of Atlas units/config/runtime metadata; deploy artifact built from the merged exact SHA with `ATLAS_DEPLOY_SHA=<merged-sha>`.
-- [ ] **Step 4:** Run `activate-voice.sh`; require `enabled` + `active`, `NRestarts=0`, fresh `voice-health.json`, exact SHA, and no restart loop.
+- [ ] **Step 4:** Run the Voice preflight and require `ready=true`; only then the operator explicitly promotes `atlas-voice.service` and verifies active state, `NRestarts=0`, fresh `voice-health.json`, exact SHA, and no restart loop.
 - [ ] **Step 5:** Perform real capture/STT/wake/TTS smoke. A spoken `Atlas ...` must reach cognition and produce audible TTS while observation/cognitive/dashboard stay GREEN.
 - [ ] **Step 6:** Run short soak and inspect Voice plus core service logs for OOM/tracebacks/CalledProcessError/TimeoutExpired.
 - [ ] **Step 7:** If any physical gate fails, disable only `atlas-voice.service` and restore the pre-Voice backup; do not roll back stable Observation/Cognitive/Dashboard.
@@ -119,11 +119,9 @@ class VoiceHealthPublisher:
 Implementation writes `<path>.tmp`, `chmod 0600`, then `os.replace(tmp, path)`. `voice_daemon.main()` publishes after each `run_once()` and on caught exceptions.
 
 Task 3 preflight core:
-```bash
-[[ -r /dev/snd/controlC0 && -w /dev/snd/controlC0 ]] || exit 20
-[[ -e /dev/snd/pcmC0D0c && -e /dev/snd/pcmC0D0p ]] || exit 21
-grep -Eq '^ATLAS_EXPECTED_SHA=[0-9a-fA-F]{40}$' "$HOME/pentium-agent/atlas/runtime/observation.env" || exit 22
-systemctl --user enable --now atlas-voice.service
-systemctl --user is-active --quiet atlas-voice.service
+```python
+result = VoiceActivationPreflight(agent_root).run(expected_sha)
+if not result["ready"]:
+    raise SystemExit("voice_preflight_not_ready")
 ```
-The script must also verify executable runtime binaries and the configured Whisper model before touching systemd.
+The preflight verifies audio entitlement, device access, exact SHA and executable runtime binaries, and intentionally performs no service mutation.
