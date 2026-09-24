@@ -14,6 +14,7 @@ Pentium, Core, x99 e GitHub são sentidos do mesmo Atlas. Discord e dashboard s�
 - `managed.core`: READ via `ManagedReadService`; `channel_healthy` alimenta percepção afetiva.
 - `managed.x99`: READ via `ManagedReadService`; `channel_healthy` alimenta percepção afetiva.
 - `managed.x99.l2j`: Sondas determinísticas TCP e flash query SSH no Windows x99 monitorando portas e containers do L2jToren.
+- `mikrotik.perimeter`: Sondas determinísticas do roteador de borda (MikroTik RouterOS) monitorando tráfego WAN, latência DNS e leases DHCP ativas.
 - `github.deraldinho.devex-homelab`: PR/Issue/Actions reduzidos via `gh api`.
 - `github.deraldinho.L2jToren`: PR/Issue/Actions reduzidos via `gh api`.
 - `wifi.presence`: permanece observacional/diagnóstico e não altera emoção diretamente.
