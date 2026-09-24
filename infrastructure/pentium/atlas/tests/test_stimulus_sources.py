@@ -1,19 +1,34 @@
 import dataclasses
 import unittest
 
-from infrastructure.pentium.atlas import stimulus_sources as stimulus_sources_module
-from infrastructure.pentium.atlas.network_discovery import DiscoveredNeighbor, NetworkDiscoveryError
-from infrastructure.pentium.atlas.stimulus_model import StimulusSeverity
-from infrastructure.pentium.atlas.stimulus_sources import (
-    CoreHealthSource,
-    MikroTikPerimeterSource,
-    PentiumSelfSource,
-    SourceSnapshot,
-    X99StatusSource,
-    probe_dhcp_leases,
-    probe_dns_latency,
-    probe_wan_traffic,
-)
+try:
+    from infrastructure.pentium.atlas import stimulus_sources as stimulus_sources_module
+    from infrastructure.pentium.atlas.network_discovery import DiscoveredNeighbor, NetworkDiscoveryError
+    from infrastructure.pentium.atlas.stimulus_model import StimulusSeverity
+    from infrastructure.pentium.atlas.stimulus_sources import (
+        CoreHealthSource,
+        MikroTikPerimeterSource,
+        PentiumSelfSource,
+        SourceSnapshot,
+        X99StatusSource,
+        probe_dhcp_leases,
+        probe_dns_latency,
+        probe_wan_traffic,
+    )
+except ImportError:
+    from atlas import stimulus_sources as stimulus_sources_module
+    from atlas.network_discovery import DiscoveredNeighbor, NetworkDiscoveryError
+    from atlas.stimulus_model import StimulusSeverity
+    from atlas.stimulus_sources import (
+        CoreHealthSource,
+        MikroTikPerimeterSource,
+        PentiumSelfSource,
+        SourceSnapshot,
+        X99StatusSource,
+        probe_dhcp_leases,
+        probe_dns_latency,
+        probe_wan_traffic,
+    )
 
 
 class SequenceScanner:
