@@ -188,6 +188,11 @@
         this.hopTo(-this.patrolLimit * 0.75, -0.05);
       } else if (t === 'x99') {
         this.hopTo(this.patrolLimit * 0.75, 0.05);
+      } else if (t === 'mikrotik' || t === 'network' || t === 'router') {
+        this.hopTo(-this.patrolLimit * 0.60, 0.08);
+        if (this.rig?.hudPanel) this.rig.hudPanel.visible = true;
+      } else if (t === 'pentium' || t === 'self') {
+        this.hopTo(-this.patrolLimit * 0.15, 0.02);
       } else if (t === 'deraldinho' || t === 'center') {
         this.hopTo(0, 0);
       } else if (t === 'auto') {
@@ -559,6 +564,8 @@
         mouth,
         browL,
         browR,
+        blushL,
+        blushR,
         armL: L.upper,
         armR: R.upper,
         forearmL: L.forearm,
@@ -584,17 +591,46 @@
     }
 
     #lookTarget(s) {
-      const d = String(s.direcao_olhar || 'centro').toLowerCase();
+      const d = String(s.direcao_olhar || s.foco_visual || 'centro').toLowerCase();
+      if (d === 'core' || d === 'mind' || d === 'esquerda') {
+        return { x: -3.2, y: -0.8 };
+      }
+      if (d === 'x99' || d === 'chat' || d === 'direita') {
+        return { x: 3.2, y: -0.6 };
+      }
+      if (d === 'mikrotik' || d === 'network' || d === 'services' || d === 'router') {
+        return { x: -2.2, y: 1.2 };
+      }
+      if (d === 'pentium' || d === 'self') {
+        return { x: 0, y: 0.8 };
+      }
+      if (d === 'deraldinho' || d === 'center' || d === 'frente') {
+        return { x: 0, y: 0 };
+      }
       return {
-        x: d === 'esquerda' ? -3 : d === 'direita' ? 3 : 0,
-        y: d === 'cima' ? -2 : d === 'baixo' ? 2 : 0,
+        x: d === 'cima' ? 0 : d === 'baixo' ? 0 : 0,
+        y: d === 'cima' ? -2.5 : d === 'baixo' ? 2.5 : 0,
       };
     }
 
     #applyState() {
       const s = this.state, r = this.rig, i = s.intensidade_expressao;
-      const curious = s.expressao === 'CURIOSO' || s.duvida_identidade;
-      r.head._targetRotation = curious ? .08 + i * .06 : 0;
+      const emo = String(s.emocao_principal || 'calmo').toLowerCase();
+      const curious = s.expressao === 'CURIOSO' || s.duvida_identidade || emo === 'curioso' || emo === 'fascinado' || emo === 'pensativo';
+
+      // Inclinação da cabeça personalizada por emoção
+      let headTarget = 0;
+      if (curious) {
+        headTarget = emo === 'pensativo' ? -0.09 - i * 0.05 : (0.08 + i * 0.06);
+      } else if (emo === 'acolhedor') {
+        headTarget = 0.05;
+      } else if (emo === 'orgulhoso' || emo === 'confiante') {
+        headTarget = -0.04;
+      } else if (emo === 'exaurido' || emo === 'frustrado') {
+        headTarget = 0.04;
+      }
+      r.head._targetRotation = headTarget;
+
       const g = String(s.gesto_atual || 'NENHUM').toUpperCase();
       const side = String(s.lado_gesto || 'none').toLowerCase();
       const semanticPosture = String(s.postura_atual || 'NEUTRO').toUpperCase();
@@ -607,16 +643,29 @@
       r.forearmR._targetRotation = rightGesture ? (g === 'ESCUTA' ? -.62 : g === 'ABERTO' ? .12 : g === 'SURPRESA' ? .28 : g === 'ACENO' ? -.36 : 0) : 0;
       r.torso._semanticRotation = semanticPosture === 'ABERTO' ? -.015 : semanticPosture === 'FECHADO' ? .025 : semanticPosture === 'ATENTO' ? -.008 : 0;
 
-      const pressure = s.expressao === 'SOB_PRESSAO' || s.expressao === 'PREOCUPADO';
-      r.browL._targetRotation = pressure ? -.12 : (s.expressao === 'CURIOSO' ? .10 : 0);
-      r.browR._targetRotation = pressure ? .12 : (s.expressao === 'CURIOSO' ? -.06 : 0);
-      r.root._targetScale = s.modo === 'REAGINDO' ? 1.025 : semanticPosture === 'ABERTO' ? 1.012 : 1;
+      const pressure = s.expressao === 'SOB_PRESSAO' || s.expressao === 'PREOCUPADO' || ['estressado', 'alarmado', 'frustrado', 'sobrecarregado', 'exaurido', 'preocupado'].includes(emo);
+      const focusEyebrows = ['atento', 'vigilante', 'determinado'].includes(emo);
+      r.browL._targetRotation = pressure ? -.12 : (focusEyebrows ? -.06 : (curious ? .10 : 0));
+      r.browR._targetRotation = pressure ? .12 : (focusEyebrows ? .06 : (curious ? -.06 : 0));
+      r.root._targetScale = s.modo === 'REAGINDO' ? 1.025 : (semanticPosture === 'ABERTO' ? 1.012 : (emo === 'exaurido' ? 0.985 : 1));
       r.legL._targetRotation = g === 'ALIVIO' ? -.015 : 0;
       r.legR._targetRotation = g === 'ALIVIO' ? .015 : 0;
 
-      if (r.sweatDrop) r.sweatDrop.visible = pressure;
-      if (r.sparkles) r.sparkles.visible = s.expressao === 'RECUPERANDO' || g === 'ALIVIO';
-      if (r.hudPanel) r.hudPanel.visible = s.modo === 'OBSERVANDO' || g === 'ESCUTA';
+      // Efeitos Faciais & Emotes Especiais baseados nos 20 sentimentos
+      const showSparkles = s.expressao === 'RECUPERANDO' || g === 'ALIVIO' || ['empolgado', 'fascinado', 'orgulhoso', 'harmonico'].includes(emo);
+      const showSweat = pressure && (i > 0.3 || ['alarmado', 'sobrecarregado', 'frustrado'].includes(emo));
+      const showHud = s.modo === 'OBSERVANDO' || g === 'ESCUTA' || ['vigilante', 'determinado', 'fascinado', 'pensativo'].includes(emo);
+
+      if (r.sweatDrop) r.sweatDrop.visible = showSweat;
+      if (r.sparkles) r.sparkles.visible = showSparkles;
+      if (r.hudPanel) r.hudPanel.visible = showHud;
+
+      // Blush dinâmico de anime
+      const blushAlpha = ['acolhedor', 'orgulhoso', 'empolgado'].includes(emo) ? 0.65
+        : (['satisfeito', 'fascinado', 'harmonico'].includes(emo) ? 0.50
+        : (pressure ? 0.15 : 0.38));
+      if (r.blushL) r.blushL.alpha = blushAlpha;
+      if (r.blushR) r.blushR.alpha = blushAlpha;
 
       // Controle de Locomoção e Comportamento Pet vindo de Hermes / Estado Visual
       if (s.acao_pet && s.acao_pet !== this.lastCognitiveAcaoPet) {
@@ -642,6 +691,12 @@
         this.walking = true;
       } else if (s.foco_visual === 'x99') {
         this.walkTargetOffset = this.patrolLimit * 0.75;
+        this.walking = true;
+      } else if (s.foco_visual === 'mikrotik') {
+        this.walkTargetOffset = -this.patrolLimit * 0.60;
+        this.walking = true;
+      } else if (s.foco_visual === 'pentium') {
+        this.walkTargetOffset = -this.patrolLimit * 0.15;
         this.walking = true;
       } else if (s.foco_visual === 'deraldinho') {
         this.walkTargetOffset = 0;
@@ -827,16 +882,24 @@
       r.eyeL.scale.y = M.smoothExp(r.eyeL.scale.y, blink ? .08 : 1, dt, 34);
       r.eyeR.scale.y = M.smoothExp(r.eyeR.scale.y, blink ? .08 : 1, dt, 34);
 
-      // Boca anime falando
-      const mouthTarget = s.falando && motion > 0
-        ? 1.15 + Math.abs(Math.sin(t * 8.5)) * 1.5
-        : (s.expressao === 'SERENO' || s.expressao === 'RECUPERANDO' ? .75 : 1);
+      // Boca anime falando ou reagindo à emoção
+      const emo = String(s.emocao_principal || 'calmo').toLowerCase();
+      let mouthTarget = 1;
+      if (s.falando && motion > 0) {
+        mouthTarget = 1.15 + Math.abs(Math.sin(t * 8.5)) * 1.5;
+      } else if (s.expressao === 'SERENO' || s.expressao === 'RECUPERANDO' || ['acolhedor', 'satisfeito', 'harmonico', 'orgulhoso'].includes(emo)) {
+        mouthTarget = 0.72;
+      } else if (['preocupado', 'sobrecarregado', 'exaurido', 'frustrado'].includes(emo)) {
+        mouthTarget = 0.88;
+      }
       r.mouth.scale.y = M.smoothExp(r.mouth.scale.y, mouthTarget, dt, 16);
-      r.mouth.scale.x = M.smoothExp(r.mouth.scale.x, s.falando ? 1.2 : 1.0, dt, 12);
+      r.mouth.scale.x = M.smoothExp(r.mouth.scale.x, s.falando ? 1.2 : (['acolhedor', 'satisfeito', 'empolgado'].includes(emo) ? 1.15 : 1.0), dt, 12);
 
-      // Ahoge elástico
+      // Ahoge elástico modulado por empolgação/alerta
       if (r.ahoge) {
-        r.ahoge.rotation = Math.sin(t * 3.2) * 0.08 + alive.hairLag * 1.6;
+        const ahogeSpeed = ['empolgado', 'alarmado', 'fascinado'].includes(emo) ? 5.2 : 3.2;
+        const ahogeAmp = ['empolgado', 'curioso'].includes(emo) ? 0.14 : (emo === 'exaurido' ? 0.04 : 0.08);
+        r.ahoge.rotation = Math.sin(t * ahogeSpeed) * ahogeAmp + alive.hairLag * 1.6;
       }
 
       // Mascote Orbe "Bit" orbitando

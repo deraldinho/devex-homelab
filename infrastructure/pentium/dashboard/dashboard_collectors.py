@@ -179,8 +179,15 @@ def _fallback_visual_state() -> dict:
         "pensando": False,
         "duvida_identidade": False,
         "transicao_ms": 400,
+        "postura_atual": "NEUTRO",
+        "lado_gesto": "none",
+        "alvo_locomocao": "auto",
+        "acao_pet": "PATROL",
+        "emocao_principal": "calmo",
+        "nuances_emocionais": [],
         "source": "fallback",
     }
+
 
 
 def _visual_state(config: dict) -> dict:

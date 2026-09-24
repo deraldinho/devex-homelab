@@ -64,6 +64,46 @@ class AvatarPixiContractTests(unittest.TestCase):
         self.assertIn("sha256sum --check --status", script)
         self.assertIn("github.com/pixijs/pixijs/releases/download", script)
 
+    def test_renderer_normalizes_affective_governor_fields(self):
+        renderer_path = json.dumps(str(ROOT / "atlas-avatar-renderer.js"))
+        script = textwrap.dedent(f"""
+            global.window = {{}};
+            global.document = {{ getElementById: () => null }};
+            global.performance = {{ now: () => 0 }};
+            require({renderer_path});
+            const r = window.AtlasAvatarRenderer;
+            const norm = r.normalize({{
+                modo: 'OBSERVANDO',
+                expressao: 'SERENO',
+                emocao_principal: 'acolhedor',
+                nuances_emocionais: ['harmonico', 'atento'],
+                foco_visual: 'core',
+                alvo_locomocao: 'core',
+                acao_pet: 'HOP',
+                postura_atual: 'ABERTO',
+                lado_gesto: 'left',
+            }});
+            console.log(JSON.stringify(norm));
+        """)
+        result = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["emocao_principal"], "acolhedor")
+        self.assertEqual(payload["nuances_emocionais"], ["harmonico", "atento"])
+        self.assertEqual(payload["alvo_locomocao"], "core")
+        self.assertEqual(payload["acao_pet"], "HOP")
+        self.assertEqual(payload["postura_atual"], "ABERTO")
+        self.assertEqual(payload["lado_gesto"], "left")
+
+    def test_engine_supports_all_affective_governor_emotions_and_nodes(self):
+        engine = (ROOT / "atlas-avatar-engine.js").read_text(encoding="utf-8")
+        for node in ("core", "x99", "mikrotik", "pentium", "deraldinho"):
+            self.assertIn(node, engine)
+        for emotion in ("acolhedor", "orgulhoso", "fascinado", "determinado", "sobrecarregado", "exaurido", "pensativo", "harmonico"):
+            self.assertIn(emotion, engine)
+        self.assertIn("blushL", engine)
+        self.assertIn("blushR", engine)
+
     def test_javascript_assets_are_syntax_valid(self):
         for name in ("atlas-avatar-engine.js", "atlas-avatar-renderer.js"):
             result = subprocess.run(["node", "--check", str(ROOT / name)], capture_output=True, text=True)
@@ -72,3 +112,4 @@ class AvatarPixiContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

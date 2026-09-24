@@ -1,4 +1,4 @@
-﻿(() => {
+(() => {
   "use strict";
 
   const MODES = new Set(["OCIOSO", "OBSERVANDO", "CONVERSANDO", "REAGINDO"]);
@@ -27,6 +27,12 @@
       pensando: Boolean(v.pensando),
       duvida_identidade: Boolean(v.duvida_identidade),
       transicao_ms: clampMs(v.transicao_ms),
+      postura_atual: String(v.postura_atual || "NEUTRO").toUpperCase(),
+      lado_gesto: String(v.lado_gesto || "none").toLowerCase(),
+      alvo_locomocao: String(v.alvo_locomocao || "auto"),
+      acao_pet: String(v.acao_pet || "PATROL").toUpperCase(),
+      emocao_principal: String(v.emocao_principal || "calmo").toLowerCase(),
+      nuances_emocionais: Array.isArray(v.nuances_emocionais) ? Object.freeze([...v.nuances_emocionais]) : Object.freeze([]),
       source: v.source === "fallback" ? "fallback" : "canonical",
     });
   }
@@ -78,7 +84,10 @@
 
   function renderMeta(v, pixiReady) {
     byId("avatarMode").textContent = v.modo;
-    byId("avatarExpression").textContent = v.expressao;
+    const exprText = v.emocao_principal && v.emocao_principal !== "calmo"
+      ? `${v.expressao} (${v.emocao_principal})`
+      : v.expressao;
+    byId("avatarExpression").textContent = exprText;
     byId("avatarFocus").textContent = v.foco_visual;
     byId("avatarIntensity").textContent = `${Math.round(v.intensidade_expressao * 100)}%`;
     byId("avatarHeadline").textContent = currentIntentHeadline || `Atlas \u00b7 ${v.modo.charAt(0) + v.modo.slice(1).toLowerCase()}`;
@@ -91,6 +100,7 @@
     toggleFlag("flagSpeaking", v.falando);
     toggleFlag("flagIdentity", v.duvida_identidade);
   }
+
 
   let lastIntentBehaviorKey = null;
   let lastIntentBehaviorEngine = null;

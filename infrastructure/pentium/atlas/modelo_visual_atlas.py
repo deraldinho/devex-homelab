@@ -68,6 +68,8 @@ class EstadoVisualAtlas:
     lado_gesto: str = "none"
     alvo_locomocao: str = "auto"
     acao_pet: str = "PATROL"
+    emocao_principal: str = "calmo"
+    nuances_emocionais: tuple[str, ...] = ()
 
     def __post_init__(self):
         object.__setattr__(self, "modo", _enum(self.modo, ModoVisual))
@@ -79,9 +81,13 @@ class EstadoVisualAtlas:
             raise ValueError("transicao_ms fora do bound")
         object.__setattr__(self, "transicao_ms", int(self.transicao_ms))
         object.__setattr__(self, "foco_visual", str(self.foco_visual).strip() or "neutro")
+        object.__setattr__(self, "emocao_principal", str(self.emocao_principal).strip() or "calmo")
+        object.__setattr__(self, "nuances_emocionais", tuple(str(n) for n in self.nuances_emocionais))
 
     def para_dict(self):
         data = asdict(self)
         data["modo"] = self.modo.value
         data["expressao"] = self.expressao.value
+        data["nuances_emocionais"] = list(self.nuances_emocionais)
         return data
+
