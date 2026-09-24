@@ -35,7 +35,7 @@ from .observation_runtime import load_observation_config
 from .presence_persistence import PresenceRepository
 from .stimulus_bus import StimulusBus
 from .stimulus_journal import append_stimulus
-from .stimulus_sources import PentiumSelfSource, WifiPresenceSource
+from .stimulus_sources import MikroTikPerimeterSource, PentiumSelfSource, WifiPresenceSource
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_STATE_DIR = Path.home() / "pentium-agent" / "atlas" / "runtime"
@@ -147,11 +147,22 @@ def build_observation_context(
         repositories = tuple(payload.get("repositories") or ())
         if payload.get("enabled", False) and repositories:
             github_sources = build_github_sources(repositories, client=github_client or GitHubCliClient())
+    mikrotik_sources = ()
+    if "mikrotik.perimeter" in observation_payload.get("sources", {}):
+        m_cfg = observation_payload["sources"]["mikrotik.perimeter"]
+        mikrotik_sources = (
+            MikroTikPerimeterSource(
+                router_host=str(m_cfg.get("router_host", "192.168.88.1")),
+                wan_interface=str(m_cfg.get("wan_interface", "ether1")),
+                dns_target=str(m_cfg.get("dns_target", "1.1.1.1")),
+            ),
+        )
     source_names = {
         "pentium.self",
         "wifi.presence",
         *(f"managed.{host}" for host in managed_hosts),
         *(source.name for source in github_sources),
+        *(source.name for source in mikrotik_sources),
     }
     schedules = {name: schedules_all[name] for name in source_names}
     local_sources = (PentiumSelfSource(collect_pentium_self),)
@@ -191,7 +202,7 @@ def build_observation_context(
             managed_read_service=service,
             managed_hosts=managed_hosts,
             local_sources=local_sources,
-            extra_sources=github_sources,
+            extra_sources=(*github_sources, *mikrotik_sources),
             bus=bus,
             journal=lambda stimulus: append_stimulus(
                 journal_path, stimulus, {"expected_sha": expected_sha}

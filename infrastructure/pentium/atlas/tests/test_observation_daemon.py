@@ -71,6 +71,7 @@ class ObservationDaemonTests(unittest.TestCase):
                 for source in (
                     "pentium.self", "managed.core", "managed.x99", "wifi.presence",
                     "github.deraldinho.devex-homelab", "github.deraldinho.L2jToren",
+                    "mikrotik.perimeter",
                 ):
                     self.assertIsNotNone(context.runtime.run_once(source))
             finally:

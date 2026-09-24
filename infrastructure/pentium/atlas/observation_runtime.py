@@ -13,7 +13,14 @@ from typing import Callable, Mapping
 
 from .stimulus_bus import StimulusBus
 from .stimulus_model import Stimulus, StimulusSeverity, novelty_score, stable_fingerprint
-from .stimulus_sources import SourceSnapshot, StimulusSource
+from .stimulus_sources import (
+    MikroTikPerimeterSource,
+    SourceSnapshot,
+    StimulusSource,
+    probe_dhcp_leases,
+    probe_dns_latency,
+    probe_wan_traffic,
+)
 
 
 @dataclass(frozen=True)

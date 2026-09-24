@@ -403,12 +403,13 @@ class ObservationSchedulingTests(unittest.TestCase):
         policies = load_observation_policies(config_path)
         self.assertEqual(set(policies), {
             "pentium.self", "core", "x99", "managed.core", "managed.x99", "wifi.presence",
-            "github.deraldinho.devex-homelab", "github.deraldinho.L2jToren",
+            "github.deraldinho.devex-homelab", "github.deraldinho.L2jToren", "mikrotik.perimeter",
         })
         self.assertEqual(policies["pentium.self"].cooldown_s, 60.0)
         self.assertEqual(policies["core"].cooldown_s, 60.0)
         self.assertEqual(policies["x99"].cooldown_s, 60.0)
         self.assertEqual(policies["wifi.presence"].cooldown_s, 60.0)
+        self.assertEqual(policies["mikrotik.perimeter"].cooldown_s, 60.0)
 
     def test_repository_observation_config_covers_initial_sources(self):
         from pathlib import Path
@@ -417,7 +418,7 @@ class ObservationSchedulingTests(unittest.TestCase):
         schedules = load_observation_config(config_path)
         self.assertEqual(set(schedules), {
             "pentium.self", "core", "x99", "managed.core", "managed.x99", "wifi.presence",
-            "github.deraldinho.devex-homelab", "github.deraldinho.L2jToren",
+            "github.deraldinho.devex-homelab", "github.deraldinho.L2jToren", "mikrotik.perimeter",
         })
         self.assertLessEqual(schedules["pentium.self"].timeout_seconds, 5.0)
         self.assertLessEqual(schedules["core"].timeout_seconds, 8.0)
@@ -425,6 +426,8 @@ class ObservationSchedulingTests(unittest.TestCase):
         self.assertEqual(schedules["wifi.presence"].interval_seconds, 60.0)
         self.assertLessEqual(schedules["wifi.presence"].timeout_seconds, 10.0)
         self.assertEqual(schedules["wifi.presence"].jitter_seconds, 5.0)
+        self.assertEqual(schedules["mikrotik.perimeter"].interval_seconds, 60.0)
+        self.assertLessEqual(schedules["mikrotik.perimeter"].timeout_seconds, 8.0)
 
     def test_repository_config_declares_wifi_interface_contract_and_bounds(self):
         import json

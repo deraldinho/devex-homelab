@@ -61,6 +61,16 @@
       "interface_env": "ATLAS_WIFI_INTERFACE",
       "presence_window_seconds": 180,
       "max_devices": 256
+    },
+    "mikrotik.perimeter": {
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "max_backoff_seconds": 300,
+      "cooldown_seconds": 60,
+      "jitter_seconds": 5,
+      "router_host": "192.168.88.1",
+      "wan_interface": "ether1",
+      "dns_target": "1.1.1.1"
     }
   }
 }
