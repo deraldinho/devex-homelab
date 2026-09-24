@@ -71,6 +71,8 @@ def atlas_capability_registry() -> CapabilityRegistry:
         CapabilitySpec("l2j_check_jvm", "READ", ()),
         CapabilitySpec("l2j_docker_stats", "READ", ()),
         CapabilitySpec("l2j_get_logs", "READ", ("container", "lines"), tipos_parametros=(("container", "str"), ("lines", "int"))),
+        CapabilitySpec("l2j_run_tests", "READ", ("test_target",), tipos_parametros=(("test_target", "str"),)),
+        CapabilitySpec("l2j_inspect_persistence", "READ", ("filter_term", "lines"), tipos_parametros=(("filter_term", "str"), ("lines", "int"))),
         CapabilitySpec("git_get_status", "READ", ("project",), tipos_parametros=(("project", "str"),)),
         CapabilitySpec("git_recent_commits", "READ", ("project", "count"), tipos_parametros=(("project", "str"), ("count", "int"))),
         CapabilitySpec("task_status", "READ", ()),

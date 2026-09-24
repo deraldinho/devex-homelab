@@ -340,6 +340,175 @@ class L2jObservationService:
             "heap_warning": heap_warning,
         }
 
+    def run_tests(
+        self,
+        test_target: str = "all",
+        host: Optional[str] = None,
+        timeout_sec: float = 60.0,
+    ) -> Dict[str, Any]:
+        import re
+        target_host = host or self.default_host
+        raw_target = str(test_target or "all").strip()
+        if not re.match(r"^[a-zA-Z0-9_\.\-\#\*,]+$", raw_target) and raw_target != "":
+            return {
+                "host": target_host,
+                "target": raw_target,
+                "success": False,
+                "summary": "Alvo de teste invalido para execucao segura",
+                "tests_run": 0,
+                "failures": 0,
+                "errors": 0,
+                "skipped": 0,
+                "error": "Caracteres invalidos no alvo de teste",
+                "output": "",
+            }
+
+        if raw_target.lower() in ("all", "*", ""):
+            target_desc = "suite completa"
+            cmd = 'cd /d C:\\Users\\deral\\L2jToren && mvn test -DfailIfNoTests=false -B'
+        else:
+            target_desc = f"alvo '{raw_target}'"
+            cmd = f'cd /d C:\\Users\\deral\\L2jToren && mvn test -Dtest={raw_target} -DfailIfNoTests=false -B'
+
+        out = self.ssh_runner(target_host, cmd, timeout_sec)
+        if out is None:
+            return {
+                "host": target_host,
+                "target": raw_target,
+                "success": False,
+                "summary": f"Falha na execucao remota de testes para {target_desc} via SSH",
+                "tests_run": 0,
+                "failures": 0,
+                "errors": 0,
+                "skipped": 0,
+                "error": "Timeout ou falha de comunicacao SSH",
+                "output": "",
+            }
+
+        tests_run = 0
+        failures = 0
+        errors = 0
+        skipped = 0
+        m_counts = re.search(r"Tests run:\s*(\d+),\s*Failures:\s*(\d+),\s*Errors:\s*(\d+),\s*Skipped:\s*(\d+)", out)
+        if m_counts:
+            tests_run = int(m_counts.group(1))
+            failures = int(m_counts.group(2))
+            errors = int(m_counts.group(3))
+            skipped = int(m_counts.group(4))
+
+        success = ("BUILD SUCCESS" in out or (tests_run > 0 and failures == 0 and errors == 0)) and ("BUILD FAILURE" not in out)
+
+        if success:
+            summary = f"Testes L2jToren ({target_desc}): SUCESSO. Executados: {tests_run}, Falhas: {failures}, Erros: {errors}, Pulados: {skipped}"
+        else:
+            summary = f"Testes L2jToren ({target_desc}): FALHA. Executados: {tests_run}, Falhas: {failures}, Erros: {errors}, Pulados: {skipped}"
+
+        return {
+            "host": target_host,
+            "target": raw_target,
+            "success": success,
+            "summary": summary,
+            "tests_run": tests_run,
+            "failures": failures,
+            "errors": errors,
+            "skipped": skipped,
+            "error": None if success else "Falhas ou erros detectados na execucao dos testes",
+            "output": out[-2000:] if len(out) > 2000 else out,
+        }
+
+    def inspect_persistence(
+        self,
+        filter_term: str = "PlayerPersistenceController",
+        lines: int = 100,
+        host: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        import re
+        target_host = host or self.default_host
+        raw_filter = str(filter_term or "PlayerPersistenceController").strip()
+        if not re.match(r"^[a-zA-Z0-9_\.\-\:\s]+$", raw_filter):
+            return {
+                "host": target_host,
+                "container": "l2jtoren-gameserver",
+                "filter": raw_filter,
+                "lines_inspected": 0,
+                "total_matches": 0,
+                "has_errors": True,
+                "has_deadlocks": False,
+                "status": "ERROR",
+                "summary": "Termo de filtro invalido para execucao segura",
+                "matches": [],
+                "error": "Caracteres invalidos no filtro",
+            }
+        try:
+            num_lines = max(10, min(int(lines), 500))
+        except (ValueError, TypeError):
+            num_lines = 100
+
+        logs_res = self.fetch_container_logs(
+            container="l2jtoren-gameserver",
+            lines=num_lines,
+            host=target_host,
+        )
+        if not logs_res.get("ssh_available") or logs_res.get("error"):
+            return {
+                "host": target_host,
+                "container": "l2jtoren-gameserver",
+                "filter": raw_filter,
+                "lines_inspected": num_lines,
+                "total_matches": 0,
+                "has_errors": True,
+                "has_deadlocks": False,
+                "status": "UNAVAILABLE",
+                "summary": "Nao foi possivel inspecionar logs do container gameserver via SSH",
+                "matches": [],
+                "error": logs_res.get("error"),
+            }
+
+        raw_logs = logs_res.get("logs", "")
+        lines_list = raw_logs.splitlines()
+        f_lower = raw_filter.lower()
+
+        matches = []
+        has_deadlocks = False
+        has_errors = False
+
+        for line in lines_list:
+            if f_lower in line.lower() or ("playerpersistence" in line.lower() and f_lower == "playerpersistencecontroller"):
+                matches.append(line.strip())
+                line_lower = line.lower()
+                if "deadlock" in line_lower:
+                    has_deadlocks = True
+                    has_errors = True
+                elif "error" in line_lower or "exception" in line_lower or "rollback" in line_lower or "failed" in line_lower:
+                    has_errors = True
+
+        if not matches:
+            status = "NO_ENTRIES"
+            summary = f"Nenhuma ocorrencia de '{raw_filter}' encontrada nas ultimas {num_lines} linhas do gameserver."
+        elif has_deadlocks:
+            status = "CRITICAL_DEADLOCK"
+            summary = f"ALERTA: Detectado DEADLOCK na persistencia de jogadores! {len(matches)} eventos analisados."
+        elif has_errors:
+            status = "WARNING_ERRORS"
+            summary = f"Atencao: Encontrados erros/excecoes no PlayerPersistenceController ({len(matches)} eventos analisados)."
+        else:
+            status = "HEALTHY"
+            summary = f"PlayerPersistenceController operando normalmente. {len(matches)} eventos de persistencia registrados sem falhas."
+
+        return {
+            "host": target_host,
+            "container": "l2jtoren-gameserver",
+            "filter": raw_filter,
+            "lines_inspected": num_lines,
+            "total_matches": len(matches),
+            "has_errors": has_errors,
+            "has_deadlocks": has_deadlocks,
+            "status": status,
+            "summary": summary,
+            "matches": matches[-30:] if len(matches) > 30 else matches,
+            "error": None,
+        }
+
 
 class L2jCapabilityExecutor:
     def __init__(self, observation_service: Optional[L2jObservationService] = None):
@@ -363,6 +532,13 @@ class L2jCapabilityExecutor:
             container = str(params.get("container") or "l2jtoren-gameserver")
             lines = params.get("lines", 50)
             return self.service.fetch_container_logs(container=container, lines=lines, host=host)
+        elif capability == "l2j_run_tests":
+            target = str(params.get("test_target") or params.get("target") or "all")
+            return self.service.run_tests(test_target=target, host=host)
+        elif capability == "l2j_inspect_persistence":
+            filter_term = str(params.get("filter_term") or params.get("filter") or "PlayerPersistenceController")
+            lines = params.get("lines", 100)
+            return self.service.inspect_persistence(filter_term=filter_term, lines=lines, host=host)
         else:
             return {"error": f"Capacidade L2j desconhecida: {capability}"}
 

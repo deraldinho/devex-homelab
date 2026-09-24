@@ -210,8 +210,121 @@ class TestReactLoop(unittest.TestCase):
         # Capability nunca é chamada
         cap_sink_mock.assert_not_called()
         # Loop chamado apenas 1 vez (Turno 1 único)
-        self.assertEqual(1, loop_mock.processar.call_count)
-        self.assertEqual(plain_response.texto, res.texto)
+    def test_react_loop_executes_l2j_run_tests_and_persistence_inspection(self):
+        # 1. Teste de ReAct para l2j_run_tests
+        turn1_test = RespostaCognitiva(
+            ativado=True,
+            motivo="interacao_humana",
+            texto="Executando testes de persistência...",
+            razao=None,
+            backend="hermes",
+            duracao_ms=100,
+            resumo="Disparo de testes L2jToren",
+            intencao="l2j_run_tests",
+            parametros_intencao={"test_target": "PlayerPersistenceTest"},
+            confianca=0.95,
+            requer_confirmacao=False,
+            intencao_autorizada=True,
+        )
+        turn2_test = RespostaCognitiva(
+            ativado=True,
+            motivo="interacao_humana",
+            texto="Os 12 testes unitários do PlayerPersistenceTest passaram com sucesso em 1.45s.",
+            razao=None,
+            backend="hermes",
+            duracao_ms=110,
+            resumo="Síntese dos testes L2jToren",
+            intencao=None,
+            parametros_intencao={},
+            confianca=0.98,
+            requer_confirmacao=False,
+            intencao_autorizada=False,
+        )
+
+        loop_mock = MagicMock()
+        loop_mock.processar.side_effect = [turn1_test, turn2_test]
+
+        fake_test_result = {
+            "host": "100.101.23.111",
+            "target": "PlayerPersistenceTest",
+            "success": True,
+            "tests_run": 12,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "summary": "Testes L2jToren (alvo 'PlayerPersistenceTest'): SUCESSO. Executados: 12, Falhas: 0, Erros: 0, Pulados: 0",
+        }
+        cap_sink_mock = MagicMock(return_value=fake_test_result)
+        action_executor = ActionExecutorRegistry(
+            visual_getter=lambda: SimpleNamespace(expressao="SERENO"),
+            visual_writer=lambda s: None,
+            capability_sink=cap_sink_mock,
+        )
+
+        envelope_mock = SimpleNamespace(
+            message_id="msg_test_1",
+            stimulus_id="stim_test_1",
+            message="Atlas, rode os testes de persistencia",
+            channel="discord",
+            actor_id="user_123",
+            conversation_id="conv_1",
+            reply_target="msg_test_1",
+            created_at="2026-09-24T12:00:00+00:00",
+        )
+        chat_inbox_mock = MagicMock()
+        chat_inbox_mock.claim_next.return_value = envelope_mock
+
+        base_snapshot = SimpleNamespace(
+            source_stimulus_id="stim_test_1",
+            entity_id="pentium",
+            generated_at="2026-09-24T12:00:00+00:00",
+            recent_changes=(),
+            affective_state={"valencia": 0.6},
+        )
+
+        fake_plan = PlanoAcaoAtlas(
+            plan_id="33333333-3333-3333-3333-333333333333",
+            stimulus_id="stim_test_1",
+            created_at="2026-09-24T12:00:00+00:00",
+            objective="Teste L2j",
+            confidence=0.95,
+            response_text=turn2_test.texto,
+            actions=(AtlasAction(
+                action_id="44444444-4444-4444-4444-444444444444",
+                type=ActionType.CHAT_REPLY,
+                target=None,
+                parameters={},
+                status=ActionStatus.AUTHORIZED,
+                reason=None,
+                created_at="2026-09-24T12:00:00+00:00",
+                authorized_at="2026-09-24T12:00:00+00:00",
+            ),),
+            requires_confirmation=False,
+            policy_decision="authorized",
+            trigger_kind="human_interaction",
+        )
+        planner_mock = MagicMock()
+        planner_mock.plan.return_value = fake_plan
+        policy_mock = MagicMock()
+        policy_mock.authorize.return_value = fake_plan
+
+        daemon = CognitiveDaemon(
+            snapshot_loader=lambda: base_snapshot,
+            context_provider=lambda: {"mudancas_recentes": ()},
+            loop=loop_mock,
+            publisher=MagicMock(),
+            planner=planner_mock,
+            action_policy=policy_mock,
+            action_executor=action_executor,
+            action_store=MagicMock(),
+            chat_inbox=chat_inbox_mock,
+        )
+
+        res = daemon.run_once()
+
+        cap_sink_mock.assert_called_once_with("l2j_run_tests", {"test_target": "PlayerPersistenceTest"})
+        self.assertEqual(2, loop_mock.processar.call_count)
+        self.assertEqual(turn2_test.texto, res.texto)
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ A observação opera em modelo **híbrido**:
    ```powershell
    docker ps --filter "name=l2jtoren" --format "{{.Names}}:::{{.Status}}:::{{.Image}}"
    ```
-3. **Capabilities de Diagnóstico Registradas**:
+3. **Capabilities de Diagnóstico & Testes Registradas**:
    - `l2j_get_status`: Diagnóstico consolidado (portas + containers + heap da JVM + CPU + threads + conexões de banco).
    - `l2j_get_dashboards`: Consulta autenticada na API do Grafana (`100.101.23.111:3000`) listando os 6 dashboards oficiais:
      1. `l2j-autofarm-geo` (AutoFarm, Pickup & GeoEngine)
@@ -42,6 +42,8 @@ A observação opera em modelo **híbrido**:
    - `l2j_docker_stats`: Estado de execução dos 7 containers.
    - `l2j_get_logs`: Extração direta das últimas linhas de log dos containers Docker (`l2jtoren-gameserver`, `l2jtoren-loginserver`, `l2jtoren-db`, etc.) via SSH com timeout estrito de 3.0s e sanitização de segurança.
    - `l2j_check_jvm`: Telemetria de heap e threads via Prometheus (`l2j_jvm_memory_heap_used_bytes`, `l2j_process_cpu_load`, etc.).
+   - `l2j_run_tests`: Disparo controlado de testes unitários do L2jToren (`mvn test -Dtest=...`) no host x99 com parse de resultados (sucesso, falhas, erros, pulados).
+   - `l2j_inspect_persistence`: Inspeção profunda e análise diagnóstica dos logs operacionais do `PlayerPersistenceController` no gameserver com detecção automática de deadlocks, rollbacks e erros de persistência de jogadores.
 
 ---
 
@@ -52,6 +54,8 @@ O operador pode dialogar normalmente com o Atlas em linguagem natural:
 - *"Atlas, qual o status do ecossistema L2jToren?"*
 - *"Como está a saúde do nosso servidor de jogo hoje?"*
 - *"Atlas, extraia os logs recentes do gameserver"*
+- *"Atlas, execute os testes unitários do PlayerPersistenceTest"*
+- *"Verifique se o PlayerPersistenceController teve algum deadlock ou erro recente"*
 - *"Houve alguma queda de container no nó x99 recentemente?"*
 
 O Atlas aciona as capabilities determinísticas e responde expressando o estado dos serviços como parte da integridade dos seus membros físicos.

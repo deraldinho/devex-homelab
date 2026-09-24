@@ -223,6 +223,8 @@ class HermesAdapter:
             "- l2j_get_dashboards(): Dashboards de telemetria Grafana disponíveis para L2jToren.\n"
             "- l2j_check_jvm(): Métricas de memória heap JVM e threads do servidor L2jToren.\n"
             "- l2j_get_logs(container, lines): Extrai as últimas linhas de log de um container Docker do L2jToren via SSH no host x99.\n"
+            "- l2j_run_tests(test_target): Executa disparos controlados de testes unitários do L2jToren (mvn test) no host x99.\n"
+            "- l2j_inspect_persistence(filter_term, lines): Inspeciona logs operacionais do PlayerPersistenceController e rotinas de persistência do gameserver L2jToren.\n"
             "- git_get_status(project): Status de árvore git e branch dos repositórios.\n"
             "- git_recent_commits(project, count): Últimos commits dos repositórios do homelab.\n"
             "- task_status(): Consulta o status da tarefa autônoma em andamento no Atlas.\n"
@@ -260,7 +262,13 @@ class HermesAdapter:
             "Exemplo 9 (Síntese de Ferramenta Executada no Ciclo ReAct):\n"
             "Observação de Ferramenta:\n"
             '<tool_observation capability="task_status">\n{"has_active_task": true, "status": "WORKING", "objective": "Auditar a saúde do nó x99", "area": "infrastructure", "operations_used": 3, "inferences_used": 1}\n</tool_observation>\n'
-            '{"versao_schema":1,"texto":"Atualmente estou executando a tarefa de auditoria de saúde do nó x99 na área de infraestrutura. Já utilizei 3 operações e 1 ciclo de inferência; a tarefa permanece ativa e com orçamento saudável.","resumo":"Síntese conclusiva da tarefa autônoma ativa.","intencao":null,"parametros_intencao":{},"confianca":0.98,"motivo":"interacao_humana","requer_confirmacao":false}\n'
+            '{"versao_schema":1,"texto":"Atualmente estou executando a tarefa de auditoria de saúde do nó x99 na área de infraestrutura. Já utilizei 3 operações e 1 ciclo de inferência; a tarefa permanece ativa e com orçamento saudável.","resumo":"Síntese conclusiva da tarefa autônoma ativa.","intencao":null,"parametros_intencao":{},"confianca":0.98,"motivo":"interacao_humana","requer_confirmacao":false}\n\n'
+            "Exemplo 10 (Disparo de Testes Unitários L2jToren):\n"
+            "Operador: 'Execute os testes unitários da persistência de jogadores no L2jToren'\n"
+            '{"versao_schema":1,"texto":"Disparando agora a execução dos testes unitários de persistência de jogadores no nó x99 para você.","resumo":"Disparo controlado de testes unitários L2jToren no host x99.","intencao":"l2j_run_tests","parametros_intencao":{"test_target":"PlayerPersistenceTest"},"confianca":0.98,"motivo":"interacao_humana","requer_confirmacao":false}\n\n'
+            "Exemplo 11 (Inspeção de Logs do PlayerPersistenceController):\n"
+            "Operador: 'Verifique se o PlayerPersistenceController teve algum erro ou deadlock recente'\n"
+            '{"versao_schema":1,"texto":"Inspecionando os logs operacionais do PlayerPersistenceController no gameserver para verificar possíveis inconsistências ou deadlocks.","resumo":"Inspeção de logs de persistência do gameserver L2jToren.","intencao":"l2j_inspect_persistence","parametros_intencao":{"filter_term":"PlayerPersistenceController","lines":100},"confianca":0.98,"motivo":"interacao_humana","requer_confirmacao":false}\n'
             "</few_shot_demonstrations>\n\n"
             f"{operator_block}"
             f"{tool_obs_block}"
