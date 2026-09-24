@@ -12,6 +12,9 @@ from types import SimpleNamespace
 from .capability_registry import atlas_capability_registry
 from .action_executors import ActionExecutorRegistry
 from .autonomy_executor import SafeLocalCapabilityExecutor
+from .discord_capability_executor import DiscordCapabilityExecutor
+from .git_capability_executor import GitCapabilityExecutor, ClusterVitalsExecutor
+from .l2j_observation import L2jCapabilityExecutor
 from .action_plan import ActionStatus, ActionType
 from .action_plan_store import ActionPlanStore
 from .action_planner import ActionPlanner
@@ -54,6 +57,8 @@ from .workspace_health import WorkspaceEconomyPublisher
 from .token_budget_governor import TokenBudgetGovernor
 from .cognitive_router import CognitiveRouter
 from .self_work import SelfWorkRuntime
+from .task_store import SelfWorkStore
+from .task_capability_executor import TaskCapabilityExecutor
 
 ROOT=Path(__file__).resolve().parent
 AGENT_ROOT=Path.home()/"pentium-agent"
@@ -141,6 +146,7 @@ class CognitiveDaemon:
         self._planner=planner;self._action_policy=action_policy;self._action_executor=action_executor;self._action_store=action_store;self._event_sink=event_sink;self._chat_inbox=chat_inbox;self._notification_policy=notification_policy
         self._behavior_selector=behavior_selector;self._intent_machine=intent_machine;self._habituation_engine=habituation_engine;self._intent_publisher=intent_publisher
         self._cognitive_router=cognitive_router;self._self_work_runtime=self_work_runtime
+        self._dialogue_history = {}
     def _delta(self,current):
         keys=("valencia","ativacao","estresse","confianca","engajamento","curiosidade")
         if self._last_affective is None:return 0.0
@@ -236,6 +242,7 @@ class CognitiveDaemon:
                 "actor_id": envelope.actor_id,
                 "conversation_id": envelope.conversation_id,
                 "reply_target": envelope.reply_target,
+                "client_message_id": getattr(envelope, "client_message_id", None),
             }
             snapshot=SimpleNamespace(source_stimulus_id=envelope.stimulus_id,entity_id=getattr(base_snapshot,"entity_id",None),generated_at=envelope.created_at,recent_changes=getattr(base_snapshot,"recent_changes",()),affective_state=getattr(base_snapshot,"affective_state",{}))
         reflection=envelope is None and self._last_id==snapshot.source_stimulus_id and self._last_at is not None and now-self._last_at>=self._reflection_interval_s
@@ -263,8 +270,17 @@ class CognitiveDaemon:
                 user_payload.update(chat_route or {})
                 self._emit_action_event("chat_message",user_payload)
                 stimulus=build_human_stimulus(envelope.message,source=f"human.{envelope.channel}",stimulus_id=envelope.stimulus_id,timestamp=envelope.created_at,max_text_chars=512)
-                recent=list(context.get("mudancas_recentes",()))
-                recent.append(stimulus); context["mudancas_recentes"]=recent
+                msg_lower=envelope.message.lower()
+                status_query_keywords=("como está","como esta","qual o status","qual o estado","relatório","relatorio","saúde","saude","backup","servidores e o status","status dos")
+                if any(kw in msg_lower for kw in status_query_keywords):
+                    recent=list(context.get("mudancas_recentes",()))
+                    recent.append(stimulus)
+                    context["mudancas_recentes"]=recent
+                else:
+                    context["mudancas_recentes"]=[stimulus]
+                    context["dependencias_afetadas"]=()
+                conv_key = str(getattr(envelope, "conversation_id", None) or getattr(envelope, "channel", None) or "default")
+                context["historico_conversa"] = list(self._dialogue_history.get(conv_key, ()))
                 signals["interacao_humana"]=True
             communication_mode,intent,material_fingerprint=self._continuous_behavior(
                 base_snapshot,human_interaction=envelope is not None,now=snapshot.generated_at,
@@ -288,6 +304,37 @@ class CognitiveDaemon:
                         self._self_work_runtime.resume_if_valid(now=snapshot.generated_at)
                     return None
             response=self._loop.processar(fingerprint=snapshot.source_stimulus_id,agora=snapshot.generated_at,sinais_ativacao=signals,dados_contexto=context,on_inference=inference_state)
+
+            # ReAct Recursion Loop: se houver capability de leitura autorizada para interação humana, executa e sintetiza
+            if envelope is not None and response is not None and getattr(response, "intencao", None):
+                read_prefixes = ("l2j_", "git_", "get_cluster_vitals", "get_host_status", "workspace_", "task_")
+                is_read_query = (
+                    any(str(response.intencao).startswith(p) for p in read_prefixes)
+                    and getattr(response, "intencao_autorizada", False)
+                    and not getattr(response, "requer_confirmacao", False)
+                )
+                if is_read_query:
+                    cap_sink = getattr(self._action_executor, "_capability_sink", None)
+                    if cap_sink is not None:
+                        try:
+                            tool_result = cap_sink(str(response.intencao), dict(response.parametros_intencao or {}))
+                            if tool_result is not None:
+                                react_context = dict(context)
+                                react_context["observacoes_ferramentas"] = [
+                                    {"capability": str(response.intencao), "result": tool_result}
+                                ]
+                                synthesis_resp = self._loop.processar(
+                                    fingerprint=f"{snapshot.source_stimulus_id}:react_synthesis",
+                                    agora=snapshot.generated_at,
+                                    sinais_ativacao=signals,
+                                    dados_contexto=react_context,
+                                    on_inference=inference_state,
+                                )
+                                if synthesis_resp is not None and getattr(synthesis_resp, "texto", None):
+                                    response = synthesis_resp
+                        except Exception as exc:
+                            self._emit_action_event("react_loop_error", {"capability": str(response.intencao), "error": type(exc).__name__})
+
             if self_work_cycle and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
                 current=self._self_work_runtime.current
                 if getattr(current.state,"value","")=="ACTIVE": self._self_work_runtime.begin_work(now=snapshot.generated_at)
@@ -297,6 +344,13 @@ class CognitiveDaemon:
             self._process_action_plan(snapshot,response,trigger_kind=trigger_kind,chat_route=chat_route,communication_mode=communication_mode)
             self._publisher.publish(snapshot,response)
             if envelope is not None:
+                if response is not None and getattr(response, "texto", None):
+                    conv_key = str(getattr(envelope, "conversation_id", None) or getattr(envelope, "channel", None) or "default")
+                    hist = self._dialogue_history.setdefault(conv_key, [])
+                    hist.append({"role": "user", "message": str(envelope.message)})
+                    hist.append({"role": "atlas", "message": str(response.texto)})
+                    if len(hist) > 10:
+                        self._dialogue_history[conv_key] = hist[-10:]
                 self._chat_inbox.ack(envelope.message_id)
                 if self_work_preempted and self._self_work_runtime is not None and self._self_work_runtime.current is not None:
                     try: self._self_work_runtime.resume_if_valid(now=snapshot.generated_at)
@@ -345,9 +399,13 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     workspace_index=WorkspaceIndex(workspace_root/".system"/"index.sqlite3")
     workspace_cache=WorkspaceContextCache(workspace_root/".system"/"context-cache.sqlite3",ttl_s=300,max_entries=256)
     workspace_retriever=WorkspaceRetriever(workspace_index,cache=workspace_cache)
-    self_work=SelfWorkRuntime(ttl_s=300,max_operations=20,max_inferences=2)
+    self_work_store=SelfWorkStore(state_dir/"self-work-current.json",state_dir/"self-work-history.jsonl")
+    self_work=SelfWorkRuntime(ttl_s=300,max_operations=20,max_inferences=2,store=self_work_store)
+    try: self_work.restore_from_store(now=_utc_now().isoformat())
+    except Exception: pass
+    task_executor=TaskCapabilityExecutor(self_work)
     cache=CognitiveCache(load_cache_config(config_root/"config_cache.json"));policy=ActivationPolicy(cognitive.ativacao);builder=ContextoCognitivoBuilder(cognitive.contexto)
-    capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status","workspace_status","workspace_list","workspace_read","workspace_search"),control_allow=("restart_service",),auto_control_allow=("restart_service",),auto_hosts=("pentium",),auto_services=("atlas-observation.service","atlas-dashboard.service"),auto_unscoped_control_allow=("workspace_create_note","workspace_write","workspace_append","workspace_mkdir","workspace_move","workspace_archive","workspace_trash","workspace_restore"))
+    capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status","get_cluster_vitals","l2j_get_status","l2j_get_dashboards","l2j_check_jvm","l2j_docker_stats","l2j_get_logs","git_get_status","git_recent_commits","workspace_status","workspace_list","workspace_read","workspace_search","task_status"),control_allow=("restart_service",),auto_control_allow=("restart_service",),auto_hosts=("pentium",),auto_services=("atlas-observation.service","atlas-dashboard.service"),auto_unscoped_control_allow=("workspace_create_note","workspace_write","workspace_append","workspace_mkdir","workspace_move","workspace_archive","workspace_trash","workspace_restore","discord_create_channel","discord_rename_channel","discord_send_alert","discord_create_note","discord_create_incident","discord_resolve_incident","task_create","task_complete","task_abandon"))
     loop=ReactionLoopCognitivo(policy,builder,gateway,capability_policy=capabilities,memory_retriever=retriever,workspace_retriever=workspace_retriever,cognitive_cache=cache)
     expected_sha=(os.environ.get("ATLAS_EXPECTED_SHA") or None) if cognitive.observation_bridge.require_expected_sha else None
     snapshot_path=Path(os.path.expanduser(cognitive.observation_bridge.snapshot_path));provider=HumanContextProvider(state_dir/"observation-affective-health.json",snapshot_path,max_snapshot_age_s=cognitive.observation_bridge.max_snapshot_age_s,expected_sha=expected_sha)
@@ -359,7 +417,11 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     visual_state_path=state_dir/"visual-state.json";visual_publisher=VisualStatePublisher(visual_state_path)
     autonomy_executor=SafeLocalCapabilityExecutor(host="pentium",services=("atlas-observation.service","atlas-dashboard.service"),on_executed=capabilities.registrar_execucao)
     workspace_executor=WorkspaceCapabilityExecutor(workspace_broker,searcher=workspace_retriever,indexer=workspace_index,self_work=self_work)
-    dispatcher=CapabilityDispatcher(autonomy_executor,workspace_executor)
+    discord_executor=DiscordCapabilityExecutor(state_dir/"discord-action-queue.jsonl")
+    git_executor=GitCapabilityExecutor()
+    vitals_executor=ClusterVitalsExecutor(state_dir)
+    l2j_executor=L2jCapabilityExecutor()
+    dispatcher=CapabilityDispatcher(autonomy_executor,workspace_executor,discord_executor,git_executor=git_executor,vitals_executor=vitals_executor,l2j_executor=l2j_executor,task_executor=task_executor)
     action_executor=ActionExecutorRegistry(visual_getter=lambda:read_visual_state(visual_state_path),visual_writer=visual_publisher.publicar,capability_sink=dispatcher,event_sink=action_events.publish)
     chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512);notification_policy=load_notification_policy(config_root)
     behavior_selector=BehaviorSelector();intent_machine=ContinuousIntentMachine(ttl_s=300.0,activation_threshold=.5);habituation_engine=HabituationEngine(max_entries=64,ttl_s=300.0);intent_publisher=ContinuousIntentPublisher(state_dir/"continuous-intent.json")

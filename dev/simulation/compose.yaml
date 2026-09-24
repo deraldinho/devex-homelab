@@ -9,6 +9,11 @@ services:
     environment:
       DEVEX_NODE_NAME: sim-core
       DEVEX_NODE_ROLE: homelab.compute
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1500M
     volumes:
       - ../..:/workspace:ro
       - sim-core-state:/state
@@ -36,6 +41,15 @@ services:
     environment:
       DEVEX_NODE_NAME: sim-pentium
       DEVEX_NODE_ROLE: homelab.control
+      RESTIC_PASSWORD: simulation-insecure-password
+      RESTIC_REPOSITORY: /state/backup-repo
+      HOMELAB_NODE: sim-pentium
+      HOMELAB_STATE_DIR: /state
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
     depends_on:
       sim-core:
         condition: service_healthy

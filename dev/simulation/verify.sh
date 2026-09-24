@@ -121,7 +121,10 @@ printf 'DEVEX_SIMULATION_ASSERT_PASS check=concurrency_probe\n'
 printf 'DEVEX_SIMULATION_CONCURRENCY_PASS\n'
 printf 'DEVEX_SIMULATION_RUNTIME_PASS\n'
 
+assert_cmd simulation_drift_eval docker compose exec -T sim-pentium python3 -m unittest discover -s /workspace/infrastructure/observability/tests -p 'test_*.py'
+
 cleanup
+
 trap - EXIT
 
 printf 'DEVEX_SIMULATION_CLEANUP_PASS\n'

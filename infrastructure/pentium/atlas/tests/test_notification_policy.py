@@ -45,5 +45,34 @@ class NotificationPolicyTests(unittest.TestCase):
             route=policy.route_for(SimpleNamespace(recent_changes=({"source":"core","kind":"source_error","severity":"critical"},)))
             self.assertEqual("channel-9",route["reply_target"])
 
+    def test_routes_memory_events_to_memory_channel(self):
+        policy = NotificationPolicy(
+            alert_channel_id="channel-alert",
+            memory_channel_id="channel-memory",
+            notes_channel_id="channel-notes",
+        )
+        memory_change = SimpleNamespace(recent_changes=({"source": "memory.episodic", "kind": "memory_consolidated", "severity": "info"},))
+        route = policy.route_for(memory_change)
+        self.assertIsNotNone(route)
+        self.assertEqual("channel-memory", route["reply_target"])
+
+    def test_routes_workspace_notes_to_notes_channel(self):
+        policy = NotificationPolicy(
+            alert_channel_id="channel-alert",
+            memory_channel_id="channel-memory",
+            notes_channel_id="channel-notes",
+        )
+        note_change = SimpleNamespace(recent_changes=({"source": "workspace.agent", "kind": "workspace_note", "severity": "info"},))
+        route = policy.route_for(note_change)
+        self.assertIsNotNone(route)
+        self.assertEqual("channel-notes", route["reply_target"])
+
+    def test_memory_falls_back_to_alert_channel_when_memory_channel_unset(self):
+        policy = NotificationPolicy(alert_channel_id="channel-alert")
+        memory_change = SimpleNamespace(recent_changes=({"source": "memory.episodic", "kind": "memory_consolidated", "severity": "info"},))
+        route = policy.route_for(memory_change)
+        self.assertIsNotNone(route)
+        self.assertEqual("channel-alert", route["reply_target"])
+
 
 if __name__ == "__main__": unittest.main()

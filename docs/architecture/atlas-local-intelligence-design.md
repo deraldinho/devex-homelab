@@ -71,26 +71,16 @@ Global State + intensity + reasons
 
 A severidade técnica não possui humor. A emoção/expressão é derivada separadamente.
 
-## 5. Expressão e linguagem sonora
+## 5. Expressão, linguagem sonora e Matriz Afetiva Expandida
 
-A comunicação normal usa uma linguagem sonora tecnológica própria. Cada categoria possui um **pool** de múltiplos sons, não um arquivo único.
+A comunicação normal usa uma linguagem sonora tecnológica própria acompanhada de uma **Matriz Afetiva de 20 Sentimentos Canônicos** calculada deterministicamente a partir de métricas do cluster (`ativação`, `valência`, `estresse`, `novidade`, `gravidade`, `urgência`):
 
-Categorias iniciais de expressão:
+- `sereno`, `calmo`, `focado`, `curioso`, `empolgado`;
+- `vigilante`, `apreensivo`, `sobrecarregado`, `exausto`, `aliviado`;
+- `confiante`, `hesitante`, `cauteloso`, `frustrado`, `satisfeito`;
+- `intrigado`, `protetor`, `solitário`, `paciente`, `resoluto`.
 
-- `calm`;
-- `acknowledge`;
-- `working`;
-- `happy`;
-- `concerned`;
-- `annoyed`;
-- `critical`;
-- `relief`;
-- `confused`;
-- `victory`.
-
-O Reaction Engine escolhe entre variantes com pesos, memória recente, raridade e cooldown. O conteúdo de áudio não faz parte do contrato técnico: mídia pode ser substituída sem mudar Health/Reaction.
-
-Memes são uma segunda camada opcional. Em evento crítico, o som canônico de criticidade sempre precede ou substitui qualquer meme.
+Cada categoria sonora possui um **pool** de múltiplos sons em PCM 16-bit 44.1kHz mono. O Reaction Engine escolhe entre variantes com pesos, memória recente, raridade e cooldown. Em evento crítico, o som canônico de criticidade sempre precede ou substitui qualquer meme.
 
 ## 6. Intensidade
 
@@ -104,19 +94,22 @@ A intensidade é um inteiro de `0..4` calculado por regras determinísticas:
 
 Thresholds específicos ficam em configuração versionada e exigem duração mínima/histerese para evitar oscilações.
 
-## 7. Mini LLM
+## 7. Cérebro Cognitivo de Background (Hermes 3)
 
-O candidato inicial é `Qwen3-0.6B` em GGUF Q4 via `llama.cpp`, com contexto inicial limitado a 2048–4096 tokens. A promoção para serviço permanente depende de benchmark físico no Pentium: RAM, swap, CPU, tokens/s, latência e temperatura.
+O cérebro cognitivo do Atlas opera com **Hermes 3** (`hermes-3-llama-3.1-8b`), executado em background desconectado do caminho crítico da observação sensorial.
 
-A LLM fica fora do caminho crítico de percepção, emoção e reação imediata. Eventos semânticos e futuras decisões Fast Path continuam funcionando mesmo quando a LLM está lenta, indisponível ou em timeout.
+A inferência opera sob um **Governador Afetivo Total**: o tom de voz, ritmo e cadência da resposta refletem a emoção ativa calculada deterministicamente pela infraestrutura.
 
-A LLM tem três funções permitidas:
+A LLM fica fora do caminho crítico de percepção, emoção e reação imediata. Eventos semânticos e decisões Fast Path continuam funcionando mesmo quando a LLM está lenta, indisponível ou em timeout.
 
-1. interpretar linguagem humana para intent estruturada;
-2. resumir observed state/event journal;
-3. formular resposta humana.
+A LLM tem quatro funções permitidas:
 
-Ela não recebe autoridade para avaliar gates técnicos, construir shell ou executar ações não allowlisted.
+1. interpretar linguagem humana para intent estruturada allowlisted;
+2. resumir observed state/event journal com propriocepção biomecânica;
+3. formular resposta humana no Discord e painéis com inteligência emocional;
+4. deliberar hipóteses de diagnóstico técnico sob demanda do operador.
+
+Ela não recebe autoridade para avaliar gates técnicos, construir shell arbitrário ou executar ações não allowlisted. Toda capability acionada passa por validação estrita de política.
 
 ## 8. Voz
 

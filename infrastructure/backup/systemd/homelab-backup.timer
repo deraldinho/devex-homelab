@@ -1,0 +1,11 @@
+[Unit]
+Description=Trigger DevEx HomeLab backup daily at 03:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=900
+Persistent=true
+Unit=homelab-backup.service
+
+[Install]
+WantedBy=timers.target

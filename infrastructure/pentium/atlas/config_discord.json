@@ -1,10 +1,25 @@
 {
   "schema_version": 1,
   "enabled": true,
-  "guild_ids": [],
-  "channel_ids": [],
-  "user_ids": [],
-  "alert_channel_id": null,
+  "guild_ids": [
+    "1473703294873374820"
+  ],
+  "channel_ids": [
+    "1473703295611568213",
+    "1476441917020700773",
+    "1473703460385063065",
+    "1476390422506111127"
+  ],
+  "user_ids": [
+    "1022699113562775552"
+  ],
+  "admin_user_ids": [
+    "1022699113562775552"
+  ],
+  "alert_channel_id": "1476441917020700773",
+  "console_channel_id": "1473703295611568213",
+  "memory_channel_id": "1473703460385063065",
+  "notes_channel_id": "1476390422506111127",
   "max_message_chars": 512,
   "poll_interval_seconds": 0.5
 }

@@ -62,16 +62,20 @@ class MemoryStore:
         """)
         row = self._db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
         if row is None:
-            self._db.execute("INSERT INTO meta(key,value) VALUES('schema_version','1')")
-            version = "1"
+            self._db.execute("INSERT INTO meta(key,value) VALUES('schema_version','3')")
+            version = "3"
         else:
             version = str(row[0])
-        if version not in {"1", "2"}:
+        if version not in {"1", "2", "3"}:
             raise MemoryStoreError("memory schema_version incompatível")
         if version == "1":
             self._migrate_v1_to_v2()
+            self._migrate_v2_to_v3()
+        elif version == "2":
+            self._migrate_v2_to_v3()
         else:
             self._ensure_v2_schema()
+            self._ensure_v3_schema()
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_mem_layer_entity ON memories(layer, entity_id)")
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_mem_dedupe ON memories(dedupe_key)")
         self._db.commit()
@@ -80,6 +84,45 @@ class MemoryStore:
         with self._db:
             self._ensure_v2_schema(commit=False)
             self._db.execute("UPDATE meta SET value='2' WHERE key='schema_version'")
+
+    def _migrate_v2_to_v3(self) -> None:
+        with self._db:
+            self._ensure_v2_schema(commit=False)
+            self._ensure_v3_schema(commit=False)
+            self._db.execute("UPDATE meta SET value='3' WHERE key='schema_version'")
+
+    def _ensure_v3_schema(self, *, commit: bool = True) -> None:
+        self._db.execute("""
+            CREATE TABLE IF NOT EXISTS entity_nodes (
+                entity_id TEXT PRIMARY KEY,
+                entity_type TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                properties TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                importance REAL NOT NULL DEFAULT 0.5,
+                pinned INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        self._db.execute("""
+            CREATE TABLE IF NOT EXISTS entity_relations (
+                source_id TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                relation_type TEXT NOT NULL,
+                weight REAL NOT NULL DEFAULT 1.0,
+                properties TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (source_id, target_id, relation_type)
+            )
+        """)
+        self._db.execute("CREATE INDEX IF NOT EXISTS idx_entity_type ON entity_nodes(entity_type)")
+        self._db.execute("CREATE INDEX IF NOT EXISTS idx_entity_name ON entity_nodes(name)")
+        self._db.execute("CREATE INDEX IF NOT EXISTS idx_rel_source ON entity_relations(source_id)")
+        self._db.execute("CREATE INDEX IF NOT EXISTS idx_rel_target ON entity_relations(target_id)")
+        self._db.execute("CREATE INDEX IF NOT EXISTS idx_rel_type ON entity_relations(relation_type)")
+        if commit:
+            self._db.commit()
 
     def _ensure_v2_schema(self, *, commit: bool = True) -> None:
         self._db.execute("""
@@ -125,22 +168,57 @@ class MemoryStore:
               evidence_count INTEGER NOT NULL
             )
         """)
+        self._db.execute("""
+            CREATE TABLE IF NOT EXISTS memory_links (
+              source_id TEXT NOT NULL,
+              target_id TEXT NOT NULL,
+              relation TEXT NOT NULL,
+              weight REAL NOT NULL DEFAULT 1.0,
+              created_at TEXT NOT NULL,
+              PRIMARY KEY (source_id, target_id, relation)
+            )
+        """)
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_episode_status ON episodic_segments(status, updated_at)")
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_episode_generation ON episodic_segments(generation_id)")
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_episode_entity ON episodic_segments(entity_id)")
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_evidence_segment ON episodic_evidence(segment_id, occurred_at)")
+        self._db.execute("CREATE INDEX IF NOT EXISTS idx_mem_links_target ON memory_links(target_id)")
+        self._db.execute("CREATE INDEX IF NOT EXISTS idx_mem_links_source ON memory_links(source_id)")
+
+        existing_cols = {row[1] for row in self._db.execute("PRAGMA table_info(memories)").fetchall()}
+        for col, col_type in [
+            ("message_id", "TEXT"),
+            ("reply_to_id", "TEXT"),
+            ("thread_id", "TEXT"),
+            ("channel_id", "TEXT"),
+            ("tags", "TEXT"),
+        ]:
+            if col not in existing_cols:
+                self._db.execute(f"ALTER TABLE memories ADD COLUMN {col} {col_type}")
+        self._db.execute("CREATE INDEX IF NOT EXISTS idx_mem_msg_id ON memories(message_id)")
+
         if commit:
             self._db.commit()
 
     def save(self, record: MemoryRecord) -> None:
         try:
+            tags_json = json.dumps(list(record.tags)) if getattr(record, "tags", ()) else None
             self._db.execute("""
-                INSERT OR REPLACE INTO memories VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                INSERT OR REPLACE INTO memories (
+                    memory_id, layer, created_at, entity_id, content, importance,
+                    confidence, frequency, origin, criticality, pinned, protected,
+                    expires_at, dedupe_key, message_id, reply_to_id, thread_id, channel_id, tags
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 record.memory_id, record.layer.value, record.created_at, record.entity_id,
                 record.content, record.importance, record.confidence, record.frequency,
                 record.origin, record.criticality, int(record.pinned), int(record.protected),
                 record.expires_at, record.dedupe_key,
+                getattr(record, "message_id", None),
+                getattr(record, "reply_to_id", None),
+                getattr(record, "thread_id", None),
+                getattr(record, "channel_id", None),
+                tags_json,
             ))
             self._db.commit()
         except sqlite3.Error as exc:
@@ -347,26 +425,112 @@ class MemoryStore:
         except sqlite3.Error as exc:
             raise MemoryStoreError(str(exc)) from exc
 
+    def link_memories(self, source_id: str, target_id: str, relation: str, weight: float = 1.0, created_at: str | None = None) -> None:
+        if not source_id or not target_id or not relation:
+            return
+        if created_at is None:
+            from datetime import datetime, timezone
+            created_at = datetime.now(timezone.utc).isoformat()
+        try:
+            self._db.execute("""
+                INSERT OR REPLACE INTO memory_links (source_id, target_id, relation, weight, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (str(source_id).strip(), str(target_id).strip(), str(relation).strip(), float(weight), str(created_at)))
+            self._db.commit()
+        except sqlite3.Error as exc:
+            raise MemoryStoreError(str(exc)) from exc
+
+    def get_by_message_id(self, message_id: str) -> MemoryRecord | None:
+        if not message_id:
+            return None
+        row = self._db.execute("SELECT * FROM memories WHERE message_id=? LIMIT 1", (str(message_id).strip(),)).fetchone()
+        return self._memory_row(row) if row else None
+
+    def get_connected_thread(self, message_id: str, max_depth: int = 6) -> tuple[MemoryRecord, ...]:
+        if not message_id:
+            return ()
+        visited = set()
+        current_id = str(message_id).strip()
+        records = []
+
+        for _ in range(max_depth):
+            if not current_id or current_id in visited:
+                break
+            visited.add(current_id)
+            rec = self.get_by_message_id(current_id)
+            if rec is not None:
+                records.append(rec)
+                current_id = rec.reply_to_id
+            else:
+                row = self._db.execute(
+                    "SELECT target_id FROM memory_links WHERE source_id=? AND relation IN ('reply_of', 'reply_to') LIMIT 1",
+                    (current_id,)
+                ).fetchone()
+                current_id = row[0] if row else None
+
+        records.reverse()
+        return tuple(records)
+
+    def get_associated_memories(self, identifier: str, relation: str | None = None, limit: int = 10) -> tuple[MemoryRecord, ...]:
+        if not identifier:
+            return ()
+        query = "SELECT target_id FROM memory_links WHERE source_id=?"
+        params = [str(identifier).strip()]
+        if relation:
+            query += " AND relation=?"
+            params.append(str(relation).strip())
+        query += " ORDER BY weight DESC LIMIT ?"
+        params.append(limit)
+
+        target_ids = [r[0] for r in self._db.execute(query, tuple(params)).fetchall()]
+        results = []
+        for tid in target_ids:
+            rec = self.get(tid) or self.get_by_message_id(tid)
+            if rec and rec not in results:
+                results.append(rec)
+        return tuple(results)
+
     def close(self) -> None:
         self._db.close()
 
     def _write_memory(self, record: MemoryRecord) -> None:
+        tags_json = json.dumps(list(record.tags)) if getattr(record, "tags", ()) else None
         self._db.execute("""
-            INSERT OR REPLACE INTO memories VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            INSERT OR REPLACE INTO memories (
+                memory_id, layer, created_at, entity_id, content, importance,
+                confidence, frequency, origin, criticality, pinned, protected,
+                expires_at, dedupe_key, message_id, reply_to_id, thread_id, channel_id, tags
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             record.memory_id, record.layer.value, record.created_at, record.entity_id,
             record.content, record.importance, record.confidence, record.frequency,
             record.origin, record.criticality, int(record.pinned), int(record.protected),
             record.expires_at, record.dedupe_key,
+            getattr(record, "message_id", None),
+            getattr(record, "reply_to_id", None),
+            getattr(record, "thread_id", None),
+            getattr(record, "channel_id", None),
+            tags_json,
         ))
 
     @staticmethod
     def _memory_row(row) -> MemoryRecord:
+        tags = ()
+        if len(row) > 18 and row[18]:
+            try:
+                tags = tuple(json.loads(row[18]))
+            except Exception:
+                pass
         return MemoryRecord(
             memory_id=row[0], layer=MemoryLayer(row[1]), created_at=row[2],
             entity_id=row[3], content=row[4], importance=row[5], confidence=row[6],
             frequency=row[7], origin=row[8], criticality=row[9], pinned=bool(row[10]),
             protected=bool(row[11]), expires_at=row[12], dedupe_key=row[13],
+            message_id=row[14] if len(row) > 14 else None,
+            reply_to_id=row[15] if len(row) > 15 else None,
+            thread_id=row[16] if len(row) > 16 else None,
+            channel_id=row[17] if len(row) > 17 else None,
+            tags=tags,
         )
 
     @staticmethod

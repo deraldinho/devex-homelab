@@ -30,7 +30,10 @@ class ContextoCognitivoBuilder:
         return valor
 
     def construir(self, *, motivo, assessment, percepcao, incidente, estado_afetivo, emocao, foco,
-                  expectativa, mudancas_recentes, dependencias_afetadas, agora, memorias_relevantes=(), workspace_relevante=()) -> ContextoCognitivo:
+                  expectativa, mudancas_recentes, dependencias_afetadas, agora, memorias_relevantes=(),
+                  workspace_relevante=(), historico_conversa=(), observacoes_ferramentas=(),
+                  grafo_conhecimento=(), preferencias_operador=None, tendencias_relevantes=(),
+                  hipoteses_ativas=(), **kwargs: Any) -> ContextoCognitivo:
         truncamentos: list[str] = []
         entidade = incidente.entidade_principal if incidente is not None else percepcao.entidade_id
         if not entidade and foco.principal is not None:
@@ -94,6 +97,28 @@ class ContextoCognitivoBuilder:
             for indice, item in enumerate(memorias_relevantes)
         )
 
+        historico_reduzido = tuple(
+            self._reduzir_payload(dict(item), f"historico_conversa[{indice}]", truncamentos)
+            for indice, item in enumerate(historico_conversa)
+        )
+
+        grafo_reduzido = tuple(
+            self._reduzir_payload(dict(item), f"grafo_conhecimento[{indice}]", truncamentos)
+            for indice, item in enumerate(grafo_conhecimento)
+        )
+
+        preferencias_reduzidas = self._reduzir_payload(dict(preferencias_operador), "preferencias_operador", truncamentos) if preferencias_operador else {}
+
+        tendencias_reduzidas = tuple(
+            self._reduzir_payload(dict(item), f"tendencias_relevantes[{indice}]", truncamentos)
+            for indice, item in enumerate(tendencias_relevantes)
+        )
+
+        hipoteses_reduzidas = tuple(
+            self._reduzir_payload(dict(item), f"hipoteses_ativas[{indice}]", truncamentos)
+            for indice, item in enumerate(hipoteses_ativas)
+        )
+
         estado_afetivo_reduzido = {
             "valencia": estado_afetivo.valencia,
             "ativacao": estado_afetivo.ativacao,
@@ -122,8 +147,35 @@ class ContextoCognitivoBuilder:
             truncamentos=tuple(truncamentos),
             memorias_relevantes=memorias_reduzidas,
             workspace_relevante=workspace_reduzido,
+            historico_conversa=historico_reduzido,
+            observacoes_ferramentas=tuple(self._reduzir_payload(item, "obs_ferramenta", truncamentos) for item in observacoes_ferramentas),
+            grafo_conhecimento=grafo_reduzido,
+            preferencias_operador=preferencias_reduzidas,
+            tendencias_relevantes=tendencias_reduzidas,
+            hipoteses_ativas=hipoteses_reduzidas,
         )
 
+        while ctx.payload_bytes() > self._politica.max_payload_bytes and ctx.hipoteses_ativas:
+            truncamentos.append("payload:hipoteses_ativas")
+            ctx = ContextoCognitivo(**{
+                **ctx.__dict__,
+                "hipoteses_ativas": ctx.hipoteses_ativas[:-1],
+                "truncamentos": tuple(truncamentos),
+            })
+        while ctx.payload_bytes() > self._politica.max_payload_bytes and ctx.tendencias_relevantes:
+            truncamentos.append("payload:tendencias_relevantes")
+            ctx = ContextoCognitivo(**{
+                **ctx.__dict__,
+                "tendencias_relevantes": ctx.tendencias_relevantes[:-1],
+                "truncamentos": tuple(truncamentos),
+            })
+        while ctx.payload_bytes() > self._politica.max_payload_bytes and ctx.grafo_conhecimento:
+            truncamentos.append("payload:grafo_conhecimento")
+            ctx = ContextoCognitivo(**{
+                **ctx.__dict__,
+                "grafo_conhecimento": ctx.grafo_conhecimento[:-1],
+                "truncamentos": tuple(truncamentos),
+            })
         while ctx.payload_bytes() > self._politica.max_payload_bytes and ctx.workspace_relevante:
             truncamentos.append("payload:workspace_relevante")
             ctx = ContextoCognitivo(**{

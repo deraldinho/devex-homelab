@@ -100,13 +100,41 @@ class MemoryStoreV2Tests(unittest.TestCase):
         db.commit()
         db.close()
 
-    def test_migra_v1_para_v2_sem_perder_memorias(self):
+    def _create_v2_db(self, path):
+        self._create_v1_db(path)
+        store = MemoryStore(path)
+        store.close()
+        # Verify it has v3 now, but let's test manual v2 setup
+        db = sqlite3.connect(path)
+        db.execute("UPDATE meta SET value='2' WHERE key='schema_version'")
+        db.execute("DROP TABLE IF EXISTS entity_relations")
+        db.execute("DROP TABLE IF EXISTS entity_nodes")
+        db.commit()
+        db.close()
+
+    def test_migra_v1_para_v3_sem_perder_memorias(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "memory.db"
             self._create_v1_db(path)
             store = MemoryStore(path)
-            self.assertEqual("2", store.schema_version())
+            self.assertEqual("3", store.schema_version())
             self.assertIsNotNone(store.get("legacy"))
+            # Verifica existência das tabelas de grafo v3
+            tables = {r[0] for r in store._db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+            self.assertIn("entity_nodes", tables)
+            self.assertIn("entity_relations", tables)
+            store.close()
+
+    def test_migra_v2_para_v3_sem_perder_memorias(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "memory.db"
+            self._create_v2_db(path)
+            store = MemoryStore(path)
+            self.assertEqual("3", store.schema_version())
+            self.assertIsNotNone(store.get("legacy"))
+            tables = {r[0] for r in store._db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+            self.assertIn("entity_nodes", tables)
+            self.assertIn("entity_relations", tables)
             store.close()
 
     def test_segmento_e_evidencia_sobrevivem_restart(self):

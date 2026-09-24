@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Mapping
@@ -58,6 +58,12 @@ class ContextoCognitivo:
     truncamentos: tuple[str, ...]
     memorias_relevantes: tuple[Mapping[str, Any], ...] = ()
     workspace_relevante: tuple[Mapping[str, Any], ...] = ()
+    historico_conversa: tuple[Mapping[str, Any], ...] = ()
+    observacoes_ferramentas: tuple[Mapping[str, Any], ...] = ()
+    grafo_conhecimento: tuple[Mapping[str, Any], ...] = ()
+    preferencias_operador: Mapping[str, Any] = field(default_factory=dict)
+    tendencias_relevantes: tuple[Mapping[str, Any], ...] = ()
+    hipoteses_ativas: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         if self.versao_schema != 1:
@@ -73,6 +79,12 @@ class ContextoCognitivo:
         object.__setattr__(self, "truncamentos", tuple(dict.fromkeys(self.truncamentos)))
         object.__setattr__(self, "memorias_relevantes", tuple(dict(item) for item in self.memorias_relevantes))
         object.__setattr__(self, "workspace_relevante", tuple(dict(item) for item in self.workspace_relevante))
+        object.__setattr__(self, "historico_conversa", tuple(dict(item) for item in self.historico_conversa))
+        object.__setattr__(self, "observacoes_ferramentas", tuple(dict(item) for item in self.observacoes_ferramentas))
+        object.__setattr__(self, "grafo_conhecimento", tuple(dict(item) for item in self.grafo_conhecimento))
+        object.__setattr__(self, "preferencias_operador", dict(self.preferencias_operador) if self.preferencias_operador else {})
+        object.__setattr__(self, "tendencias_relevantes", tuple(dict(item) for item in self.tendencias_relevantes))
+        object.__setattr__(self, "hipoteses_ativas", tuple(dict(item) for item in self.hipoteses_ativas))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,6 +105,12 @@ class ContextoCognitivo:
             "truncamentos": list(self.truncamentos),
             "memorias_relevantes": [dict(item) for item in self.memorias_relevantes],
             "workspace_relevante": [dict(item) for item in self.workspace_relevante],
+            "historico_conversa": [dict(item) for item in self.historico_conversa],
+            "observacoes_ferramentas": [dict(item) for item in self.observacoes_ferramentas],
+            "grafo_conhecimento": [dict(item) for item in self.grafo_conhecimento],
+            "preferencias_operador": dict(self.preferencias_operador),
+            "tendencias_relevantes": [dict(item) for item in self.tendencias_relevantes],
+            "hipoteses_ativas": [dict(item) for item in self.hipoteses_ativas],
         }
 
     def payload_bytes(self) -> int:

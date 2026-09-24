@@ -1,0 +1,16 @@
+services:
+  restic-backup:
+    image: restic/restic:0.17.3
+    container_name: homelab-backup
+    restart: "no"
+    environment:
+      - RESTIC_REPOSITORY=${RESTIC_REPOSITORY:-/repo}
+      - RESTIC_PASSWORD_FILE=/run/secrets/restic_password
+      - HOMELAB_NODE=${HOMELAB_NODE:-pentium}
+    volumes:
+      - ${BACKUP_SOURCE_DIR:-/state}:/data:ro
+      - ${BACKUP_REPO_DIR:-/var/backups/homelab}:/repo
+      - ${RESTIC_PASSWORD_FILE:-./secrets/restic_password}:/run/secrets/restic_password:ro
+    entrypoint: ["/bin/sh", "/scripts/restic-backup.sh"]
+    volumes_from: []
+    extra_hosts: []

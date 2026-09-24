@@ -80,3 +80,30 @@ class ContextoCognitivoMemoriaBuilderTests(ContextoCognitivoBuilderTests):
             ),
         )
         self.assertEqual(("m1", "m2"), tuple(item["memory_id"] for item in ctx.memorias_relevantes))
+
+    def test_builder_inclui_contexto_expandido_grafo_preferencias_tendencias_hipoteses(self):
+        ctx = self.builder().construir(
+            motivo=MotivoAtivacaoCognitiva.INTERACAO_HUMANA,
+            assessment=self.assessment(), percepcao=self.percepcao(), incidente=self.incidente(),
+            estado_afetivo=self.estado(), emocao=EmocaoDerivada("atento", ()),
+            foco=self.foco(), expectativa=None, mudancas_recentes=(),
+            dependencias_afetadas=(), agora="2026-09-05T18:10:00+00:00",
+            grafo_conhecimento=(
+                {"entity_id": "project:l2j", "type": "project", "name": "L2jToren"},
+            ),
+            preferencias_operador={"active_hour": 14, "preferred_style": "direct"},
+            tendencias_relevantes=(
+                {"metric_key": "x99:cpu", "direction": "rising", "slope": 0.05},
+            ),
+            hipoteses_ativas=(
+                {"hypothesis_id": "hypo-1", "title": "Memory leak no JVM", "confidence": 0.8},
+            ),
+        )
+        self.assertEqual(1, len(ctx.grafo_conhecimento))
+        self.assertEqual("project:l2j", ctx.grafo_conhecimento[0]["entity_id"])
+        self.assertEqual("direct", ctx.preferencias_operador["preferred_style"])
+        self.assertEqual(1, len(ctx.tendencias_relevantes))
+        self.assertEqual("rising", ctx.tendencias_relevantes[0]["direction"])
+        self.assertEqual(1, len(ctx.hipoteses_ativas))
+        self.assertEqual("hypo-1", ctx.hipoteses_ativas[0]["hypothesis_id"])
+

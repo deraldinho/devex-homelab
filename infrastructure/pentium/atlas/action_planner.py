@@ -131,7 +131,10 @@ class ActionPlanner:
             actions.extend(locomotion)
         if not actions:
             actions.append(AtlasAction.create(ActionType.WAIT,parameters={"duration_ms":250}))
-        objective=(getattr(response,"resumo",None) or text or "processar estimulo")
+        raw_obj = (getattr(response,"resumo",None) or text or "processar estimulo")
+        clean_obj = str(raw_obj).strip()
+        if len(clean_obj) > 500:
+            clean_obj = clean_obj[:496] + "..."
         confidence=getattr(response,"confianca",None)
-        return PlanoAcaoAtlas.create(stimulus_id=str(stimulus_id),objective=str(objective),
+        return PlanoAcaoAtlas.create(stimulus_id=str(stimulus_id),objective=clean_obj,
             confidence=0.0 if confidence is None else float(confidence),response_text=text,actions=actions,trigger_kind=trigger_kind)

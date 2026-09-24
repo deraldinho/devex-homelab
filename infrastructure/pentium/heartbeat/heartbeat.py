@@ -161,6 +161,48 @@ def check_core_network(
     }
 
 
+def check_backup(
+    path: Path | None,
+    *,
+    max_age_seconds: float = 26.0 * 3600.0,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    if path is None:
+        return {"ok": True, "required": False, "detail": "backup=not_configured"}
+    path = path.expanduser()
+    if not path.is_file():
+        return {"ok": False, "required": True, "detail": "backup=missing"}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {"ok": False, "required": True, "detail": f"backup_json_err={exc}"}
+    status = data.get("status")
+    if status != "healthy":
+        return {"ok": False, "required": True, "detail": f"backup_status={status}"}
+    ts_str = data.get("timestamp")
+    if not ts_str:
+        return {"ok": False, "required": True, "detail": "backup_timestamp_missing"}
+    try:
+        ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        current_time = now or datetime.now(timezone.utc)
+        age = (current_time - ts).total_seconds()
+        if age > max_age_seconds:
+            return {
+                "ok": False,
+                "required": True,
+                "detail": f"backup_stale={age / 3600.0:.1f}h",
+            }
+        age_str = f"{age / 3600.0:.1f}h"
+    except Exception as exc:
+        return {"ok": False, "required": True, "detail": f"backup_ts_err={exc}"}
+    return {
+        "ok": True,
+        "required": True,
+        "detail": f"backup=healthy age={age_str}",
+    }
+
+
+
 def summarize(
     checks: dict[str, dict[str, Any]], metrics: dict[str, Any]
 ) -> dict[str, Any]:
@@ -279,6 +321,10 @@ def collect(
             command_runner=command_runner,
         ),
     }
+    backup_path_cfg = config.get("backup_status_path")
+    if backup_path_cfg:
+        checks["backup"] = check_backup(Path(backup_path_cfg))
+
     metrics = {
         "memory_available_mb": memory_available_mb,
         "disk_free_percent": round(disk_free_percent, 2),

@@ -9,6 +9,9 @@ ROTULOS_EMOCAO = (
     "calmo", "atento", "interessado", "curioso", "preocupado",
     "estressado", "alarmado", "frustrado", "aliviado",
     "satisfeito", "confiante", "vigilante",
+    "sereno", "harmonico", "determinado", "empolgado",
+    "fascinado", "acolhedor", "orgulhoso", "sobrecarregado",
+    "pensativo", "exaurido",
 )
 
 
@@ -48,6 +51,17 @@ def _scores(estado: EstadoAfetivo, contexto: ContextoEmocional) -> dict[str, flo
         "satisfeito": positivo * estado.engajamento,
         "confiante": estado.confianca * (1.0 - estado.estresse),
         "vigilante": estado.ativacao * (1.0 - estado.confianca),
+        # Emoções Expandidas da Consciência Biomecânica
+        "sereno": (1.0 - estado.estresse) * (0.5 + 0.5 * positivo) * (1.0 - 0.5 * estado.ativacao),
+        "harmonico": estado.confianca * (0.5 + 0.5 * positivo) * (1.0 - estado.estresse) if estado.estresse < 0.25 else 0.0,
+        "determinado": estado.ativacao * estado.confianca * (1.0 - 0.3 * estado.estresse),
+        "empolgado": estado.ativacao * estado.curiosidade * (0.5 + 0.5 * positivo),
+        "fascinado": estado.curiosidade * estado.engajamento * estado.confianca,
+        "acolhedor": (0.5 + 0.5 * positivo) * estado.engajamento * (1.0 - estado.estresse),
+        "orgulhoso": estado.confianca * (0.5 + 0.5 * positivo) * (1.2 if contexto.recuperacao_relevante else 0.8),
+        "sobrecarregado": estado.estresse * estado.ativacao * (1.3 if contexto.percepcao_insegura else 0.9),
+        "pensativo": (1.0 - estado.ativacao) * estado.curiosidade * (1.0 - estado.estresse),
+        "exaurido": estado.estresse * (1.0 - estado.confianca) * (0.5 + 0.5 * contexto.reincidencia),
     }
     scores["alarmado"] = (
         estado.estresse * estado.ativacao * 1.5

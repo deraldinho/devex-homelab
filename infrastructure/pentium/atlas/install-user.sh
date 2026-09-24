@@ -12,6 +12,8 @@ DEPLOY_SHA="$(printf "%s" "${DEPLOY_SHA}" | tr "[:upper:]" "[:lower:]")"
 command -v hermes >/dev/null 2>&1 || { echo "Hermes CLI nao encontrado no PATH" >&2; exit 2; }
 
 install -d -m 0755 "${TARGET_DIR}"
+install -d -m 0755 "${TARGET_DIR}/proprioception"
+install -d -m 0755 "${TARGET_DIR}/autonomy"
 install -d -m 0700 "${RUNTIME_DIR}"
 if [[ -d "${RUNTIME_DIR}" ]]; then
   find "${RUNTIME_DIR}" -type f -exec chmod 0600 {} +
@@ -151,6 +153,9 @@ for file in \
   memory_store.py \
   memory_manager.py \
   memory_retriever.py \
+  memory_graph.py \
+  memory_project_adapter.py \
+  memory_preference_tracker.py \
   config_memory.py \
   episodic_model.py \
   episodic_metrics.py \
@@ -177,13 +182,47 @@ for file in \
   human_interaction.py \
   human_context.py \
   voice_daemon.py \
+  config_discord.py \
+  discord_gateway.py \
+  discord_capability_executor.py \
+  l2j_observation.py \
+  git_capability_executor.py \
+  task_store.py \
+  task_capability_executor.py \
+  notification_policy.py \
   cli.py; do
   install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
 
+for file in \
+  proprioception/__init__.py \
+  proprioception/baseline_tracker.py \
+  proprioception/trend_detector.py \
+  proprioception/temporal_correlator.py; do
+  install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
+done
+
+for file in \
+  autonomy/__init__.py \
+  autonomy/hypothesis_engine.py \
+  autonomy/task_tracker.py; do
+  install -m 0644 "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
+done
+
+
 for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_affective_runtime.json config_observation_affective.json config_cognitiva.json config_hermes.json config_memory.json config_cache.json config_fast_router.json config_voice.json config_github.json config_discord.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
+
+if [ -d "${SOURCE_DIR}/assets" ]; then
+  mkdir -p "${TARGET_DIR}/assets"
+  cp -r "${SOURCE_DIR}/assets/"* "${TARGET_DIR}/assets/" 2>/dev/null || true
+fi
+
+if [ -d "${SOURCE_DIR}/audio" ]; then
+  mkdir -p "${TARGET_DIR}/audio"
+  cp -r "${SOURCE_DIR}/audio/"* "${TARGET_DIR}/audio/" 2>/dev/null || true
+fi
 
 install -m 0755 "${SOURCE_DIR}/prepare-hermes-atlas.sh" "${TARGET_DIR}/prepare-hermes-atlas.sh"
 install -m 0644 "${SOURCE_DIR}/requirements-discord.txt" "${TARGET_DIR}/requirements-discord.txt"
@@ -278,6 +317,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/chat_inbox.py" \
   "${TARGET_DIR}/config_discord.py" \
   "${TARGET_DIR}/discord_gateway.py" \
+  "${TARGET_DIR}/discord_capability_executor.py" \
   "${TARGET_DIR}/notification_policy.py" \
   "${TARGET_DIR}/modelo_contexto_cognitivo.py" \
   "${TARGET_DIR}/configuracao_cognitiva.py" \
@@ -308,6 +348,16 @@ python3 -m py_compile \
   "${TARGET_DIR}/memory_store.py" \
   "${TARGET_DIR}/memory_manager.py" \
   "${TARGET_DIR}/memory_retriever.py" \
+  "${TARGET_DIR}/memory_graph.py" \
+  "${TARGET_DIR}/memory_project_adapter.py" \
+  "${TARGET_DIR}/memory_preference_tracker.py" \
+  "${TARGET_DIR}/proprioception/__init__.py" \
+  "${TARGET_DIR}/proprioception/baseline_tracker.py" \
+  "${TARGET_DIR}/proprioception/trend_detector.py" \
+  "${TARGET_DIR}/proprioception/temporal_correlator.py" \
+  "${TARGET_DIR}/autonomy/__init__.py" \
+  "${TARGET_DIR}/autonomy/hypothesis_engine.py" \
+  "${TARGET_DIR}/autonomy/task_tracker.py" \
   "${TARGET_DIR}/config_memory.py" \
   "${TARGET_DIR}/episodic_model.py" \
   "${TARGET_DIR}/episodic_metrics.py" \
@@ -334,6 +384,10 @@ python3 -m py_compile \
   "${TARGET_DIR}/human_interaction.py" \
   "${TARGET_DIR}/human_context.py" \
   "${TARGET_DIR}/voice_daemon.py" \
+  "${TARGET_DIR}/l2j_observation.py" \
+  "${TARGET_DIR}/git_capability_executor.py" \
+  "${TARGET_DIR}/task_store.py" \
+  "${TARGET_DIR}/task_capability_executor.py" \
   "${TARGET_DIR}/cli.py"
 
 python3 -m json.tool "${TARGET_DIR}/config.json" >/dev/null
@@ -377,6 +431,9 @@ echo "ATLAS_MEMORY_M2_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K1_INSTALL_PASS"
 echo "ATLAS_COGNITIVE_CACHE_K2_INSTALL_PASS"
 echo "ATLAS_I1_OBSERVATION_INTEGRATION_INSTALL_PASS"
+echo "ATLAS_MEMORY_GRAPH_M3_INSTALL_PASS"
+echo "ATLAS_PROPRIOCEPTION_INSTALL_PASS"
+echo "ATLAS_AUTONOMY_INSTALL_PASS"
 install -d -m 0755 "${HOME}/.config/systemd/user"
 install -m 0644 "${SOURCE_DIR}/atlas-observation.service" "${HOME}/.config/systemd/user/atlas-observation.service"
 install -m 0644 "${SOURCE_DIR}/atlas-cognitive.service" "${HOME}/.config/systemd/user/atlas-cognitive.service"

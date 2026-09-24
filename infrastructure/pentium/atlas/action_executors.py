@@ -45,26 +45,32 @@ class ActionExecutorRegistry:
 
     def _execute_one(self, plan, action):
         if action.type in {ActionType.LOOK_AT,ActionType.SET_EXPRESSION,ActionType.SET_GESTURE,ActionType.SET_POSTURE,ActionType.NAVIGATE_TO,ActionType.SET_PET_ACTION}:
-            self._visual(action)
+            return self._visual(action)
         elif action.type is ActionType.CHAT_REPLY:
-            if self._chat_sink is not None: self._chat_sink(plan.response_text or "", plan, action)
+            if self._chat_sink is not None: return self._chat_sink(plan.response_text or "", plan, action)
         elif action.type is ActionType.SPEAK_TTS:
             if self._tts_sink is None: raise RuntimeError("tts executor unavailable")
-            self._tts_sink(plan.response_text or "", plan, action)
+            return self._tts_sink(plan.response_text or "", plan, action)
         elif action.type is ActionType.CAPABILITY_REQUEST:
             if self._capability_sink is None: raise RuntimeError("capability executor unavailable")
-            self._capability_sink(str(action.parameters["capability"]),dict(action.parameters.get("arguments") or {}),plan,action)
+            return self._capability_sink(str(action.parameters["capability"]),dict(action.parameters.get("arguments") or {}),plan,action)
         elif action.type is ActionType.WAIT:
-            return
+            return None
 
     def execute(self, plan: PlanoAcaoAtlas) -> PlanoAcaoAtlas:
         output=[]
+        self.last_results: dict[str, object] = {}
         for action in plan.actions:
             if action.status is not ActionStatus.AUTHORIZED or action.reason == "confirmation_required":
                 output.append(action); continue
             running=transition_action(action,ActionStatus.EXECUTING)
             try:
-                self._execute_one(plan,running)
+                res = self._execute_one(plan,running)
+                if res is not None:
+                    self.last_results[action.action_id] = res
+                    if action.type is ActionType.CAPABILITY_REQUEST:
+                        cap_name = str(action.parameters.get("capability", ""))
+                        self.last_results[f"capability:{cap_name}"] = res
                 output.append(transition_action(running,ActionStatus.COMPLETED))
             except Exception as exc:
                 output.append(transition_action(running,ActionStatus.FAILED,reason=type(exc).__name__))

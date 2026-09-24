@@ -14,7 +14,7 @@ class AutonomyWiringV1Tests(unittest.TestCase):
         self.assertIn('"atlas-observation.service"', source)
         self.assertIn('"atlas-dashboard.service"', source)
         self.assertIn("on_executed=capabilities.registrar_execucao", source)
-        self.assertIn("CapabilityDispatcher(autonomy_executor,workspace_executor)", source)
+        self.assertIn("CapabilityDispatcher(autonomy_executor,workspace_executor", source)
         self.assertIn("capability_sink=dispatcher", source)
         self.assertNotIn('auto_hosts=("pentium","core"', source.replace(" ", ""))
 

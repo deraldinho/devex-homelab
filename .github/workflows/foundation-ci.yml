@@ -71,6 +71,74 @@ jobs:
             echo 'NETWORK_CONTRACT_NOT_PRESENT_ON_THIS_STACK_LAYER'
           fi
 
+      - name: Validar contrato de backup e DR (Issue #11)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f infrastructure/backup/compose.yaml ]]; then
+            docker compose -f infrastructure/backup/compose.yaml config >/dev/null
+            bash -n infrastructure/backup/restic-backup.sh
+            bash -n infrastructure/backup/restic-verify.sh
+            bash -n infrastructure/backup/github-sync.sh
+            python3 -m unittest discover \
+              -s infrastructure/backup/tests \
+              -p 'test_*.py' \
+              -v
+
+            echo 'DEVEX_HOMELAB_BACKUP_CONTRACT_PASS'
+          else
+            echo 'BACKUP_CONTRACT_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
+      - name: Validar capacidade e segurança dos runners do Core (Issues #12 e #13)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f infrastructure/core/runners/compose.yaml ]]; then
+            docker compose -f infrastructure/core/runners/compose.yaml config >/dev/null
+            python3 -m unittest discover \
+              -s infrastructure/core/tests \
+              -p 'test_*.py' \
+              -v
+            echo 'DEVEX_HOMELAB_CORE_CAPACITY_PASS'
+          else
+            echo 'CORE_RUNNERS_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
+      - name: Validar detector de drift (Issue #10)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -d infrastructure/observability/tests ]]; then
+            python3 -m py_compile infrastructure/observability/drift_model.py infrastructure/observability/drift_detector.py
+            python3 -m unittest discover \
+              -s infrastructure/observability/tests \
+              -p 'test_*.py' \
+              -v
+            echo 'DEVEX_HOMELAB_DRIFT_DETECTOR_PASS'
+          else
+            echo 'DRIFT_DETECTOR_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
+      - name: Validar assets de áudio do Atlas
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f infrastructure/pentium/atlas/audio/generate_tone_assets.py ]]; then
+            python3 infrastructure/pentium/atlas/audio/generate_tone_assets.py
+            python3 -m unittest discover \
+              -s infrastructure/pentium/atlas/audio/tests \
+              -p 'test_*.py' \
+              -v
+            echo 'DEVEX_HOMELAB_ATLAS_AUDIO_ASSETS_PASS'
+          else
+            echo 'AUDIO_ASSETS_NOT_PRESENT_ON_THIS_STACK_LAYER'
+          fi
+
+
+
+
+
       - name: Validar heartbeat do Pentium quando disponÃ­vel
         shell: bash
         run: |

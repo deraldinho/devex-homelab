@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -65,6 +65,18 @@ def atlas_capability_registry() -> CapabilityRegistry:
     """Canonical Atlas capability registry, including M2 CONTROL intents."""
     specs = [
         CapabilitySpec("get_host_status", "READ", ("host",), tipos_parametros=(("host", "str"),)),
+        CapabilitySpec("get_cluster_vitals", "READ", ("host",), tipos_parametros=(("host", "str"),)),
+        CapabilitySpec("l2j_get_status", "READ", ()),
+        CapabilitySpec("l2j_get_dashboards", "READ", ()),
+        CapabilitySpec("l2j_check_jvm", "READ", ()),
+        CapabilitySpec("l2j_docker_stats", "READ", ()),
+        CapabilitySpec("l2j_get_logs", "READ", ("container", "lines"), tipos_parametros=(("container", "str"), ("lines", "int"))),
+        CapabilitySpec("git_get_status", "READ", ("project",), tipos_parametros=(("project", "str"),)),
+        CapabilitySpec("git_recent_commits", "READ", ("project", "count"), tipos_parametros=(("project", "str"), ("count", "int"))),
+        CapabilitySpec("task_status", "READ", ()),
+        CapabilitySpec("task_create", "CONTROL", ("objective", "area"), tipos_parametros=(("objective", "str"), ("area", "str"))),
+        CapabilitySpec("task_complete", "CONTROL", ("reason",), tipos_parametros=(("reason", "str"),)),
+        CapabilitySpec("task_abandon", "CONTROL", ("reason",), tipos_parametros=(("reason", "str"),)),
         CapabilitySpec("start_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
         CapabilitySpec("stop_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
         CapabilitySpec("restart_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
@@ -82,5 +94,12 @@ def atlas_capability_registry() -> CapabilityRegistry:
         CapabilitySpec("workspace_trash", "CONTROL", ("area", "path")),
         CapabilitySpec("workspace_restore", "CONTROL", ("trash_id",)),
         CapabilitySpec("workspace_purge", "DESTRUCTIVE", ("trash_id",)),
+        CapabilitySpec("discord_create_channel", "CONTROL", ("name", "topic"), tipos_parametros=(("name", "str"), ("topic", "str"))),
+        CapabilitySpec("discord_rename_channel", "CONTROL", ("channel", "new_name"), tipos_parametros=(("channel", "str"), ("new_name", "str"))),
+        CapabilitySpec("discord_send_alert", "CONTROL", ("channel", "message"), tipos_parametros=(("channel", "str"), ("message", "str"))),
+        CapabilitySpec("discord_create_note", "CONTROL", ("content",), tipos_parametros=(("content", "str"),)),
+        CapabilitySpec("discord_create_incident", "CONTROL", ("slug", "description"), tipos_parametros=(("slug", "str"), ("description", "str"))),
+        CapabilitySpec("discord_resolve_incident", "CONTROL", ("slug", "post_mortem"), tipos_parametros=(("slug", "str"), ("post_mortem", "str"))),
+        CapabilitySpec("discord_purge_messages", "DESTRUCTIVE", ("quantity",), tipos_parametros=(("quantity", "int"),)),
     ]
     return CapabilityRegistry(specs)

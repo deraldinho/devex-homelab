@@ -139,13 +139,19 @@ class PlanoAcaoAtlas:
         _uuid_text(self.plan_id, "plan_id")
         _text(self.stimulus_id, "stimulus_id", 128)
         object.__setattr__(self, "created_at", _aware(self.created_at))
-        object.__setattr__(self, "objective", _text(self.objective, "objective", 512))
+        obj = str(self.objective).strip()
+        if len(obj) > 512:
+            obj = obj[:508] + "..."
+        object.__setattr__(self, "objective", _text(obj, "objective", 512))
         confidence = float(self.confidence)
         if not 0.0 <= confidence <= 1.0:
             raise ValueError("confidence outside 0..1")
         object.__setattr__(self, "confidence", confidence)
         if self.response_text is not None:
-            object.__setattr__(self, "response_text", _text(self.response_text, "response_text", 1024))
+            resp = str(self.response_text).strip()
+            if len(resp) > 2000:
+                resp = resp[:1996] + "..."
+            object.__setattr__(self, "response_text", _text(resp, "response_text", 2048))
         if not self.actions:
             raise ValueError("actions are required")
         object.__setattr__(self, "actions", tuple(self.actions))

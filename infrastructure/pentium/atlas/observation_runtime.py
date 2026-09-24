@@ -381,8 +381,9 @@ class ObservationRuntime:
             failed = self._state[name].status == "error"
             if failed:
                 self._consecutive_failures[name] += 1
+                exp = min(self._consecutive_failures[name], 10)
                 delay = min(
-                    schedule.interval_seconds * (2 ** self._consecutive_failures[name]),
+                    schedule.interval_seconds * (2 ** exp),
                     schedule.max_backoff_seconds,
                 )
             else:
