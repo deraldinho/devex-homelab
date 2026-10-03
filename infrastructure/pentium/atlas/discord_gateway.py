@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .chat_inbox import ChatInbox
@@ -11,6 +12,27 @@ from .config_discord import DiscordConfig, load_discord_config
 
 ROOT=Path(__file__).resolve().parent
 STATE_DIR=Path.home()/"pentium-agent"/"atlas"/"runtime"
+
+
+class DiscordGatewayHealthStore:
+    def __init__(self, path: Path):
+        self.path = Path(path)
+
+    def write(self, state: str, *, latency_s: float | None = None, reason: str | None = None) -> dict:
+        state = str(state or "unknown").strip().lower() or "unknown"
+        payload = {"schema_version": 1, "state": state, "connected": state == "connected",
+                   "reason": reason, "latency_s": latency_s,
+                   "updated_at": datetime.now(timezone.utc).isoformat()}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_name(self.path.name + ".tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(tmp, self.path)
+        return payload
+
+
+async def publish_online_presence(client, discord_module) -> None:
+    await client.change_presence(status=discord_module.Status.online,
+                                 activity=discord_module.Game(name="Atlas • homelab online"))
 
 
 @dataclass(frozen=True)
@@ -775,6 +797,8 @@ async def _run_discord_client(config: DiscordConfig, token: str, *, state_dir: P
     cursor=DiscordReplyCursor(state_dir/"discord-cursor.json")
     intents=discord.Intents.default(); intents.message_content=True
     client=discord.Client(intents=intents)
+    gateway_health=DiscordGatewayHealthStore(state_dir/"discord-gateway-health.json")
+    gateway_health.write("starting", reason="client_start")
     pump_task=None
     dashboard_task=None
     actions_task=None
@@ -889,6 +913,9 @@ async def _run_discord_client(config: DiscordConfig, token: str, *, state_dir: P
     @client.event
     async def on_ready():
         nonlocal pump_task, dashboard_task, actions_task, watchdog_task
+        await publish_online_presence(client, discord)
+        gateway_health.write("connected", reason="ready")
+        print("ATLAS_DISCORD_GATEWAY_READY", flush=True)
         if pump_task is None or pump_task.done():
             pump_task=asyncio.create_task(pump_replies())
         if dashboard_task is None or dashboard_task.done():
@@ -897,6 +924,17 @@ async def _run_discord_client(config: DiscordConfig, token: str, *, state_dir: P
             actions_task=asyncio.create_task(pump_actions())
         if watchdog_task is None or watchdog_task.done():
             watchdog_task=asyncio.create_task(run_live_watchdog(client, config, state_dir))
+
+    @client.event
+    async def on_disconnect():
+        gateway_health.write("disconnected", reason="gateway_disconnect")
+        print("ATLAS_DISCORD_GATEWAY_DISCONNECTED", flush=True)
+
+    @client.event
+    async def on_resumed():
+        await publish_online_presence(client, discord)
+        gateway_health.write("connected", reason="resumed")
+        print("ATLAS_DISCORD_GATEWAY_RESUMED", flush=True)
 
     @client.event
     async def on_message(message):
@@ -971,6 +1009,7 @@ async def _run_discord_client(config: DiscordConfig, token: str, *, state_dir: P
     try:
         await client.start(token)
     finally:
+        gateway_health.write("stopped", reason="client_exit")
         for t in (pump_task, dashboard_task, actions_task, watchdog_task):
             if t is not None:
                 t.cancel()
