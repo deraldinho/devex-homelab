@@ -32,6 +32,7 @@ Current architecture already provides:
 - stimulus_journal.py
 - cognitive_observability.py
 - memory_model.py / memory_store.py / memory_manager.py / memory_retriever.py
+- memory_graph.py with typed entities/relations and graph-aware retrieval
 - episodic segments, evidence and provenance
 - continuous_intent.py and task_store.py
 - capability_registry.py
@@ -260,6 +261,109 @@ Outcomes:
 
 For infrastructure actions, stale or conflicting memory triggers a fresh physical probe before authorization.
 
+## 12.1 Memory Knowledge Graph as a first-class memory layer
+
+The existing MemoryGraph is preserved and promoted from a retrieval helper to a first-class structured-memory component.
+
+It remains complementary to MemoryStore:
+- MemoryStore holds textual/episodic/semantic records and evidence.
+- MemoryGraph holds entities, typed relations, causal structure and cross-memory topology.
+- MemoryRetriever combines both.
+- MemoryDecisionLayer validates graph-derived context before action.
+
+No Neo4j or external graph database is required for the initial implementation. The existing SQLite/WAL footprint remains the canonical local backend unless benchmarks demonstrate a concrete need to change it.
+
+### Graph node classes
+
+Existing entity types remain valid. Extend them additively where required:
+- PROJECT
+- NODE
+- REPOSITORY
+- DECISION
+- PATTERN
+- PREFERENCE
+- PERSON
+- SERVICE
+- INCIDENT
+- MEMORY
+- OPERATIONAL_EVENT
+- GOAL
+- ACTION
+- ARTIFACT
+
+Memory and operational-event nodes use stable IDs that reference canonical rows/events rather than duplicating full content.
+
+### Graph relation classes
+
+Existing relations remain valid. Extend the relation vocabulary with:
+- SUPPORTS
+- CONTRADICTS
+- SUPERSEDES
+- DERIVED_FROM
+- EVIDENCED_BY
+- MENTIONS
+- AFFECTS
+- RECOVERED_BY
+- CAUSED_BY
+- RUNS_ON
+- DEPENDS_ON
+- RELATED_TO
+
+Relation semantics are directional where direction matters.
+
+### Temporal and provenance-aware edges
+
+Graph relations that participate in reasoning carry:
+- created_at
+- valid_from
+- valid_until
+- confidence
+- source_event_ids
+- evidence_refs
+- verifier
+- status
+- weight
+
+The graph never grants authority. Authorization remains exclusively in capability/policy layers.
+
+### Graph retrieval
+
+Graph-assisted retrieval uses a bounded expansion:
+1. identify seed entities from the current task/message
+2. traverse typed edges to bounded depth
+3. score candidate paths by relation type, confidence, freshness and evidence
+4. resolve related memories from MemoryStore
+5. pass candidates through MemoryDecisionLayer
+6. inject only accepted context into the prompt
+
+Graph proximity alone is not sufficient to mark a memory as true.
+
+### Graph reasoning use cases
+
+The graph should answer structured questions such as:
+- which services run on x99?
+- which incidents affected atlas-discord?
+- which recovery resolved this incident?
+- what decision superseded the previous one?
+- what evidence supports the current state?
+- which project depends on this repository/service?
+- which memories contradict this current observation?
+
+### Graph consistency rules
+
+- no dangling relation to missing canonical nodes when the node class requires a canonical backing record
+- supersession relations must remain acyclic
+- contradictory edges do not delete either side
+- deletion/compaction of a memory must preserve required provenance landmarks
+- graph updates associated with memory/event persistence are transactionally consistent where they share the same SQLite database
+- if graph persistence fails, the textual memory/event remains valid but graph-derived claims are unavailable until repaired
+
+### Compatibility
+
+The current MemoryGraph API (add_entity, add_relation, query_neighbors, query_path, search_entities) remains supported.
+Current MemoryRetriever graph-neighbor boosts remain valid during migration.
+New graph traversal/scoring is introduced behind memory_graph_v2.
+
 ## 13. Supersession and conflict model
 
 State-changing memories use explicit supersession relationships.
@@ -464,6 +568,7 @@ Suggested rollout flags:
 - self_healing_v1
 - operational_event_log_v1
 - memory_lifecycle_v1
+- memory_graph_v2
 - memory_decision_layer_v1
 - persistent_goals_v1
 - resource_router_v1
@@ -474,11 +579,12 @@ Default rollout order:
 2. Self-Healing + decision preconditions
 3. Operational Event Log
 4. Memory lifecycle/provenance
-5. Coherence / Memory Decision Layer
-6. Persistent Goals
-7. Resource + Model Router
-8. Personal Ops
-9. KV optimization experiments
+5. Memory Knowledge Graph v2
+6. Coherence / Memory Decision Layer
+7. Persistent Goals
+8. Resource + Model Router
+9. Personal Ops
+10. KV optimization experiments
 
 ## 24. Compatibility and migration strategy
 
@@ -522,8 +628,11 @@ CP-S3 Multi-host safe-control executors.
 CP-S4 Closed-loop functional verification and escalation.
 CP-E1 Canonical operational event journal.
 CP-M1 Memory schema lifecycle/provenance migration.
+CP-MG1 Graph schema extension with temporal/provenance edges.
+CP-MG2 Memory/event/entity linkage and bounded graph retrieval.
+CP-MG3 Graph consistency, conflict and supersession traversal.
 CP-M2 Supersession/conflict support.
-CP-M3 Memory Decision Layer.
+CP-M3 Memory Decision Layer integrating graph evidence.
 CP-C1 Context projection with evidence landmarks.
 CP-C2 Observation deduplication and compaction benchmarks.
 CP-G1 Persistent goal model extending ContinuousIntent/SelfWork.
@@ -559,6 +668,7 @@ Atlas is considered to have reached the target architecture when:
 - every recovery is independently verified
 - stale planning assumptions are revalidated before execution
 - memory can express provenance, validity and supersession
+- the Memory Knowledge Graph can explain entity relationships, causality, conflicts and supporting evidence without duplicating canonical memory content
 - conflicting/stale memory cannot silently authorize infrastructure actions
 - persistent goals survive restarts
 - context and cache optimizations are evidence-driven
