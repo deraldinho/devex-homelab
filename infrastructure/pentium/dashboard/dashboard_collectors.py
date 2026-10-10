@@ -31,6 +31,7 @@ def default_config() -> dict:
         "bind_host": "192.168.88.3",
         "bind_port": 8765,
         "health_path": "~/pentium-agent/data/health/latest.json",
+        "health_supervisor_path": "~/pentium-agent/atlas/runtime/health-supervisor.json",
         "voice_config_path": "~/pentium-agent/atlas/config_voice.json",
         "deploy_sha_path": "~/pentium-agent/runtime/deploy/current-sha",
         "visual_state_path": "~/pentium-agent/atlas/runtime/visual-state.json",
@@ -68,6 +69,25 @@ def _read_text(path: str) -> str | None:
         return Path(path).expanduser().read_text(encoding="utf-8").strip()
     except OSError:
         return None
+
+
+def _canonical_health(config: dict) -> tuple[dict | None, dict[str, str]]:
+    payload = _read_json(config.get("health_supervisor_path", ""))
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        return None, {}
+    state = str(payload.get("state") or "").strip().lower()
+    components = payload.get("components")
+    if not state or not isinstance(components, list):
+        return None, {}
+    by_component: dict[str, str] = {}
+    for item in components:
+        if not isinstance(item, dict):
+            continue
+        component_id = str(item.get("component_id") or "").strip()
+        component_state = str(item.get("state") or "").strip().lower()
+        if component_id and component_state:
+            by_component[component_id] = component_state
+    return payload, by_component
 
 
 def _unit(unit: str, runner: CommandRunner) -> dict:
@@ -370,6 +390,7 @@ def collect_status(config: dict, *, command_runner: CommandRunner = run_command,
     import shutil
 
     health = _read_json(config["health_path"]) or {}
+    canonical_health, canonical_components = _canonical_health(config)
     voice_cfg = _read_json(config["voice_config_path"]) or {}
     voice_unit = _unit("atlas-voice.service", command_runner)
 
@@ -394,23 +415,45 @@ def collect_status(config: dict, *, command_runner: CommandRunner = run_command,
 
     anc_enabled = bool(voice_cfg.get("anc_enabled", False))
     anc_reason = None if anc_enabled else "disabled by configuration"
+
+    services = {
+        "agent": _unit("pentium-agent.service", command_runner),
+        "heartbeat": _unit("pentium-heartbeat.timer", command_runner),
+        "voice": voice_unit,
+        "observation": _unit("atlas-observation.service", command_runner),
+        "cognitive": _unit("atlas-cognitive.service", command_runner),
+        "discord": _unit("atlas-discord.service", command_runner),
+        "dashboard": _unit("atlas-dashboard.service", command_runner),
+        "health_supervisor": _unit("atlas-health-supervisor.service", command_runner),
+    }
+    if canonical_health is not None:
+        component_keys = {
+            "voice": "atlas-voice.service",
+            "observation": "atlas-observation.service",
+            "cognitive": "atlas-cognitive.service",
+            "discord": "atlas-discord.service",
+            "dashboard": "atlas-dashboard.service",
+            "health_supervisor": "atlas-health-supervisor.service",
+        }
+        for service_key, component_id in component_keys.items():
+            state = canonical_components.get(component_id)
+            if state:
+                services[service_key] = {**services[service_key], "health": state}
+
+    voice_health = canonical_components.get("atlas-voice.service")
     return {
         "visual": _visual_state(config),
         "cognition": collect_cognition(config, now=cognition_now),
         "cognitive_runtime": {**collect_cognitive_runtime(config), "timeline": collect_cognitive_activity(config)},
         "continuous_intent": collect_continuous_intent(config),
         "workspace": collect_workspace_economy(config),
-        "atlas": {"sha": _read_text(config["deploy_sha_path"]), "health": health.get("status", "unknown")},
-        "services": {
-            "agent": _unit("pentium-agent.service", command_runner),
-            "heartbeat": _unit("pentium-heartbeat.timer", command_runner),
-            "voice": voice_unit,
-            "observation": _unit("atlas-observation.service", command_runner),
-            "cognitive": _unit("atlas-cognitive.service", command_runner),
-            "dashboard": _unit("atlas-dashboard.service", command_runner),
+        "atlas": {
+            "sha": _read_text(config["deploy_sha_path"]),
+            "health": canonical_health.get("state") if canonical_health is not None else health.get("status", "unknown"),
         },
+        "services": services,
         "voice": {
-            "state": "paused" if voice_unit.get("active") != "active" else "unknown",
+            "state": "paused" if voice_health == "paused_intentionally" or voice_unit.get("active") != "active" else "unknown",
             "whisper_available": Path(voice_cfg["whisper_binary"]).expanduser().is_file() if voice_cfg.get("whisper_binary") else None,
             "qwen_model": voice_cfg.get("llm_model"),
             "tts": voice_cfg.get("tts_voice"),

@@ -14,8 +14,10 @@ class WorkspaceOwnerWiringTests(unittest.TestCase):
         ):
             self.assertIn(token,source)
         self.assertIn('AGENT_ROOT/"atlas-workspace"',source)
-        self.assertIn('auto_hosts=("pentium",)',source)
-        self.assertNotIn('auto_hosts=("pentium","core"',source.replace(' ',''))
+        compact=source.replace(' ','')
+        self.assertIn('auto_service_targets=(("pentium","atlas-observation.service"),("pentium","atlas-dashboard.service"))',compact)
+        self.assertNotIn('auto_hosts=("pentium","core"',compact)
+        self.assertNotIn('auto_hosts=("pentium","x99","core")',compact)
 
     def test_installer_packages_workspace_runtime_modules(self):
         root=Path(__file__).resolve().parents[1]

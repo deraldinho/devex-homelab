@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import time
 from typing import Callable
 
 try:
@@ -27,6 +30,73 @@ _CAPABILITY_OPERATIONS = {
     "restart_container": ManagedControlOperation.RESTART_CONTAINER,
     "reboot_host": ManagedControlOperation.REBOOT_HOST,
 }
+
+
+class CanonicalHealthVerifier:
+    def __init__(
+        self,
+        snapshot_path: Path,
+        *,
+        timeout_s: float = 0.0,
+        poll_interval_s: float = 0.5,
+        monotonic=time.monotonic,
+        sleeper=time.sleep,
+    ):
+        self.snapshot_path = Path(snapshot_path)
+        self.timeout_s = max(0.0, float(timeout_s))
+        self.poll_interval_s = max(0.01, float(poll_interval_s))
+        self.monotonic = monotonic
+        self.sleeper = sleeper
+
+    @staticmethod
+    def _component_id(capability: str, arguments: dict[str, object]) -> str | None:
+        if capability in {"start_service", "stop_service", "restart_service"}:
+            value = str(arguments.get("service") or "").strip()
+            return value or None
+        if capability == "restart_container":
+            value = str(arguments.get("container") or "").strip()
+            return f"container:{value}" if value else None
+        return None
+
+    def _check(self, host: str, component_id: str) -> bool:
+        try:
+            payload = json.loads(self.snapshot_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+            return False
+        components = payload.get("components")
+        if not isinstance(components, list):
+            return False
+        for item in components:
+            if not isinstance(item, dict):
+                continue
+            if (
+                str(item.get("component_id") or "") == component_id
+                and str(item.get("host") or "") == str(host)
+            ):
+                return str(item.get("state") or "").lower() == "healthy"
+        return False
+
+    def __call__(
+        self,
+        host: str,
+        capability: str,
+        arguments: dict[str, object],
+        result: dict[str, object],
+    ) -> bool:
+        if str(result.get("status") or "").lower() != "success":
+            return False
+        component_id = self._component_id(str(capability), dict(arguments))
+        if component_id is None:
+            return False
+        deadline = self.monotonic() + self.timeout_s
+        while True:
+            if self._check(str(host), component_id):
+                return True
+            if self.timeout_s <= 0.0 or self.monotonic() >= deadline:
+                return False
+            self.sleeper(self.poll_interval_s)
 
 
 class MultiHostCapabilityExecutor:

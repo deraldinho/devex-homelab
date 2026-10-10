@@ -270,10 +270,34 @@ def should_respond_actively(message, client, config: DiscordConfig) -> bool:
     return False
 
 
-def format_system_dashboard() -> str:
+def _canonical_service_states(state_dir: Path) -> dict[str, str] | None:
+    path = Path(state_dir) / "health-supervisor.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        return None
+    components = payload.get("components")
+    if not isinstance(components, list):
+        return None
+    states: dict[str, str] = {}
+    for item in components:
+        if not isinstance(item, dict):
+            continue
+        component_id = str(item.get("component_id") or "").strip()
+        state = str(item.get("state") or "").strip().lower()
+        if component_id and state:
+            states[component_id] = state
+    return states or None
+
+
+def format_system_dashboard(*, state_dir: Path = STATE_DIR, systemctl_runner=None) -> str:
     import datetime
     import shutil
     import subprocess
+    if systemctl_runner is None:
+        systemctl_runner = subprocess.run
     now_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     disk_str = "N/A"
@@ -309,16 +333,39 @@ def format_system_dashboard() -> str:
     except Exception:
         pass
 
-    services = ["atlas-cognitive.service", "atlas-discord.service", "atlas-observation.service"]
+    canonical_states = _canonical_service_states(Path(state_dir))
     srv_status = []
-    for srv in services:
-        try:
-            res = subprocess.run(["systemctl", "--user", "is-active", srv], capture_output=True, text=True, timeout=2)
-            st = res.stdout.strip()
-            icon = "🟢" if st == "active" else "🔴"
-            srv_status.append(f"{icon} `{srv}`: {st}")
-        except Exception:
-            srv_status.append(f"⚪ `{srv}`: running")
+    if canonical_states is not None:
+        services = [
+            "atlas-cognitive.service",
+            "atlas-discord.service",
+            "atlas-observation.service",
+            "atlas-dashboard.service",
+            "atlas-voice.service",
+        ]
+        icons = {
+            "healthy": "🟢",
+            "paused_intentionally": "⏸️",
+            "recovering": "🟡",
+            "degraded": "🟠",
+            "stale": "🟠",
+            "disconnected": "🔴",
+            "failed": "🔴",
+            "unknown": "⚪",
+        }
+        for srv in services:
+            st = canonical_states.get(srv, "unknown")
+            srv_status.append(f"{icons.get(st, '⚪')} `{srv}`: {st}")
+    else:
+        services = ["atlas-cognitive.service", "atlas-discord.service", "atlas-observation.service"]
+        for srv in services:
+            try:
+                res = systemctl_runner(["systemctl", "--user", "is-active", srv], capture_output=True, text=True, timeout=2)
+                st = res.stdout.strip()
+                icon = "🟢" if st == "active" else "🔴"
+                srv_status.append(f"{icon} `{srv}`: {st}")
+            except Exception:
+                srv_status.append(f"⚪ `{srv}`: running")
 
     return (
         "📌 **[ATLAS LIVE DASHBOARD]**\n"

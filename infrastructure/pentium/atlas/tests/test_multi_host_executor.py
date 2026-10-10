@@ -9,7 +9,7 @@ from infrastructure.pentium.agent.managed_inventory import (
 )
 from infrastructure.pentium.agent.ssh_transport import SshResult
 from infrastructure.pentium.atlas.autonomy_executor import VerificationFailedError
-from infrastructure.pentium.atlas.multi_host_executor import MultiHostCapabilityExecutor
+from infrastructure.pentium.atlas.multi_host_executor import CanonicalHealthVerifier, MultiHostCapabilityExecutor
 
 
 class FakeTransport:
@@ -54,6 +54,97 @@ def host(host_id, *, platform):
         allowed_services=frozenset({"AtlasWorker" if platform == "windows" else "atlas-worker.service"}),
         allowed_containers=frozenset({"atlas-container"}),
     )
+
+
+class CanonicalHealthVerifierTests(unittest.TestCase):
+    def test_service_and_container_require_matching_healthy_component(self):
+        import json
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "health-supervisor.json"
+            path.write_text(json.dumps({
+                "schema_version": 1,
+                "state": "degraded",
+                "components": [
+                    {"component_id": "atlas-worker.service", "host": "core", "state": "healthy"},
+                    {"component_id": "container:atlas-container", "host": "x99", "state": "healthy"},
+                    {"component_id": "bad.service", "host": "core", "state": "disconnected"},
+                ],
+            }), encoding="utf-8")
+            verifier = CanonicalHealthVerifier(path)
+            self.assertTrue(verifier(
+                "core", "restart_service",
+                {"host": "core", "service": "atlas-worker.service"},
+                {"status": "success"},
+            ))
+            self.assertTrue(verifier(
+                "x99", "restart_container",
+                {"host": "x99", "container": "atlas-container"},
+                {"status": "success"},
+            ))
+            self.assertFalse(verifier(
+                "core", "restart_service",
+                {"host": "core", "service": "bad.service"},
+                {"status": "success"},
+            ))
+            self.assertFalse(verifier(
+                "core", "restart_service",
+                {"host": "core", "service": "missing.service"},
+                {"status": "success"},
+            ))
+
+    def test_verifier_can_wait_boundedly_for_supervisor_refresh(self):
+        import json
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "health-supervisor.json"
+            def write(state):
+                path.write_text(json.dumps({
+                    "schema_version": 1,
+                    "state": state,
+                    "components": [
+                        {"component_id": "atlas-worker.service", "host": "core", "state": state},
+                    ],
+                }), encoding="utf-8")
+            write("recovering")
+            sleeps = []
+            def sleeper(seconds):
+                sleeps.append(seconds)
+                write("healthy")
+            ticks = iter((0.0, 0.0, 0.1, 0.2))
+            verifier = CanonicalHealthVerifier(
+                path,
+                timeout_s=2.0,
+                poll_interval_s=0.1,
+                monotonic=lambda: next(ticks),
+                sleeper=sleeper,
+            )
+            self.assertTrue(verifier(
+                "core", "restart_service",
+                {"host": "core", "service": "atlas-worker.service"},
+                {"status": "success"},
+            ))
+            self.assertEqual([0.1], sleeps)
+
+    def test_missing_or_corrupt_snapshot_fails_closed(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "health-supervisor.json"
+            verifier = CanonicalHealthVerifier(path)
+            self.assertFalse(verifier(
+                "core", "restart_service",
+                {"host": "core", "service": "atlas-worker.service"},
+                {"status": "success"},
+            ))
+            path.write_text("{bad", encoding="utf-8")
+            self.assertFalse(verifier(
+                "core", "restart_service",
+                {"host": "core", "service": "atlas-worker.service"},
+                {"status": "success"},
+            ))
 
 
 class MultiHostExecutorTests(unittest.TestCase):

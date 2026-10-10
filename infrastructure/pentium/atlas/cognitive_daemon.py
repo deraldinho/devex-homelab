@@ -9,9 +9,23 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+try:
+    from agent.cli import load_config as load_agent_config, _managed_host_from_config
+    from agent.control_audit import ControlAuditJournal
+    from agent.managed_control import ManagedControlService
+    from agent.managed_inventory import ManagedInventory
+    from agent.ssh_transport import SshTransport
+except ImportError:
+    from infrastructure.pentium.agent.cli import load_config as load_agent_config, _managed_host_from_config
+    from infrastructure.pentium.agent.control_audit import ControlAuditJournal
+    from infrastructure.pentium.agent.managed_control import ManagedControlService
+    from infrastructure.pentium.agent.managed_inventory import ManagedInventory
+    from infrastructure.pentium.agent.ssh_transport import SshTransport
+
 from .capability_registry import atlas_capability_registry
 from .action_executors import ActionExecutorRegistry
 from .autonomy_executor import SafeLocalCapabilityExecutor
+from .multi_host_executor import CanonicalHealthVerifier, MultiHostCapabilityExecutor
 from .discord_capability_executor import DiscordCapabilityExecutor
 from .git_capability_executor import GitCapabilityExecutor, ClusterVitalsExecutor
 from .l2j_observation import L2jCapabilityExecutor
@@ -405,7 +419,7 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     except Exception: pass
     task_executor=TaskCapabilityExecutor(self_work)
     cache=CognitiveCache(load_cache_config(config_root/"config_cache.json"));policy=ActivationPolicy(cognitive.ativacao);builder=ContextoCognitivoBuilder(cognitive.contexto)
-    capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status","get_cluster_vitals","l2j_get_status","l2j_get_dashboards","l2j_check_jvm","l2j_docker_stats","l2j_get_logs","l2j_run_tests","l2j_inspect_persistence","git_get_status","git_recent_commits","workspace_status","workspace_list","workspace_read","workspace_search","task_status"),control_allow=("restart_service",),auto_control_allow=("restart_service",),auto_hosts=("pentium",),auto_services=("atlas-observation.service","atlas-dashboard.service"),auto_unscoped_control_allow=("workspace_create_note","workspace_write","workspace_append","workspace_mkdir","workspace_move","workspace_archive","workspace_trash","workspace_restore","discord_create_channel","discord_rename_channel","discord_send_alert","discord_create_note","discord_create_incident","discord_resolve_incident","task_create","task_complete","task_abandon"))
+    capabilities=PolicyCapabilities(atlas_capability_registry(),read_auto_allow=("get_host_status","get_cluster_vitals","l2j_get_status","l2j_get_dashboards","l2j_check_jvm","l2j_docker_stats","l2j_get_logs","l2j_run_tests","l2j_inspect_persistence","git_get_status","git_recent_commits","workspace_status","workspace_list","workspace_read","workspace_search","task_status"),control_allow=(),auto_control_allow=("restart_service","restart_container"),auto_service_targets=(("pentium","atlas-observation.service"),("pentium","atlas-dashboard.service")),auto_container_targets=(),auto_unscoped_control_allow=("workspace_create_note","workspace_write","workspace_append","workspace_mkdir","workspace_move","workspace_archive","workspace_trash","workspace_restore","discord_create_channel","discord_rename_channel","discord_send_alert","discord_create_note","discord_create_incident","discord_resolve_incident","task_create","task_complete","task_abandon"))
     loop=ReactionLoopCognitivo(policy,builder,gateway,capability_policy=capabilities,memory_retriever=retriever,workspace_retriever=workspace_retriever,cognitive_cache=cache)
     expected_sha=(os.environ.get("ATLAS_EXPECTED_SHA") or None) if cognitive.observation_bridge.require_expected_sha else None
     snapshot_path=Path(os.path.expanduser(cognitive.observation_bridge.snapshot_path));provider=HumanContextProvider(state_dir/"observation-affective-health.json",snapshot_path,max_snapshot_age_s=cognitive.observation_bridge.max_snapshot_age_s,expected_sha=expected_sha)
@@ -415,7 +429,33 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
     action_store=ActionPlanStore(state_dir/"action-plan-current.json",state_dir/"action-plan-history.jsonl",max_history=64,max_bytes=131072)
     action_planner=ActionPlanner();action_policy=ActionPolicy(capabilities)
     visual_state_path=state_dir/"visual-state.json";visual_publisher=VisualStatePublisher(visual_state_path)
-    autonomy_executor=SafeLocalCapabilityExecutor(host="pentium",services=("atlas-observation.service","atlas-dashboard.service"),on_executed=capabilities.registrar_execucao)
+    agent_config_path=AGENT_ROOT/"agent"/"config.json"
+    agent_payload=load_agent_config(agent_config_path)
+    managed_inventory=ManagedInventory([
+        _managed_host_from_config(item) for item in agent_payload["managed_hosts"]
+    ])
+    managed_control=ManagedControlService(
+        managed_inventory,
+        SshTransport(),
+        ControlAuditJournal(
+            Path(str(agent_payload.get("control_audit_file", "~/.local/state/devex-homelab/control-audit.jsonl"))).expanduser()
+        ),
+    )
+    local_autonomy_executor=SafeLocalCapabilityExecutor(
+        host="pentium",
+        services=("atlas-observation.service","atlas-dashboard.service"),
+    )
+    autonomy_executor=MultiHostCapabilityExecutor(
+        local_autonomy_executor,
+        managed_control,
+        managed_inventory,
+        verifier=CanonicalHealthVerifier(
+            state_dir/"health-supervisor.json",
+            timeout_s=20.0,
+            poll_interval_s=0.5,
+        ),
+        on_executed=capabilities.registrar_execucao,
+    )
     workspace_executor=WorkspaceCapabilityExecutor(workspace_broker,searcher=workspace_retriever,indexer=workspace_index,self_work=self_work)
     discord_executor=DiscordCapabilityExecutor(state_dir/"discord-action-queue.jsonl")
     git_executor=GitCapabilityExecutor()
