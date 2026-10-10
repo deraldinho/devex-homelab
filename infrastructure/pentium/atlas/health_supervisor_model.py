@@ -47,6 +47,7 @@ class ComponentHealth:
     dependency_state: HealthDimension
     observed_at: str
     evidence_refs: tuple[str, ...] = ()
+    required: bool = True
 
     def __post_init__(self) -> None:
         for field_name in ("component_id", "host", "expected_state"):
