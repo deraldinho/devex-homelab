@@ -94,6 +94,7 @@ class RecoveryResult:
     attempts: int
     reason: str = ""
     evidence_refs: tuple[str, ...] = ()
+    transitions: tuple[RecoveryState, ...] = ()
 
     def __post_init__(self) -> None:
         if not str(self.recovery_id).strip():
@@ -110,3 +111,6 @@ class RecoveryResult:
             "evidence_refs",
             tuple(str(item).strip() for item in self.evidence_refs if str(item).strip()),
         )
+        if any(not isinstance(item, RecoveryState) for item in self.transitions):
+            raise TypeError("transitions must contain RecoveryState values")
+        object.__setattr__(self, "transitions", tuple(self.transitions))
