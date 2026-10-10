@@ -16,7 +16,8 @@ class DecisaoCapability:
 
 class PolicyCapabilities:
     def __init__(self, registry: CapabilityRegistry, *, read_auto_allow=(), control_allow=(),
-                 auto_control_allow=(), auto_hosts=(), auto_services=(), auto_unscoped_control_allow=(),
+                 auto_control_allow=(), auto_hosts=(), auto_services=(), auto_service_targets=(),
+                 auto_container_targets=(), auto_unscoped_control_allow=(),
                  cooldown_s: float = 300.0, max_auto_per_window: int = 2,
                  window_s: float = 3600.0, clock=time.monotonic):
         self._registry = registry
@@ -25,6 +26,8 @@ class PolicyCapabilities:
         self._auto_control_allow = frozenset(auto_control_allow)
         self._auto_hosts = frozenset(auto_hosts)
         self._auto_services = frozenset(auto_services)
+        self._auto_service_targets = frozenset((str(host), str(target)) for host, target in auto_service_targets)
+        self._auto_container_targets = frozenset((str(host), str(target)) for host, target in auto_container_targets)
         self._auto_unscoped_control_allow = frozenset(auto_unscoped_control_allow)
         self._cooldown_s = float(cooldown_s)
         self._max_auto_per_window = int(max_auto_per_window)
@@ -35,17 +38,22 @@ class PolicyCapabilities:
     def _control_is_auto_safe(self, nome: str, parametros: dict[str, object]) -> bool:
         if nome in self._auto_unscoped_control_allow:
             return True
-        return (
-            nome in self._auto_control_allow
-            and parametros.get("host") in self._auto_hosts
-            and parametros.get("service") in self._auto_services
-        )
+        if nome not in self._auto_control_allow:
+            return False
+        host = str(parametros.get("host") or "")
+        if "container" in parametros:
+            container = str(parametros.get("container") or "")
+            return (host, container) in self._auto_container_targets
+        service = str(parametros.get("service") or "")
+        if self._auto_service_targets:
+            return (host, service) in self._auto_service_targets
+        return host in self._auto_hosts and service in self._auto_services
 
     def registrar_execucao(self, nome: str, parametros: dict[str, object], quando: float | None = None) -> None:
         t = self._clock() if quando is None else float(quando)
         host = str(parametros.get("host") or "")
-        service = str(parametros.get("service") or "")
-        self._history.append((t, nome, host, service))
+        target = str(parametros.get("service") or parametros.get("container") or "")
+        self._history.append((t, nome, host, target))
 
     def avaliar(self, nome: str, parametros: dict[str, object], *, confirmacao_humana: bool = False) -> DecisaoCapability:
         try:
@@ -65,8 +73,8 @@ class PolicyCapabilities:
             if self._control_is_auto_safe(spec.nome, parametros):
                 now = self._clock()
                 host = str(parametros.get("host") or "")
-                service = str(parametros.get("service") or "")
-                recent = [entry for entry in self._history if entry[1] == spec.nome and entry[2] == host and entry[3] == service]
+                target = str(parametros.get("service") or parametros.get("container") or "")
+                recent = [entry for entry in self._history if entry[1] == spec.nome and entry[2] == host and entry[3] == target]
                 if recent and (now - recent[-1][0]) < self._cooldown_s:
                     return DecisaoCapability(False, spec.nome, spec.nivel, True, "cooldown_active", "CONFIRM")
                 in_window = [entry for entry in recent if (now - entry[0]) <= self._window_s]

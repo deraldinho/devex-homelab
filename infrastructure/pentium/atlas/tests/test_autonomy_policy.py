@@ -70,6 +70,35 @@ class AutonomyPolicyV1Tests(unittest.TestCase):
         self.assertTrue(decision3.autorizada)
         self.assertEqual("AUTO", decision3.autonomia)
 
+    def test_host_scoped_service_targets_prevent_cross_product_authorization(self):
+        policy = PolicyCapabilities(
+            atlas_capability_registry(),
+            auto_control_allow=("restart_service",),
+            auto_service_targets=(("pentium", "atlas-dashboard.service"),),
+        )
+        allowed = policy.avaliar("restart_service", {
+            "host": "pentium", "service": "atlas-dashboard.service"})
+        wrong_host = policy.avaliar("restart_service", {
+            "host": "core", "service": "atlas-dashboard.service"})
+        self.assertEqual("AUTO", allowed.autonomia)
+        self.assertTrue(allowed.autorizada)
+        self.assertFalse(wrong_host.autorizada)
+        self.assertEqual("CONFIRM", wrong_host.autonomia)
+
+    def test_host_scoped_container_target_can_be_auto_allowlisted(self):
+        policy = PolicyCapabilities(
+            atlas_capability_registry(),
+            auto_control_allow=("restart_container",),
+            auto_container_targets=(("core", "atlas-worker"),),
+        )
+        allowed = policy.avaliar("restart_container", {
+            "host": "core", "container": "atlas-worker"})
+        wrong = policy.avaliar("restart_container", {
+            "host": "core", "container": "other"})
+        self.assertTrue(allowed.autorizada)
+        self.assertEqual("AUTO", allowed.autonomia)
+        self.assertFalse(wrong.autorizada)
+
     def test_budget_blocks_after_max_restarts_in_window(self):
         current_time = 10000.0
         policy = PolicyCapabilities(
