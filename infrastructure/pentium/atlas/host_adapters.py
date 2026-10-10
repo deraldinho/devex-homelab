@@ -4,8 +4,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Mapping
 
-from infrastructure.pentium.agent.managed_inventory import ManagedInventory
-from infrastructure.pentium.agent.managed_read import ManagedReadOperation, ManagedReadService
+try:
+    from agent.managed_inventory import ManagedInventory
+    from agent.managed_read import ManagedReadOperation, ManagedReadService
+except ImportError:
+    from infrastructure.pentium.agent.managed_inventory import ManagedInventory
+    from infrastructure.pentium.agent.managed_read import ManagedReadOperation, ManagedReadService
 
 from .health_probes import ProbeResult
 from .health_supervisor_model import ComponentHealthState

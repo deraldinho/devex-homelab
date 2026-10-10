@@ -182,6 +182,48 @@ class CognitiveSnapshotProbe(_JsonFreshnessProbe):
         )
 
 
+class JsonTimestampStatusProbe(_JsonFreshnessProbe):
+    def __init__(
+        self,
+        path: Path,
+        *,
+        timestamp_field: str,
+        max_age_s: float,
+        status_field: str | None = None,
+        healthy_values=("healthy", "ok"),
+        clock=lambda: datetime.now(timezone.utc),
+    ):
+        self.timestamp_field = str(timestamp_field)
+        self.status_field = None if status_field is None else str(status_field)
+        self.healthy_values = frozenset(str(value).lower() for value in healthy_values)
+        super().__init__(path, max_age_s=max_age_s, clock=clock)
+
+    def probe(self) -> ProbeResult:
+        now = _now(self.clock)
+        payload, error = self._read()
+        if error is not None:
+            return error
+        if self.status_field is not None:
+            status = str(payload.get(self.status_field) or "").strip().lower()
+            if status not in self.healthy_values:
+                return ProbeResult(
+                    False,
+                    ComponentHealthState.DEGRADED,
+                    _utc_text(now),
+                    f"status_not_healthy:{status or 'missing'}",
+                    (f"file:{self.path}",),
+                    {"dimension": "functional", "status": status},
+                )
+        return ProbeResult(
+            True,
+            ComponentHealthState.HEALTHY,
+            _utc_text(now),
+            "json_health_fresh",
+            (f"file:{self.path}",),
+            {"dimension": "functional"},
+        )
+
+
 class ObservationJournalProbe:
     def __init__(
         self,

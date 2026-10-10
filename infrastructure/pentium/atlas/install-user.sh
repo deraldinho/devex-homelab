@@ -37,6 +37,15 @@ for file in \
   __init__.py \
   state_model.py \
   health_engine.py \
+  health_supervisor_model.py \
+  health_supervisor.py \
+  health_probes.py \
+  host_adapters.py \
+  recovery_model.py \
+  decision_preconditions.py \
+  multi_host_executor.py \
+  recovery_controller.py \
+  health_supervisor_daemon.py \
   reaction_engine.py \
   journal.py \
   stimulus_model.py \
@@ -210,7 +219,7 @@ for file in \
 done
 
 
-for config in config.json observation_config.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_affective_runtime.json config_observation_affective.json config_cognitiva.json config_hermes.json config_memory.json config_cache.json config_fast_router.json config_voice.json config_github.json config_discord.json; do
+for config in config.json observation_config.json config_health_supervisor.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_affective_runtime.json config_observation_affective.json config_cognitiva.json config_hermes.json config_memory.json config_cache.json config_fast_router.json config_voice.json config_github.json config_discord.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
 
@@ -231,6 +240,15 @@ install -m 0755 "${SOURCE_DIR}/prepare-discord-atlas.sh" "${TARGET_DIR}/prepare-
 python3 -m py_compile \
   "${TARGET_DIR}/state_model.py" \
   "${TARGET_DIR}/health_engine.py" \
+  "${TARGET_DIR}/health_supervisor_model.py" \
+  "${TARGET_DIR}/health_supervisor.py" \
+  "${TARGET_DIR}/health_probes.py" \
+  "${TARGET_DIR}/host_adapters.py" \
+  "${TARGET_DIR}/recovery_model.py" \
+  "${TARGET_DIR}/decision_preconditions.py" \
+  "${TARGET_DIR}/multi_host_executor.py" \
+  "${TARGET_DIR}/recovery_controller.py" \
+  "${TARGET_DIR}/health_supervisor_daemon.py" \
   "${TARGET_DIR}/reaction_engine.py" \
   "${TARGET_DIR}/journal.py" \
   "${TARGET_DIR}/stimulus_model.py" \
@@ -439,12 +457,15 @@ install -m 0644 "${SOURCE_DIR}/atlas-observation.service" "${HOME}/.config/syste
 install -m 0644 "${SOURCE_DIR}/atlas-cognitive.service" "${HOME}/.config/systemd/user/atlas-cognitive.service"
 install -m 0644 "${SOURCE_DIR}/atlas-voice.service" "${HOME}/.config/systemd/user/atlas-voice.service"
 install -m 0644 "${SOURCE_DIR}/atlas-discord.service" "${HOME}/.config/systemd/user/atlas-discord.service"
+install -m 0644 "${SOURCE_DIR}/atlas-health-supervisor.service" "${HOME}/.config/systemd/user/atlas-health-supervisor.service"
 if systemctl --user show-environment >/dev/null 2>&1; then
   systemctl --user daemon-reload
   systemctl --user enable atlas-observation.service
   systemctl --user enable atlas-cognitive.service
+  systemctl --user enable atlas-health-supervisor.service
   systemctl --user restart atlas-observation.service
   systemctl --user restart atlas-cognitive.service
+  systemctl --user restart atlas-health-supervisor.service
 fi
 
 echo "ATLAS_COGNITIVE_RUNTIME_INSTALL_PASS"

@@ -2,12 +2,20 @@ from __future__ import annotations
 
 from typing import Callable
 
-from infrastructure.pentium.agent.managed_control import (
-    ControlAuthorization,
-    ManagedControlOperation,
-    ManagedControlService,
-)
-from infrastructure.pentium.agent.managed_inventory import ManagedInventory
+try:
+    from agent.managed_control import (
+        ControlAuthorization,
+        ManagedControlOperation,
+        ManagedControlService,
+    )
+    from agent.managed_inventory import ManagedInventory
+except ImportError:
+    from infrastructure.pentium.agent.managed_control import (
+        ControlAuthorization,
+        ManagedControlOperation,
+        ManagedControlService,
+    )
+    from infrastructure.pentium.agent.managed_inventory import ManagedInventory
 
 from .autonomy_executor import VerificationFailedError
 

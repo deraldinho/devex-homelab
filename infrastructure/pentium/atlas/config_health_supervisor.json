@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "features": {
+    "health_supervisor_v1": true,
+    "self_healing_v1": false
+  },
+  "poll_interval_s": 15,
+  "components": {
+    "atlas-observation.service": {
+      "host": "pentium",
+      "expected_state": "running",
+      "required": true,
+      "probe": {
+        "type": "observation_health",
+        "path": "observation-affective-health.json",
+        "max_age_s": 120
+      }
+    },
+    "atlas-cognitive.service": {
+      "host": "pentium",
+      "expected_state": "running",
+      "required": true,
+      "probe": {
+        "type": "cognitive_snapshot",
+        "path": "cognitive-runtime.json",
+        "max_age_s": 180
+      }
+    },
+    "atlas-discord.service": {
+      "host": "pentium",
+      "expected_state": "running",
+      "required": true,
+      "probe": {
+        "type": "discord_gateway",
+        "path": "discord-gateway-health.json",
+        "max_age_s": 120
+      }
+    },
+    "atlas-dashboard.service": {
+      "host": "pentium",
+      "expected_state": "running",
+      "required": true,
+      "probe": {
+        "type": "dashboard_http",
+        "url": "http://192.168.88.3:8765/healthz",
+        "max_age_s": 60
+      }
+    },
+    "atlas-voice.service": {
+      "host": "pentium",
+      "expected_state": "paused",
+      "required": true,
+      "probe": {
+        "type": "paused",
+        "max_age_s": 60
+      }
+    }
+  },
+  "managed_hosts": {
+    "core": {
+      "enabled": true,
+      "required": true,
+      "operation": "uptime"
+    },
+    "x99": {
+      "enabled": true,
+      "required": false,
+      "operation": "uptime"
+    }
+  }
+}

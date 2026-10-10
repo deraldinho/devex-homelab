@@ -10,6 +10,7 @@ from infrastructure.pentium.atlas.health_probes import (
     CognitiveSnapshotProbe,
     DashboardHttpProbe,
     DiscordGatewayProbe,
+    JsonTimestampStatusProbe,
     ObservationJournalProbe,
     SystemdUserProbe,
 )
@@ -77,6 +78,39 @@ class HealthProbeTests(unittest.TestCase):
             path.write_text(json.dumps({"generated_at": "2026-10-09T11:58:00+00:00"}), encoding="utf-8")
             result = CognitiveSnapshotProbe(path, max_age_s=30, clock=lambda: NOW).probe()
             self.assertEqual(ComponentHealthState.STALE, result.state)
+
+    def test_json_status_probe_uses_last_cycle_timestamp_and_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "observation-affective-health.json"
+            path.write_text(json.dumps({
+                "status": "healthy",
+                "last_cycle_at": "2026-10-09T11:59:50+00:00",
+            }), encoding="utf-8")
+            result = JsonTimestampStatusProbe(
+                path,
+                timestamp_field="last_cycle_at",
+                max_age_s=30,
+                status_field="status",
+                healthy_values=("healthy",),
+                clock=lambda: NOW,
+            ).probe()
+            self.assertTrue(result.ok)
+            self.assertEqual(ComponentHealthState.HEALTHY, result.state)
+
+            path.write_text(json.dumps({
+                "status": "degraded",
+                "last_cycle_at": "2026-10-09T11:59:55+00:00",
+            }), encoding="utf-8")
+            degraded = JsonTimestampStatusProbe(
+                path,
+                timestamp_field="last_cycle_at",
+                max_age_s=30,
+                status_field="status",
+                healthy_values=("healthy",),
+                clock=lambda: NOW,
+            ).probe()
+            self.assertFalse(degraded.ok)
+            self.assertEqual(ComponentHealthState.DEGRADED, degraded.state)
 
     def test_observation_journal_not_progressing_is_stale(self):
         with tempfile.TemporaryDirectory() as tmp:
