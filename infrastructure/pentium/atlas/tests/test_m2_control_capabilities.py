@@ -10,6 +10,7 @@ class M2ControlCapabilitiesTests(unittest.TestCase):
             "start_service": ("CONTROL", ("host", "service")),
             "stop_service": ("CONTROL", ("host", "service")),
             "restart_service": ("CONTROL", ("host", "service")),
+            "restart_container": ("CONTROL", ("host", "container")),
             "reboot_host": ("DESTRUCTIVE", ("host",)),
         }
         for name, (level, params) in expected.items():

@@ -82,6 +82,7 @@ def atlas_capability_registry() -> CapabilityRegistry:
         CapabilitySpec("start_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
         CapabilitySpec("stop_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
         CapabilitySpec("restart_service", "CONTROL", ("host", "service"), tipos_parametros=(("host", "str"), ("service", "str"))),
+        CapabilitySpec("restart_container", "CONTROL", ("host", "container"), tipos_parametros=(("host", "str"), ("container", "str"))),
         CapabilitySpec("reboot_host", "DESTRUCTIVE", ("host",), tipos_parametros=(("host", "str"),)),
         CapabilitySpec("workspace_status", "READ", ()),
         CapabilitySpec("workspace_list", "READ", ("area",)),

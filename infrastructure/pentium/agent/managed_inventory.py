@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 
 class UnknownManagedHostError(LookupError):
@@ -27,6 +28,7 @@ class ManagedHost:
     allowed_reads: frozenset[str]
     allowed_controls: frozenset[str] = frozenset()
     allowed_services: frozenset[str] = frozenset()
+    allowed_containers: frozenset[str] = frozenset()
     connect_timeout_seconds: int = 5
     max_output_bytes: int = 65536
 
@@ -47,6 +49,14 @@ class ManagedHost:
             raise ValueError("allowed_controls contains invalid name")
         if any(not isinstance(name, str) or not name.strip() for name in self.allowed_services):
             raise ValueError("allowed_services contains invalid name")
+        container_pattern = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+        if any(
+            not isinstance(name, str)
+            or not name.strip()
+            or container_pattern.fullmatch(name.strip()) is None
+            for name in self.allowed_containers
+        ):
+            raise ValueError("allowed_containers contains invalid name")
 
 
 class ManagedInventory:

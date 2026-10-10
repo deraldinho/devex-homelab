@@ -16,6 +16,7 @@ class ManagedControlOperation(str, Enum):
     START_SERVICE = "start_service"
     STOP_SERVICE = "stop_service"
     RESTART_SERVICE = "restart_service"
+    RESTART_CONTAINER = "restart_container"
     REBOOT_HOST = "reboot_host"
 
 
@@ -24,6 +25,7 @@ _SERVICE_OPERATIONS = {
     ManagedControlOperation.STOP_SERVICE,
     ManagedControlOperation.RESTART_SERVICE,
 }
+_CONTAINER_OPERATIONS = {ManagedControlOperation.RESTART_CONTAINER}
 
 
 @dataclass(frozen=True)
@@ -58,12 +60,16 @@ def _ssh_target(host: ManagedHost) -> SshTarget:
 def _linux_command(operation: ManagedControlOperation, target: str | None) -> str:
     if operation is ManagedControlOperation.REBOOT_HOST:
         return "systemctl reboot"
+    if operation is ManagedControlOperation.RESTART_CONTAINER:
+        return f"docker restart {target}"
     verb = operation.value.removesuffix("_service")
     return f"systemctl {verb} {target}"
 
 def _windows_command(operation: ManagedControlOperation, target: str | None) -> str:
     if operation is ManagedControlOperation.REBOOT_HOST:
         return 'powershell.exe -NoProfile -NonInteractive -Command "Restart-Computer -Force"'
+    if operation is ManagedControlOperation.RESTART_CONTAINER:
+        return f"docker restart {target}"
     verbs = {
         ManagedControlOperation.START_SERVICE: "Start-Service",
         ManagedControlOperation.STOP_SERVICE: "Stop-Service",
@@ -102,6 +108,9 @@ class ManagedControlService:
         if authorization.operation in _SERVICE_OPERATIONS:
             if authorization.target not in host.allowed_services:
                 raise PermissionError("service target not allowlisted")
+        elif authorization.operation in _CONTAINER_OPERATIONS:
+            if authorization.target not in host.allowed_containers:
+                raise PermissionError("container target not allowlisted")
         elif not authorization.human_confirmed:
             raise PermissionError("human confirmation required")
 

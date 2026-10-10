@@ -46,6 +46,7 @@ class ManagedInventoryTests(unittest.TestCase):
         host = self.make_host()
         self.assertEqual(host.allowed_controls, frozenset({"restart_service"}))
         self.assertEqual(host.allowed_services, frozenset({"docker"}))
+        self.assertEqual(host.allowed_containers, frozenset())
         self.assertNotIn("start_service", host.allowed_controls)
         self.assertNotIn("sshd", host.allowed_services)
 
@@ -61,6 +62,8 @@ class ManagedInventoryTests(unittest.TestCase):
             replace(self.make_host(), host_id="")
         with self.assertRaises(ValueError):
             replace(self.make_host(), allowed_services=frozenset({""}))
+        with self.assertRaises(ValueError):
+            replace(self.make_host(), allowed_containers=frozenset({""}))
 
 
 if __name__ == "__main__":

@@ -37,8 +37,9 @@ class ManagedControlTests(unittest.TestCase):
             host_id="x99", enrollment="MANAGED", user="deral", host="10.0.0.9",
             identity_file=Path("/keys/x99"), known_hosts_file=Path("/ssh/known_hosts"),
             platform=platform, allowed_reads=frozenset({"uptime"}),
-            allowed_controls=frozenset({"start_service", "stop_service", "restart_service", "reboot_host"}),
+            allowed_controls=frozenset({"start_service", "stop_service", "restart_service", "restart_container", "reboot_host"}),
             allowed_services=frozenset({"docker"}),
+            allowed_containers=frozenset({"atlas-worker"}),
         )
 
     def service(self, host=None, result=None, *, audit_fail=False):
@@ -87,6 +88,16 @@ class ManagedControlTests(unittest.TestCase):
         self.assertEqual(result["status"], "success")
         self.assertEqual(transport.calls[0][1], "systemctl restart docker")
         self.assertEqual([r.phase for r in audit.records], ["attempt", "result"])
+
+    def test_restart_container_requires_exact_allowlist_and_uses_fixed_docker_command(self):
+        service, transport, _ = self.service()
+        result = service.execute(self.auth(ManagedControlOperation.RESTART_CONTAINER, target="atlas-worker"))
+        self.assertEqual("success", result["status"])
+        self.assertEqual("docker restart atlas-worker", transport.calls[0][1])
+        blocked, blocked_transport, _ = self.service()
+        with self.assertRaises(PermissionError):
+            blocked.execute(self.auth(ManagedControlOperation.RESTART_CONTAINER, target="other-container"))
+        self.assertEqual([], blocked_transport.calls)
 
     def test_ssh_failure_is_audited_as_degraded(self):
         failed = SshResult(255, "", "denied", "ssh-failed")
