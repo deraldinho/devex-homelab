@@ -1,0 +1,14 @@
+[Unit]
+Description=Atlas private tunnel to x99 OpenCode
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ssh -N -T -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=3 -L 127.0.0.1:49375:127.0.0.1:49374 x99
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
