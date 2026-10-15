@@ -1,10 +1,12 @@
 """Authenticated OpenCode v2 HTTP transport; fail closed on ambiguous delivery."""
 import base64
 import json
+import hashlib
+from .opencode_session_ledger import SessionLedger
 from urllib import request,error
 
 class OpenCodeHTTPTransport:
-    def __init__(self, *, base_url, password, directory, opener=None, timeout=15):
+    def __init__(self, *, base_url, password, directory, opener=None, timeout=15, journal_path=None):
         if not base_url.startswith("http://127.0.0.1:") and not base_url.startswith("http://localhost:"):
             raise ValueError("OpenCode transport requires loopback")
         if not password or not directory:
@@ -14,6 +16,7 @@ class OpenCodeHTTPTransport:
         self.directory=directory
         self.opener=opener or request.urlopen
         self.timeout=timeout
+        self.ledger=SessionLedger(journal_path) if journal_path is not None else None
     def _call(self,path,payload=None):
         body=None if payload is None else json.dumps(payload).encode()
         req=request.Request(self.base+path,data=body,method="GET" if body is None else "POST",
@@ -22,6 +25,17 @@ class OpenCodeHTTPTransport:
             raw=response.read(2_000_000)
         return json.loads(raw)
     def __call__(self, *, model, prompt, context, max_tokens):
+        job=hashlib.sha256(json.dumps([model,prompt,context,max_tokens],sort_keys=True).encode()).hexdigest()
+        prior=self.ledger.read() if self.ledger else None
+        if prior:
+            if prior.get('job')!=job:
+                raise TimeoutError('another OpenCode job is unresolved')
+            if prior['state']=='completed':
+                return {'status':'ok','text':prior['text']}
+            if not prior.get('session_id'):
+                raise TimeoutError('session creation uncertain; manual reconciliation required')
+            return self.reconcile(prior['session_id'],job)
+        if self.ledger:self.ledger.save({'job':job,'state':'creating'})
         # Session creation may fail before a prompt was dispatched.
         try:
             obj=self._call("/api/session",{"title":"Atlas-Inference","agent":"plan",
@@ -34,8 +48,10 @@ class OpenCodeHTTPTransport:
         sid=obj.get("data",{}).get("id")
         if not isinstance(sid,str) or not sid:
             raise ConnectionError("OpenCode session outcome unknown")
+        if self.ledger:self.ledger.save({'job':job,'state':'created','session_id':sid})
         # Once a session exists, no retry is safe without reconciliation.
         try:
+            if self.ledger:self.ledger.save({'job':job,'state':'dispatch_uncertain','session_id':sid})
             self._call("/api/session/"+sid+"/prompt",{"text":prompt+"\n"+context})
             state=self._call("/api/session/"+sid).get("data",{})
             if state.get("outcome")!="succeeded":
@@ -43,6 +59,22 @@ class OpenCodeHTTPTransport:
             messages=self._call("/api/session/"+sid+"/message").get("data",[])
             text="\n".join(p.get("text","") for m in messages if m.get("type")=="assistant"
                 for p in m.get("content",[]) if p.get("type")=="text").strip()
+            if text and self.ledger:
+                self.ledger.save({'job':job,'state':'completed','session_id':sid,'text':text})
             return {"status":"ok","text":text} if text else {"status":"unknown"}
         except Exception as exc:
             raise TimeoutError("OpenCode dispatch outcome uncertain") from exc
+    def reconcile(self,sid,job):
+        """Read only. Never resend a prompt to an existing session."""
+        try:
+            state=self._call("/api/session/"+sid).get("data",{})
+            if state.get("outcome")!="succeeded":
+                raise TimeoutError("OpenCode session not reconciled")
+            messages=self._call("/api/session/"+sid+"/message").get("data",[])
+            text="\n".join(p.get("text","") for m in messages if m.get("type")=="assistant"
+                for p in m.get("content",[]) if p.get("type")=="text").strip()
+            if not text:raise TimeoutError("missing completed response")
+            if self.ledger:self.ledger.save({"job":job,"session_id":sid,"state":"completed","text":text})
+            return {"status":"ok","text":text}
+        except Exception as exc:
+            raise TimeoutError("OpenCode reconciliation inconclusive") from exc
