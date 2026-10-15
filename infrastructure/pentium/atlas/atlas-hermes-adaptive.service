@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/home/deraldinho
 Environment=PYTHONPATH=/home/deraldinho/.local/share/atlas-adaptive-router
-ExecStart=/home/deraldinho/.hermes/hermes-agent/venv/bin/python -m infrastructure.pentium.atlas.adaptive_hermes_order --apply --manifest /home/deraldinho/.local/share/atlas-adaptive-router/infrastructure/pentium/atlas/config_hermes_free_fallback_expansion_2026-10-15.json
+ExecStart=/home/deraldinho/.hermes/hermes-agent/venv/bin/python -m infrastructure.pentium.atlas.adaptive_hermes_order --apply --manifest /home/deraldinho/.local/share/atlas-adaptive-router/infrastructure/pentium/atlas/config_hermes_free_fallback_expansion_2026-10-15.json --atlas-discord-queue /home/deraldinho/pentium-agent/atlas/runtime/discord-action-queue.jsonl --atlas-report-state /home/deraldinho/pentium-agent/atlas/runtime/adaptive-model-report-state.json
 UMask=0077
 NoNewPrivileges=true
 TimeoutStartSec=65

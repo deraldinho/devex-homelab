@@ -127,6 +127,8 @@ def main():
     parser.add_argument("--health",type=Path,default=Path.home()/".local"/"state"/"atlas"/"model-health.sqlite3")
     parser.add_argument("--manifest",type=Path,required=True)
     parser.add_argument("--apply",action="store_true")
+    parser.add_argument("--atlas-discord-queue",type=Path)
+    parser.add_argument("--atlas-report-state",type=Path)
     args=parser.parse_args()
     manifest=json.loads(args.manifest.read_text(encoding="utf-8"))
     if manifest.get("schema_version")!=1:raise ValueError("invalid manifest")
@@ -145,6 +147,12 @@ def main():
     if new!=config and args.apply:
         backup=atomic_backup_and_write(args.config,new,expected_original=config)
         print("SAFE_BACKUP",backup.name)
+    if args.apply and args.atlas_discord_queue and args.atlas_report_state:
+        from .atlas_adaptive_discord_report import report
+        payload={"candidates":len(ordered),"catalog_nous":len(catalogs[0]),
+                 "catalog_nvidia":len(catalogs[1]),"changed":new!=config}
+        print("ATLAS_DISCORD_QUEUED",report(payload,queue_path=args.atlas_discord_queue,
+            state_path=args.atlas_report_state))
     return 0
 
 if __name__=="__main__":
