@@ -38,5 +38,9 @@ class LLMGateway:
         resultado = self._backend.inferir(solicitacao)
         if self._token_recorder is not None:
             output = resultado.texto or ""
-            self._token_recorder(self._estimate_tokens(payload) + self._estimate_tokens(output))
+            if resultado.tokens_input is not None and resultado.tokens_output is not None:
+                total=resultado.tokens_input+resultado.tokens_output+(resultado.tokens_cache_read or 0)
+            else:
+                total=self._estimate_tokens(payload)+self._estimate_tokens(output)
+            self._token_recorder(total)
         return resultado

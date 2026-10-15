@@ -3,6 +3,7 @@ import base64
 import json
 import hashlib
 from .opencode_session_ledger import SessionLedger
+from .opencode_usage import extract_usage
 from urllib import request,error,parse
 
 class OpenCodeHTTPTransport:
@@ -41,7 +42,7 @@ class OpenCodeHTTPTransport:
             if prior.get('job')!=job:
                 raise TimeoutError('another OpenCode job is unresolved')
             if prior['state']=='completed':
-                return {'status':'ok','text':prior['text']}
+                return {'status':'ok','text':prior['text'],'usage':prior.get('usage')}
             if not prior.get('session_id'):
                 recovered=self.find_created_session(prior,model,title)
                 if recovered is None:
@@ -73,9 +74,9 @@ class OpenCodeHTTPTransport:
             messages=self._call("/api/session/"+sid+"/message").get("data",[])
             text="\n".join(p.get("text","") for m in messages if m.get("type")=="assistant"
                 for p in m.get("content",[]) if p.get("type")=="text").strip()
-            if text and self.ledger:
-                self.ledger.save({'job':job,'state':'completed','session_id':sid,'text':text})
-            return {"status":"ok","text":text} if text else {"status":"unknown"}
+            if text:
+                return self.complete(job,sid,text,state)
+            return {'status':'unknown'}
         except Exception as exc:
             raise TimeoutError("OpenCode dispatch outcome uncertain") from exc
     def reconcile(self,sid,job):
@@ -88,8 +89,7 @@ class OpenCodeHTTPTransport:
             text="\n".join(p.get("text","") for m in messages if m.get("type")=="assistant"
                 for p in m.get("content",[]) if p.get("type")=="text").strip()
             if not text:raise TimeoutError("missing completed response")
-            if self.ledger:self.ledger.save({"job":job,"session_id":sid,"state":"completed","text":text})
-            return {"status":"ok","text":text}
+            return self.complete(job,sid,text,state)
         except Exception as exc:
             raise TimeoutError("OpenCode reconciliation inconclusive") from exc
     def find_created_session(self,record,model,title):
@@ -111,3 +111,9 @@ class OpenCodeHTTPTransport:
             and item["location"].get("directory")==self.directory
             and isinstance(item.get("id"),str) and item.get("id")]
         return matches[0]["id"] if len(matches)==1 else None
+    def complete(self,job,sid,text,state):
+        usage=extract_usage(state)
+        if self.ledger:
+            self.ledger.save({"job":job,"session_id":sid,"state":"completed",
+                              "text":text,"usage":usage})
+        return {"status":"ok","text":text,"usage":usage}

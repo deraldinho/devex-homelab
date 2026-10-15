@@ -1,6 +1,7 @@
 """Durable fail-closed session journal; one outstanding dispatch per job."""
 import json
 import os
+import sqlite3
 from pathlib import Path
 
 class SessionLedger:
@@ -23,15 +24,19 @@ class SessionLedger:
             os.fsync(output.fileno())
         os.replace(temp,self.path)
     def acquire(self):
-        """Exclusive cross-process lock; never steal a stale lock automatically."""
-        lock=self.path.with_suffix(self.path.suffix+".lock")
+        """Crash-safe cross-process lock released when SQLite connection closes."""
+        lock=self.path.with_suffix(self.path.suffix+".lock.sqlite3")
         lock.parent.mkdir(parents=True,exist_ok=True)
+        conn=sqlite3.connect(str(lock),timeout=0,isolation_level=None)
         try:
-            fd=os.open(lock,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
-        except FileExistsError as exc:
-            raise TimeoutError("session ledger locked: manual inspection required") from exc
-        os.close(fd)
-        return lock
+            conn.execute("BEGIN IMMEDIATE")
+        except sqlite3.OperationalError as exc:
+            conn.close()
+            raise TimeoutError("session journal busy; retry read-only later") from exc
+        return conn
     @staticmethod
-    def release(lock):
-        Path(lock).unlink()
+    def release(conn):
+        try:
+            conn.rollback()
+        finally:
+            conn.close()

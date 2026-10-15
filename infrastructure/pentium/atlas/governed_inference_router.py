@@ -25,8 +25,11 @@ class GovernedInferenceRouter:
             if self.telemetry is not None:
                 self.telemetry({"provider":offer.provider,"model":offer.model,
                     "duration_ms":result.duracao_ms,"success":result.sucesso,
-                    "tokens_input":None,"tokens_output":None,
-                    "tokens_source":"unavailable"})
+                    "tokens_input":result.tokens_input,
+                    "tokens_output":result.tokens_output,
+                    "tokens_cache_read":result.tokens_cache_read,
+                    "cost_usd":result.custo_usd,
+                    "tokens_source":"provider" if result.tokens_input is not None else "unavailable"})
             if result.sucesso:return result
             last=result
             if result.erro not in RETRYABLE:return result

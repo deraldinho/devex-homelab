@@ -13,9 +13,12 @@ class SessionLockTests(unittest.TestCase):
             a.release(held)
             second=b.acquire()
             b.release(second)
-    def test_crash_lock_fails_closed(self):
+    def test_closed_connection_releases_lock(self):
         with tempfile.TemporaryDirectory() as folder:
             a=SessionLedger(Path(folder)/"state.json")
-            a.acquire()
+            held=a.acquire()
             with self.assertRaises(TimeoutError):a.acquire()
+            held.close()  # simulates OS releasing lock after process termination
+            next_lock=a.acquire()
+            a.release(next_lock)
 if __name__=="__main__":unittest.main()

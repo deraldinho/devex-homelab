@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from math import isfinite
 
 
 class ErroInferencia(str, Enum):
@@ -46,6 +47,11 @@ class ResultadoInferencia:
     duracao_ms: int
     backend: str
     tokens_por_s: float | None = None
+    tokens_input: int | None = None
+    tokens_output: int | None = None
+    tokens_cache_read: int | None = None
+    custo_usd: float | None = None
+    session_id: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.sucesso, bool):
@@ -61,6 +67,13 @@ class ResultadoInferencia:
             if isinstance(self.tokens_por_s, bool) or not isinstance(self.tokens_por_s, (int, float)) or float(self.tokens_por_s) < 0:
                 raise ValueError("tokens_por_s deve ser numero >= 0")
             object.__setattr__(self, "tokens_por_s", float(self.tokens_por_s))
+        for field in ("tokens_input","tokens_output","tokens_cache_read"):
+            value=getattr(self,field)
+            if value is not None and (type(value) is not int or value<0):
+                raise ValueError(f"{field} must be nonnegative integer")
+        if self.custo_usd is not None:
+            if type(self.custo_usd) not in (int,float) or not isfinite(self.custo_usd) or self.custo_usd<0:
+                raise ValueError("invalid provider cost")
         if self.sucesso and self.erro is not None:
             raise ValueError("resultado bem sucedido nao pode conter erro")
         if not self.sucesso and self.erro is None:
