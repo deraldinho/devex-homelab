@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "validated_on": "2026-10-15",
+  "selection_policy": "Nous Portal free recommendations and NVIDIA NIM free prototype endpoints, with successful smoke requests. NVIDIA billing remains account-dependent.",
+  "nous_free": [
+    "upstage/solar-mini4:free",
+    "poolside/laguna-xs-2.1:free",
+    "stepfun/step-3.7-flash:free"
+  ],
+  "nvidia_free_prototype": [
+    "google/gemma-4-31b-it",
+    "openai/gpt-oss-20b",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "meta/muse-glimmer-30b",
+    "nvidia/nemotron-3-ultra-550b-a55b"
+  ],
+  "excluded_failed": [
+    "poolside/laguna-xs-2.1",
+    "z-ai/glm-5.3-flash",
+    "moonshotai/kimi-k3",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+  ]
+}
