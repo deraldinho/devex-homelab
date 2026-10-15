@@ -35,6 +35,7 @@ class OpenCodeHTTPTransport:
             self.ledger.release(lock)
     def _execute(self, *, model, prompt, context, max_tokens):
         job=hashlib.sha256(json.dumps([model,prompt,context,max_tokens],sort_keys=True).encode()).hexdigest()
+        title='Atlas-Inference-'+job[:24]
         prior=self.ledger.read() if self.ledger else None
         if prior:
             if prior.get('job')!=job:
@@ -42,12 +43,16 @@ class OpenCodeHTTPTransport:
             if prior['state']=='completed':
                 return {'status':'ok','text':prior['text']}
             if not prior.get('session_id'):
-                raise TimeoutError('session creation uncertain; manual reconciliation required')
+                recovered=self.find_created_session(prior,model,title)
+                if recovered is None:
+                    raise TimeoutError('session creation uncertain; no unique verified match')
+                self.ledger.save({'job':job,'title':title,'model':model,'state':'dispatch_uncertain','session_id':recovered})
+                return self.reconcile(recovered,job)
             return self.reconcile(prior['session_id'],job)
-        if self.ledger:self.ledger.save({'job':job,'state':'creating'})
+        if self.ledger:self.ledger.save({'job':job,'state':'creating','title':title,'model':model})
         # Session creation may fail before a prompt was dispatched.
         try:
-            obj=self._call("/api/session",{"title":"Atlas-Inference","agent":"plan",
+            obj=self._call("/api/session",{"title":title,"agent":"plan",
                 "model":{"providerID":"opencode","id":model,"variant":"default"},
                 "location":{"directory":self.directory}})
         except error.HTTPError as exc:
@@ -87,3 +92,22 @@ class OpenCodeHTTPTransport:
             return {"status":"ok","text":text}
         except Exception as exc:
             raise TimeoutError("OpenCode reconciliation inconclusive") from exc
+    def find_created_session(self,record,model,title):
+        """Read-only recovery for a uniquely identifiable created session."""
+        if record.get("state")!="creating" or record.get("title")!=title or record.get("model")!=model:
+            return None
+        try:
+            sessions=self._call("/api/session").get("data",[])
+        except Exception:
+            return None
+        if not isinstance(sessions,list):
+            return None
+        matches=[item for item in sessions if isinstance(item,dict)
+            and item.get("title")==title and item.get("agent")=="plan"
+            and isinstance(item.get("model"),dict)
+            and item["model"].get("providerID")=="opencode"
+            and item["model"].get("id")==model
+            and isinstance(item.get("location"),dict)
+            and item["location"].get("directory")==self.directory
+            and isinstance(item.get("id"),str) and item.get("id")]
+        return matches[0]["id"] if len(matches)==1 else None
