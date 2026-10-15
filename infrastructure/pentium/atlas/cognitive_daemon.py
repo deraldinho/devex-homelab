@@ -401,11 +401,13 @@ class CognitiveRuntimeOwner:
         self.memory_store.close()
 
 
-def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR):
+def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR,inference_backend_factory=None):
     config_root=Path(config_root);state_dir=Path(state_dir);cognitive=carregar_configuracao_cognitiva(config_root/"config_cognitiva.json");hermes=load_hermes_config(config_root/"config_hermes.json")
     governor=TokenBudgetGovernor(window_budget=120000)
     router=CognitiveRouter(governor)
-    backend=HermesAdapter(hermes)
+    backend=HermesAdapter(hermes) if inference_backend_factory is None else inference_backend_factory(hermes)
+    if not callable(getattr(backend, 'inferir', None)):
+        raise TypeError('inference backend must implement inferir')
     gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=hermes.max_context_tokens,reasoning_policy=ReasoningPolicy(),token_recorder=lambda total:governor.record(total,category="llm"))
     memory_cfg=load_memory_config(config_root/"config_memory.json");memory_store=MemoryStore(state_dir/"memory.sqlite3");retriever=MemoryRetriever(memory_store,max_items=memory_cfg.retriever_max_items,max_bytes=memory_cfg.retriever_max_bytes)
     workspace_root=AGENT_ROOT/"atlas-workspace"
