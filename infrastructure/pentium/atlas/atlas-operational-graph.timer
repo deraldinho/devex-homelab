@@ -1,0 +1,11 @@
+[Unit]
+Description=Sample Atlas temporal graph every minute (observation remains continuous)
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+Unit=atlas-operational-graph.service
+
+[Install]
+WantedBy=timers.target

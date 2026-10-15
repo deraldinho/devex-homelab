@@ -1,0 +1,12 @@
+[Unit]
+Description=Atlas temporal graph of operational evidence and synthetic affect state
+After=atlas-observation.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/deraldinho
+Environment=PYTHONPATH=/home/deraldinho/.local/share/atlas-operational-graph
+ExecStart=/home/deraldinho/.hermes/hermes-agent/venv/bin/python -m infrastructure.pentium.atlas.operational_graph_snapshot
+UMask=0077
+NoNewPrivileges=true
+TimeoutStartSec=25
