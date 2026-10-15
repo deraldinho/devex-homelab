@@ -3,12 +3,13 @@ import base64
 import json
 import hashlib
 from .opencode_session_ledger import SessionLedger
-from urllib import request,error
+from urllib import request,error,parse
 
 class OpenCodeHTTPTransport:
     def __init__(self, *, base_url, password, directory, opener=None, timeout=15, journal_path=None):
-        if not base_url.startswith("http://127.0.0.1:") and not base_url.startswith("http://localhost:"):
-            raise ValueError("OpenCode transport requires loopback")
+        target=parse.urlsplit(base_url)
+        if target.scheme!="http" or target.hostname not in ("127.0.0.1","localhost") or not target.port or target.username or target.password or target.path not in ("","/") or target.query or target.fragment:
+            raise ValueError("OpenCode transport requires strict loopback URL")
         if not password or not directory:
             raise ValueError("credentials and directory required")
         self.base=base_url.rstrip("/")
@@ -25,6 +26,14 @@ class OpenCodeHTTPTransport:
             raw=response.read(2_000_000)
         return json.loads(raw)
     def __call__(self, *, model, prompt, context, max_tokens):
+        if self.ledger is None:
+            return self._execute(model=model,prompt=prompt,context=context,max_tokens=max_tokens)
+        lock=self.ledger.acquire()
+        try:
+            return self._execute(model=model,prompt=prompt,context=context,max_tokens=max_tokens)
+        finally:
+            self.ledger.release(lock)
+    def _execute(self, *, model, prompt, context, max_tokens):
         job=hashlib.sha256(json.dumps([model,prompt,context,max_tokens],sort_keys=True).encode()).hexdigest()
         prior=self.ledger.read() if self.ledger else None
         if prior:
