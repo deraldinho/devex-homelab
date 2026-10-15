@@ -43,8 +43,12 @@ class OpenCodeInferenceAdapter:
         if price is not None and price>0:
             return ResultadoInferencia(False,None,ErroInferencia.LIMITE_EXCEDIDO,duration,
                                       "opencode",custo_usd=price,session_id=sid)
-        if status=="unavailable" and response.get("dispatched") is False:
-            return ResultadoInferencia(False,None,ErroInferencia.MODELO_INDISPONIVEL,duration,"opencode")
+        if status=="unavailable" and (response.get("dispatched") is False or
+                                      (response.get("terminal") is True and
+                                       response.get("retry_safe") is True)):
+            return ResultadoInferencia(False,None,ErroInferencia.MODELO_INDISPONIVEL,duration,
+                "opencode",tokens_input=counter("input"),tokens_output=counter("output"),
+                tokens_cache_read=counter("cache_read"),custo_usd=price,session_id=sid)
         if status=="ok" and isinstance(response.get("text"),str) and response["text"].strip():
             return ResultadoInferencia(True,response["text"],None,duration,"opencode",
                 tokens_input=counter("input"),tokens_output=counter("output"),

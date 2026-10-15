@@ -44,6 +44,10 @@ class OpenCodeHTTPTransport:
             if prior['state']=='completed':
                 return {'status':'ok','text':prior['text'],'usage':prior.get('usage'),
                         'session_id':prior.get('session_id')}
+            if prior['state']=='failed':
+                return {'status':'unavailable','dispatched':True,'terminal':True,
+                        'retry_safe':True,'usage':prior.get('usage'),
+                        'session_id':prior.get('session_id')}
             if not prior.get('session_id'):
                 recovered=self.find_created_session(prior,model,title)
                 if recovered is None:
@@ -71,6 +75,8 @@ class OpenCodeHTTPTransport:
             self._call("/api/session/"+sid+"/prompt",{"text":prompt+"\n"+context})
             state=self._call("/api/session/"+sid).get("data",{})
             if state.get("outcome")!="succeeded":
+                known=self.terminal_failure(sid,job,state)
+                if known:return known
                 raise TimeoutError("OpenCode session pending or unsuccessful")
             messages=self._call("/api/session/"+sid+"/message").get("data",[])
             text="\n".join(p.get("text","") for m in messages if m.get("type")=="assistant"
@@ -85,6 +91,8 @@ class OpenCodeHTTPTransport:
         try:
             state=self._call("/api/session/"+sid).get("data",{})
             if state.get("outcome")!="succeeded":
+                known=self.terminal_failure(sid,job,state)
+                if known:return known
                 raise TimeoutError("OpenCode session not reconciled")
             messages=self._call("/api/session/"+sid+"/message").get("data",[])
             text="\n".join(p.get("text","") for m in messages if m.get("type")=="assistant"
@@ -118,3 +126,35 @@ class OpenCodeHTTPTransport:
             self.ledger.save({"job":job,"session_id":sid,"state":"completed",
                               "text":text,"usage":usage})
         return {"status":"ok","text":text,"usage":usage,"session_id":sid}
+    def terminal_failure(self,sid,job,state):
+        """Only terminal, zero-cost quota/provider failures permit free fallback."""
+        if not isinstance(state,dict) or state.get("outcome")!="failed":
+            return None
+        cost=state.get("cost")
+        if type(cost) not in (int,float) or cost!=0:
+            return None
+        try:
+            messages=self._call("/api/session/"+sid+"/message").get("data",[])
+        except Exception:
+            return None
+        if not isinstance(messages,list):
+            return None
+        safe=False
+        for msg in messages:
+            if not isinstance(msg,dict):continue
+            error=msg.get("error")
+            if not isinstance(error,dict):continue
+            try:
+                status=int(error.get("status"))
+            except (TypeError,ValueError):
+                continue
+            if status in (429,502,503,504):
+                safe=True
+                break
+        if not safe:return None
+        usage=extract_usage(state)
+        if self.ledger:
+            self.ledger.save({"job":job,"session_id":sid,"state":"failed",
+                              "usage":usage})
+        return {"status":"unavailable","dispatched":True,"terminal":True,
+                "retry_safe":True,"session_id":sid,"usage":usage}

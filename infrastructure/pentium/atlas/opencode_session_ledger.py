@@ -10,7 +10,7 @@ class SessionLedger:
     def read(self):
         try:
             value=json.loads(self.path.read_text(encoding="utf-8"))
-            if value.get("state") not in ("creating","created","dispatch_uncertain","completed"):
+            if value.get("state") not in ("creating","created","dispatch_uncertain","completed","failed"):
                 raise ValueError("invalid journal")
             return value
         except FileNotFoundError:
