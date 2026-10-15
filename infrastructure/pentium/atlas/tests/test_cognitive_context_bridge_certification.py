@@ -61,3 +61,27 @@ class CognitiveContextBridgeCertificationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CognitiveContextBridgeVoiceEnabledCertificationTest(unittest.TestCase):
+    def test_accepts_active_enabled_voice_when_expected(self):
+        base = CognitiveContextBridgeCertificationTest().good(
+            voice_service_state="active",
+            voice_service_enabled="enabled",
+        )
+        evidence = CognitiveContextBridgePhysicalEvidence(
+            **{**base.__dict__, "voice_expected_active": True}
+        )
+        result = certify_cognitive_context_bridge(evidence)
+        self.assertTrue(result.physical_pass)
+        self.assertEqual((), result.failures)
+
+    def test_rejects_inactive_voice_when_active_is_expected(self):
+        base = CognitiveContextBridgeCertificationTest().good()
+        evidence = CognitiveContextBridgePhysicalEvidence(
+            **{**base.__dict__, "voice_expected_active": True}
+        )
+        result = certify_cognitive_context_bridge(evidence)
+        self.assertFalse(result.physical_pass)
+        self.assertIn("voice_service_not_active", result.failures)
+        self.assertIn("voice_service_not_enabled", result.failures)

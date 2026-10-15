@@ -169,6 +169,8 @@ for file in \
   utterance_capture.py \
   streaming_vad.py \
   whisper_stt.py \
+  voice_health.py \
+  voice_activation_preflight.py \
   voice_runtime.py \
   chat_cli.py \
   energy_vad.py \
@@ -326,6 +328,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/utterance_capture.py" \
   "${TARGET_DIR}/streaming_vad.py" \
   "${TARGET_DIR}/whisper_stt.py" \
+  "${TARGET_DIR}/voice_health.py" \
+  "${TARGET_DIR}/voice_activation_preflight.py" \
   "${TARGET_DIR}/voice_runtime.py" \
   "${TARGET_DIR}/chat_cli.py" \
   "${TARGET_DIR}/energy_vad.py" \
