@@ -1,0 +1,12 @@
+[Unit]
+Description=Revalidate Atlas free-model fallback catalog every six hours
+
+[Timer]
+OnBootSec=10min
+OnUnitInactiveSec=6h
+RandomizedDelaySec=10min
+Persistent=true
+Unit=atlas-hermes-adaptive.service
+
+[Install]
+WantedBy=timers.target

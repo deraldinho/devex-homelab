@@ -6,7 +6,7 @@ from .opencode_session_pool import OpenCodeSessionPool
 
 def make_opencode_backend_factory(*, offers, authorized, base_url, password,
                                   directory, journal_dir, telemetry=None,
-                                  opener=None, timeout=15):
+                                  adaptive_health=None, opener=None, timeout=15):
     """Returns a build_owner-compatible factory; never changes Hermes by default."""
     offers=tuple(offers)
     authorized=frozenset(authorized)
@@ -31,5 +31,5 @@ def make_opencode_backend_factory(*, offers, authorized, base_url, password,
     }
     def factory(_hermes_config):
         return GovernedInferenceRouter(offers=offers,authorized=valid,backends=backends,
-                                       telemetry=telemetry)
+                                       telemetry=telemetry,adaptive_health=adaptive_health)
     return factory

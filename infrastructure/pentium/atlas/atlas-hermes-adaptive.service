@@ -1,0 +1,13 @@
+[Unit]
+Description=Atlas adaptive free-model fallback ordering (Nous + NVIDIA)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/deraldinho
+Environment=PYTHONPATH=/home/deraldinho/.local/share/atlas-adaptive-router
+ExecStart=/home/deraldinho/.hermes/hermes-agent/venv/bin/python -m infrastructure.pentium.atlas.adaptive_hermes_order --apply --manifest /home/deraldinho/.local/share/atlas-adaptive-router/infrastructure/pentium/atlas/config_hermes_free_fallback_expansion_2026-10-15.json
+UMask=0077
+NoNewPrivileges=true
+TimeoutStartSec=65

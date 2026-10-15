@@ -5,13 +5,19 @@ from .modelo_llm_gateway import ErroInferencia, ResultadoInferencia
 
 RETRYABLE=frozenset({ErroInferencia.BACKEND_INDISPONIVEL, ErroInferencia.MODELO_INDISPONIVEL})
 class GovernedInferenceRouter:
-    def __init__(self, *, offers, authorized, backends, telemetry=None):
+    def __init__(self, *, offers, authorized, backends, telemetry=None, adaptive_health=None):
         self.offers=tuple(offers)
         self.authorized=frozenset(authorized)
         self.backends=dict(backends)
         self.telemetry=telemetry
+        self.adaptive_health=adaptive_health
     def inferir(self, request):
         order=select_free_models(self.offers,task=request.tarefa,authorized=self.authorized)
+        if self.adaptive_health is not None:
+            try:
+                order=self.adaptive_health.rank(order,task=request.tarefa)
+            except (OSError,ValueError,TypeError):
+                pass  # Noncritical telemetry cannot stop safe, zero-price routing.
         if not order:
             return ResultadoInferencia(False,None,ErroInferencia.MODELO_INDISPONIVEL,0,"free-router")
         last=None
@@ -22,6 +28,11 @@ class GovernedInferenceRouter:
                 continue
             # Never replay after exceptions: dispatch may have happened.
             result=backend.inferir(request)
+            if self.adaptive_health is not None:
+                try:
+                    self.adaptive_health.observe_result(offer,result)
+                except (OSError,ValueError,TypeError):
+                    pass  # Preserve the inference result if the health store fails.
             if self.telemetry is not None:
                 self.telemetry({"provider":offer.provider,"model":offer.model,
                     "duration_ms":result.duracao_ms,"success":result.sucesso,

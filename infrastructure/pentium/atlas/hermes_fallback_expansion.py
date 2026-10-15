@@ -62,12 +62,14 @@ def replace_fallback_yaml(original, entries):
             raise ValueError("unrelated Hermes settings changed")
     return transformed
 
-def atomic_backup_and_write(filename, new_text):
+def atomic_backup_and_write(filename, new_text, *, expected_original=None):
     """Back up full original locally with mode 0600; never emit backup content."""
     import datetime
     path=Path(filename)
     if not path.is_file() or path.is_symlink():raise ValueError("configuration is not a regular file")
     original=path.read_bytes()
+    if expected_original is not None and original!=expected_original.encode('utf-8'):
+        raise RuntimeError('Hermes config changed while planning: refusing to overwrite')
     stamp=datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backups=path.parent/"backups"
     backups.mkdir(mode=0o700,parents=True,exist_ok=True)

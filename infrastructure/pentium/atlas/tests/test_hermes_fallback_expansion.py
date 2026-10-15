@@ -53,6 +53,13 @@ class FallbackExpansionTests(unittest.TestCase):
             self.assertEqual(backup.read_text(encoding='utf-8'),YAML)
             self.assertIn('# extra',config.read_text(encoding='utf-8'))
             self.assertNotEqual(config,backup)
+    def test_rejects_concurrent_hermes_change(self):
+        with tempfile.TemporaryDirectory() as folder:
+            config=Path(folder)/'config.yaml'
+            config.write_text(YAML+'\n# operator change\n',encoding='utf-8')
+            with self.assertRaises(RuntimeError):
+                atomic_backup_and_write(config,YAML,expected_original=YAML)
+            self.assertIn('# operator change',config.read_text(encoding='utf-8'))
     def test_does_not_modify_unrelated_top_level(self):
         new=extend_fallbacks(OLD,["upstage/solar-mini4:free"],[])
         t=replace_fallback_yaml(YAML,new)
