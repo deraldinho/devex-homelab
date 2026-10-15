@@ -29,6 +29,7 @@ class GovernedInferenceRouter:
                     "tokens_output":result.tokens_output,
                     "tokens_cache_read":result.tokens_cache_read,
                     "cost_usd":result.custo_usd,
+                    "session_id":result.session_id,
                     "tokens_source":"provider" if result.tokens_input is not None else "unavailable"})
             if result.sucesso:return result
             last=result

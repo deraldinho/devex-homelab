@@ -42,7 +42,8 @@ class OpenCodeHTTPTransport:
             if prior.get('job')!=job:
                 raise TimeoutError('another OpenCode job is unresolved')
             if prior['state']=='completed':
-                return {'status':'ok','text':prior['text'],'usage':prior.get('usage')}
+                return {'status':'ok','text':prior['text'],'usage':prior.get('usage'),
+                        'session_id':prior.get('session_id')}
             if not prior.get('session_id'):
                 recovered=self.find_created_session(prior,model,title)
                 if recovered is None:
@@ -116,4 +117,4 @@ class OpenCodeHTTPTransport:
         if self.ledger:
             self.ledger.save({"job":job,"session_id":sid,"state":"completed",
                               "text":text,"usage":usage})
-        return {"status":"ok","text":text,"usage":usage}
+        return {"status":"ok","text":text,"usage":usage,"session_id":sid}
