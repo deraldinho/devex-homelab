@@ -109,6 +109,7 @@ class MultiHostCapabilityExecutor:
         verifier: Callable[[str, str, dict[str, object], dict[str, object]], bool],
         confirmation_checker: Callable[[str, dict[str, object], object, object], bool] = lambda *_: False,
         on_executed=None,
+        on_command_succeeded=None,
     ):
         self._local_executor = local_executor
         self._managed_control = managed_control
@@ -116,6 +117,18 @@ class MultiHostCapabilityExecutor:
         self._verifier = verifier
         self._confirmation_checker = confirmation_checker
         self._on_executed = on_executed
+        self._on_command_succeeded = on_command_succeeded
+        self.last_receipt_error = None
+
+    def _command_success_observed(self, capability, arguments, result):
+        # External receipt observability cannot alter a completed managed
+        # command or its existing functional verification semantics.
+        if self._on_command_succeeded is not None:
+            try:
+                self._on_command_succeeded(capability, dict(arguments), dict(result))
+                self.last_receipt_error = None
+            except Exception as exc:
+                self.last_receipt_error = type(exc).__name__
 
     @staticmethod
     def _target(capability: str, arguments: dict[str, object]) -> str | None:
@@ -171,6 +184,7 @@ class MultiHostCapabilityExecutor:
                 "operation": capability,
                 "target": str(arguments.get("service") or ""),
             }
+            self._command_success_observed(capability, arguments, result)
             return self._verified(host, capability, arguments, result)
 
         self._inventory.require_managed(host)
@@ -200,4 +214,5 @@ class MultiHostCapabilityExecutor:
         )
         if str(result.get("status") or "") != "success":
             raise RuntimeError("managed_control_failed")
+        self._command_success_observed(capability, arguments, dict(result))
         return self._verified(host, capability, arguments, dict(result))

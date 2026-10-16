@@ -415,6 +415,23 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR,inference_backe
         backend, state_dir/"failure-memory.sqlite3",
         max_payload_bytes=cognitive.contexto.max_payload_bytes,
     )
+    executor_receipt_store = None
+    executor_receipt_sink = None
+    if os.environ.get("ATLAS_SENTRY_V2_EXECUTOR_ENABLED") == "1":
+        # The control boundary, not an LLM response, creates attestations.
+        # The independent health supervisor has a different private key.
+        from .failure_memory import FailureMemory
+        from .sentry_receipt_v2 import build_executor_receipt_sink
+        receipt_memory = sentry_store
+        if receipt_memory is None:
+            executor_receipt_store = FailureMemory(state_dir/"failure-memory.sqlite3")
+            receipt_memory = executor_receipt_store
+        try:
+            executor_receipt_sink = build_executor_receipt_sink(state_dir, receipt_memory)
+        except Exception:
+            if executor_receipt_store is not None:
+                executor_receipt_store.close()
+            raise
     gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=hermes.max_context_tokens,reasoning_policy=ReasoningPolicy(),token_recorder=lambda total:governor.record(total,category="llm"))
     memory_cfg=load_memory_config(config_root/"config_memory.json");memory_store=MemoryStore(state_dir/"memory.sqlite3");retriever=MemoryRetriever(memory_store,max_items=memory_cfg.retriever_max_items,max_bytes=memory_cfg.retriever_max_bytes)
     workspace_root=AGENT_ROOT/"atlas-workspace"
@@ -464,6 +481,7 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR,inference_backe
             poll_interval_s=0.5,
         ),
         on_executed=capabilities.registrar_execucao,
+        on_command_succeeded=executor_receipt_sink,
     )
     workspace_executor=WorkspaceCapabilityExecutor(workspace_broker,searcher=workspace_retriever,indexer=workspace_index,self_work=self_work)
     discord_executor=DiscordCapabilityExecutor(state_dir/"discord-action-queue.jsonl")
@@ -478,7 +496,7 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR,inference_backe
     health=WorkspaceEconomyPublisher(state_dir/"workspace-economy-health.json")
     deps={"broker":workspace_broker,"governor":governor,"router":router,"self_work":self_work,"expected_sha":expected_sha}
     return CognitiveRuntimeOwner(daemon,memory_store,health_publisher=health,health_dependencies=deps,closeables=tuple(
-        item for item in (workspace_index,workspace_cache,sentry_store)
+        item for item in (workspace_index,workspace_cache,sentry_store,executor_receipt_store)
         if item is not None
     ))
 

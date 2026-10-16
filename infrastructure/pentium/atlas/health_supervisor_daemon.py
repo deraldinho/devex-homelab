@@ -113,6 +113,7 @@ class HealthSupervisorOwner:
         now=lambda: datetime.now(timezone.utc),
         sleeper=time.sleep,
         failure_memory=None,
+        recovery_receipt_sink=None,
     ):
         self.supervisor = supervisor
         self.publisher = publisher
@@ -124,6 +125,8 @@ class HealthSupervisorOwner:
         self.sleeper = sleeper
         # Opt-in observer only. No model/tool dispatch or automatic learning.
         self.failure_memory = failure_memory
+        self.recovery_receipt_sink = recovery_receipt_sink
+        self.last_receipt_error: str | None = None
         self.last_failure_memory_error: str | None = None
 
     def close(self) -> None:
@@ -201,6 +204,14 @@ class HealthSupervisorOwner:
             )
 
         snapshot = self.supervisor.evaluate(tuple(components), now.isoformat())
+        if self.recovery_receipt_sink is not None:
+            try:
+                # Only an independent health service signs genuinely evaluated
+                # healthy samples; unique evidence refs then enter FailureMemory.
+                snapshot = self.recovery_receipt_sink.annotate(snapshot)
+                self.last_receipt_error = None
+            except Exception as exc:
+                self.last_receipt_error = type(exc).__name__
         self.publisher.publish(snapshot)
         if self.failure_memory is not None:
             try:
@@ -307,12 +318,23 @@ def build_owner(
     if os.environ.get("ATLAS_SENTRY_HEALTH_SHADOW") == "1":
         from .failure_memory import FailureMemory
         failure_memory = FailureMemory(state_dir / "failure-memory.sqlite3")
+    receipt_sink = None
+    if os.environ.get("ATLAS_SENTRY_V2_HEALTH_ENABLED") == "1":
+        try:
+            # Optional cryptography dependency is loaded only for P3 canaries.
+            from .sentry_receipt_v2 import build_health_receipt_sink
+            receipt_sink = build_health_receipt_sink(state_dir, failure_memory)
+        except Exception:
+            if failure_memory is not None:
+                failure_memory.close()
+            raise
     return HealthSupervisorOwner(
         AtlasHealthSupervisor(),
         publisher,
         tuple(bundles),
         poll_interval_s=config["poll_interval_s"],
         failure_memory=failure_memory,
+        recovery_receipt_sink=receipt_sink,
     )
 
 
