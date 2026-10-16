@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .chat_inbox import ChatInbox
 from .config_discord import DiscordConfig, load_discord_config
+from .discord_notification_format import format_atlas_alert
 
 ROOT=Path(__file__).resolve().parent
 STATE_DIR=Path.home()/"pentium-agent"/"atlas"/"runtime"
@@ -926,7 +927,9 @@ async def _run_discord_client(config: DiscordConfig, token: str, *, state_dir: P
                                     target = args.get("channel") or config.alert_channel_id
                                     msg_txt = str(args.get("message") or "")
                                     ch = _resolve_channel(guild, str(target)) if guild else None
-                                    if ch: await ch.send(f"🚨 **[ALERTA HERMES]** {msg_txt}")
+                                    if ch:
+                                        await ch.send(format_atlas_alert(msg_txt,narrated_by=args.get("narrated_by")))
+                                        print("ATLAS_DISCORD_ALERT_DELIVERED",flush=True)
 
                                 elif cap == "discord_create_note":
                                     content = str(args.get("content") or "")

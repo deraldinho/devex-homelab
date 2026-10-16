@@ -149,10 +149,16 @@ def main():
         print("SAFE_BACKUP",backup.name)
     if args.apply and args.atlas_discord_queue and args.atlas_report_state:
         from .atlas_adaptive_discord_report import report
+        from .atlas_natural_narrator import AtlasNaturalNarrator, NarrationUnavailable
         payload={"candidates":len(ordered),"catalog_nous":len(catalogs[0]),
                  "catalog_nvidia":len(catalogs[1]),"changed":new!=config}
-        print("ATLAS_DISCORD_QUEUED",report(payload,queue_path=args.atlas_discord_queue,
-            state_path=args.atlas_report_state))
+        try:
+            print("ATLAS_DISCORD_QUEUED",report(payload,queue_path=args.atlas_discord_queue,
+                state_path=args.atlas_report_state,
+                narrator=AtlasNaturalNarrator(runtime_dir=args.atlas_discord_queue.parent)))
+        except NarrationUnavailable as exc:
+            print("ATLAS_NARRATION_PENDING",str(exc))  # No ungrounded alert is sent.
+            return 3
     return 0
 
 if __name__=="__main__":

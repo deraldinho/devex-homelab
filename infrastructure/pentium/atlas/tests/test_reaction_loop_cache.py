@@ -66,7 +66,10 @@ class ReactionLoopCacheTests(unittest.TestCase):
         loop = ReactionLoopCognitivo(FakePolicy(MotivoAtivacaoCognitiva.REFLEXAO_PERIODICA), FakeBuilder(), gateway, cognitive_cache=CacheFailure())
         resposta = self.processar(loop, "2026-09-05T21:00:00+00:00")
         self.assertEqual(1, gateway.calls)
-        self.assertIn('"texto":"ok"', resposta.texto)
+        # CP26 hardening: never echo the raw LLM envelope on a cache miss.
+        self.assertEqual("ok", resposta.texto)
+        self.assertIsNone(resposta.intencao)
+        self.assertFalse(resposta.intencao_autorizada)
 
 
 if __name__ == "__main__":

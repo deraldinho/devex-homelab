@@ -23,16 +23,21 @@ def compose(result, *, now, previous=None):
         msg=f"Atlas • monitoramento: {count} fallbacks; catálogos Nous {nous}, NVIDIA {nvidia}; nenhuma reordenação necessária."
     return msg,signature
 
-def report(result,*,queue_path,state_path,now=None):
+def report(result,*,queue_path,state_path,narrator,now=None):
     now=float(time.time() if now is None else now)
     queue=Path(queue_path);state=Path(state_path)
     previous=json.loads(state.read_text()) if state.is_file() else {}
     message,signature=compose(result,now=now,previous=previous)
     if message is None:return False
+    # NEVER send the old deterministic text directly to Discord.
+    # LLM failure leaves the state untouched so the next tick can retry.
+    if narrator is None or not callable(getattr(narrator,'narrate',None)):
+        raise RuntimeError('llm_narrator_required')
+    natural_message=narrator.narrate(result)
     # Native Atlas gateway reads this same newline-delimited action queue.
     queue.parent.mkdir(parents=True,exist_ok=True)
     action={"id":"atlas-adaptive-"+str(int(now*1000)),"capability":"discord_send_alert",
-        "arguments":{"channel":"","message":message},"enqueued_at":now}
+        "arguments":{"channel":"","message":natural_message, "narrated_by":"atlas_llm"}, "enqueued_at":now}
     with queue.open("a",encoding="utf-8") as f:
         f.write(json.dumps(action,ensure_ascii=False)+"\n")
         f.flush();os.fsync(f.fileno())

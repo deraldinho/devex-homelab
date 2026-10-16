@@ -335,17 +335,16 @@ class BridgeTests(unittest.TestCase):
 
         Symlinks should be rejected even when the symlink target exists.
         """
-        import os
-        # Create a symlink inside the project pointing outside
-        outside_dir = self.root / "outside_dir"
-        outside_dir.mkdir(exist_ok=True)
+        # Simulate the filesystem's symlink metadata without requiring
+        # Windows Developer Mode or SeCreateSymbolicLinkPrivilege.
         symlink_path = self.root / "symlink_artifact.txt"
-        try:
-            os.symlink(str(outside_dir / "nonexistent.txt"), str(symlink_path))
-        except OSError:
-            # Symlink creation may fail; in that case, skip the symlink test
-            self.skipTest("Symlink creation not supported on this platform; "
-                          "but the code has the symlink guard in _is_safe_in_repo_regular_file")
+        symlink_path.write_text("regular target used to test symlink guard", encoding="utf-8")
+        original_is_symlink = Path.is_symlink
+
+        def simulated_symlink(path):
+            if path == symlink_path:
+                return True
+            return original_is_symlink(path)
         # Inbox task with required-artifacts manifest declaring the symlink
         task_file = self.base / "inbox" / (self.tid + ".md")
         task_file.write_text(
@@ -375,18 +374,11 @@ class BridgeTests(unittest.TestCase):
         client.post = write_report_during_prompt
         runner = ApiRunner(client=client, root=self.root, task_id=self.tid,
                            timeout_seconds=30, model="nemotron-3.5-lightning-free")
-        status = runner.run()
+        with patch.object(Path, "is_symlink", autospec=True, side_effect=simulated_symlink):
+            status = runner.run()
         # Symlink -> invalid_report
         self.assertIn("invalid_report", status["state"])
-        # Clean up the symlink and temp dir
-        try:
-            symlink_path.unlink()
-        except OSError:
-            pass
-        try:
-            outside_dir.rmdir()
-        except OSError:
-            pass
+        symlink_path.unlink()
 
     def test_negative_explicit_manifest_enforced(self):
         """When manifest declares valid paths, verification passes if paths exist.
@@ -493,23 +485,21 @@ class BridgeTests(unittest.TestCase):
         self.assertFalse(_is_safe_in_repo_regular_file("nonexistent.txt", self.root))
 
     def test_is_safe_in_repo_regular_file_symlink(self):
-        """Symlinks are not considered safe regular files."""
-        import tempfile, os
-        tmp = tempfile.mkdtemp()
-        root = Path(tmp)
-        target = root / "target.txt"
-        target.write_text("x")
-        link = root / "link.txt"
-        try:
-            os.symlink(str(target), str(link))
-        except OSError:
-            self.skipTest("Symlink not supported")
-        self.assertFalse(_is_safe_in_repo_regular_file("link.txt", root))
-        os.unlink(link)
-        try:
-            os.rmdir(tmp)
-        except OSError:
-            pass
+        """Reject symlinks deterministically without OS symlink privileges."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            link = root / "link.txt"
+            link.write_text("exists", encoding="utf-8")
+            original_is_symlink = Path.is_symlink
+
+            def simulated_symlink(path):
+                if path == link:
+                    return True
+                return original_is_symlink(path)
+
+            with patch.object(Path, "is_symlink", autospec=True, side_effect=simulated_symlink):
+                self.assertFalse(_is_safe_in_repo_regular_file("link.txt", root))
 
     def test_parse_manifest_no_block(self):
         """Tasks without ```required-artifacts``` return no manifest."""

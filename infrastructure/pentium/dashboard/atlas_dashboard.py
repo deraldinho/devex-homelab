@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from ipaddress import ip_address
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -89,10 +90,35 @@ class Handler(BaseHTTPRequestHandler):
     def _method_not_allowed(self) -> None:
         self._send(405, "application/json; charset=utf-8", b'{"error":"method_not_allowed"}')
 
+    def _chat_peer_authorized(self) -> bool:
+        # Only local processes / encrypted SSH forward can submit chat.
+        # Do not trust X-Forwarded-For or Origin from anonymous LAN clients.
+        try:
+            address = ip_address(self.client_address[0])
+        except (ValueError, IndexError, TypeError, AttributeError):
+            return False
+        if getattr(address, 'ipv4_mapped', None):
+            return False
+        if address.is_loopback:
+            return True
+        # SSH -L to a LAN-bound listener on Pentium uses the host LAN
+        # address as TCP source, verified via `ip route get <bind_host>`.
+        # A remote LAN peer cannot establish a TCP connection using the
+        # server's own local address unless the host/network is compromised.
+        try:
+            bound = ip_address(self.server.server_address[0])
+        except (ValueError, IndexError, TypeError, AttributeError):
+            return False
+        return address == bound and not bound.is_unspecified
+
     def do_POST(self) -> None:
         request_path=urlsplit(self.path).path
         if request_path!="/api/chat":
             self._method_not_allowed(); return
+        if not self._chat_peer_authorized():
+            self._send(403, "application/json; charset=utf-8",
+                       b'{"error":"chat_requires_local_ssh_tunnel"}')
+            return
         if self.headers.get("Content-Type","").split(";",1)[0].strip().lower()!="application/json":
             self._send(415,"application/json; charset=utf-8",b'{"error":"unsupported_media_type"}'); return
         try: length=int(self.headers.get("Content-Length","0"))

@@ -5,6 +5,7 @@ from typing import Any, Callable, Mapping
 
 from .modelo_contexto_cognitivo import MotivoAtivacaoCognitiva
 from .saida_cognitiva import parse_resposta_llm
+from .conversational_fallback import safe_natural_reply
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,38 @@ class ReactionLoopCognitivo:
 
         motivo = decisao.motivo
         dados_builder = dict(dados_contexto)
+        # O fingerprint pode ser somente um UUID de estimulo. Para interacoes
+        # humanas, pesquisar memoria pelo texto efetivo melhora o recall.
+        # Aceitar apenas mensagens de fontes human.* (nao logs/telemetria).
+        consulta = fingerprint
+        if motivo is MotivoAtivacaoCognitiva.INTERACAO_HUMANA:
+            mensagem = dados_builder.get("mensagem_usuario")
+            if not isinstance(mensagem, str):
+                mensagem = ""
+            if not mensagem.strip():
+                recentes = dados_builder.get("mudancas_recentes")
+                if isinstance(recentes, (list, tuple)):
+                    for evento in reversed(recentes[-16:]):
+                        # Estimulos reais chegam como objeto de dados (Stimulus),
+                        # nao como Mapping; aceitar os dois formatos preserva a
+                        # busca de memoria pelo texto efetivo do operador.
+                        if isinstance(evento, Mapping):
+                            source = evento.get("source", "")
+                            payload = evento.get("payload")
+                        else:
+                            source = getattr(evento, "source", "")
+                            payload = getattr(evento, "payload", None)
+                        if not str(source).startswith("human."):
+                            continue
+                        if not isinstance(payload, Mapping):
+                            continue
+                        candidate = payload.get("text") or payload.get("message")
+                        if isinstance(candidate, str) and candidate.strip():
+                            mensagem = candidate
+                            break
+            if mensagem.strip():
+                consulta = mensagem.strip()[:512]
+        termos_busca = (consulta, motivo.value if motivo is not None else "")
         memorias_relevantes = ()
         if self._memory_retriever is not None:
             incidente = dados_builder.get("incidente")
@@ -56,7 +89,7 @@ class ReactionLoopCognitivo:
             try:
                 memorias_relevantes = self._memory_retriever.retrieve(
                     entity_id=entidade_id,
-                    query_terms=(fingerprint, motivo.value if motivo is not None else ""),
+                    query_terms=termos_busca,
                 )
             except Exception:
                 memorias_relevantes = ()
@@ -64,7 +97,7 @@ class ReactionLoopCognitivo:
         workspace_relevante = ()
         if self._workspace_retriever is not None:
             try:
-                query = " ".join(part for part in (fingerprint, motivo.value if motivo is not None else "") if part)
+                query = " ".join(part for part in termos_busca if part)
                 workspace_relevante = self._workspace_retriever.retrieve(query, max_items=4, max_bytes=2048)
             except Exception:
                 workspace_relevante = ()
@@ -119,16 +152,46 @@ class ReactionLoopCognitivo:
                 pass
 
         if self._capability_policy is None:
-            return RespostaCognitiva(
-                True,
-                motivo.value if motivo is not None else None,
-                resultado.texto,
-                None,
-                resultado.backend,
-                resultado.duracao_ms,
-            )
+            # Missing capability policy means there is NO action authority.
+            # Never echo structured action directives into presentation.
+            if estruturada is not None and estruturada.intencao is not None:
+                return RespostaCognitiva(
+                    True, motivo.value if motivo is not None else None,
+                    None, "capability_policy_unavailable",
+                    resultado.backend, resultado.duracao_ms,
+                )
+            if estruturada is None:
+                # Compatibility: older read-only narrator sessions have no
+                # capability policy and may produce prose. Validate it with
+                # the same bounded conversational filter instead of echoing
+                # arbitrary instructions, credentials or markup.
+                natural = safe_natural_reply(resultado.texto)
+                if natural is None:
+                    return RespostaCognitiva(
+                        True, motivo.value if motivo is not None else None,
+                        None, "saida_llm_invalida",
+                        resultado.backend, resultado.duracao_ms,
+                    )
+                return RespostaCognitiva(
+                    True, motivo.value if motivo is not None else None,
+                    natural, None, resultado.backend, resultado.duracao_ms,
+                    resumo="resposta_natural_sem_intencao",
+                    intencao=None, parametros_intencao={},
+                    requer_confirmacao=False, intencao_autorizada=False,
+                )
 
         if estruturada is None:
+            # Plain LLM prose may answer a HUMAN; it may NEVER authorize an action.
+            # System incidents and self-work remain strict structured JSON only.
+            natural = (safe_natural_reply(resultado.texto)
+                       if motivo is MotivoAtivacaoCognitiva.INTERACAO_HUMANA else None)
+            if natural is not None:
+                return RespostaCognitiva(
+                    True, motivo.value, natural, None, resultado.backend,
+                    resultado.duracao_ms, resumo="resposta_natural_sem_intencao",
+                    intencao=None, parametros_intencao={}, requer_confirmacao=False,
+                    intencao_autorizada=False,
+                )
             return RespostaCognitiva(
                 True,
                 motivo.value if motivo is not None else None,

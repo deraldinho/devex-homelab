@@ -370,8 +370,16 @@ def _is_safe_in_repo_regular_file(path_str: str, project_root: Path) -> bool:
       • the file exists and is a regular file (not a symlink)
     """
     try:
-        # Build the full path relative to project root
-        full = (project_root / path_str).resolve()
+        # Check every lexical component before resolve(), which follows symlinks.
+        relative = Path(path_str)
+        if relative.is_absolute() or ".." in relative.parts:
+            return False
+        lexical = project_root
+        for component in relative.parts:
+            lexical = lexical / component
+            if lexical.is_symlink():
+                return False
+        full = lexical.resolve()
         proj = project_root.resolve()
         # Must be under project root
         full_str = str(full)
