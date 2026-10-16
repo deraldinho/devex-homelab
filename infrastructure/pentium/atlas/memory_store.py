@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
+from datetime import datetime, timezone
 from dataclasses import replace
 from pathlib import Path
 
@@ -80,6 +82,21 @@ class MemoryStore:
             self._ensure_v3_schema()
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_mem_layer_entity ON memories(layer, entity_id)")
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_mem_dedupe ON memories(dedupe_key)")
+        # Operational receipts are deliberately NOT cognitive MemoryRecord entries.
+        # Additive compatible table: v1/v2/v3 databases remain readable.
+        self._db.execute("""
+            CREATE TABLE IF NOT EXISTS agency_failure_receipts (
+                event_id TEXT PRIMARY KEY,
+                schema_version INTEGER NOT NULL CHECK(schema_version=1),
+                task_id TEXT NOT NULL,
+                project TEXT NOT NULL,
+                reason_code TEXT NOT NULL,
+                attempt INTEGER NOT NULL CHECK(attempt > 0),
+                created_at TEXT NOT NULL
+            )
+        """)
+        self._db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agency_failure_task ON agency_failure_receipts(task_id,created_at)")
         # CP-MEM-P1: signed ingress attestations (additive, never cognitive
         # MemoryRecord entries) and separately stored operator instructions.
         self._db.execute("""
@@ -533,6 +550,107 @@ class MemoryStore:
             if rec and rec not in results:
                 results.append(rec)
         return tuple(results)
+
+    def record_agency_failure_receipt(
+        self, *, event_id: str, task_id: str, project: str,
+        reason_code: str, attempt: int, created_at: str,
+    ) -> bool:
+        """Persist only code-derived failure metadata; never prompts or exception bodies.
+
+        True means inserted. Exact replay is False; conflicting replay raises.
+        Intentionally separate from memories/episodic evidence and LLM retrieval.
+        """
+        identifier = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")
+        project_pattern = re.compile(r"[a-z0-9][a-z0-9-]{0,79}")
+        if (not isinstance(event_id, str) or not identifier.fullmatch(event_id)
+                or not isinstance(task_id, str) or not identifier.fullmatch(task_id)
+                or not isinstance(project, str) or not project_pattern.fullmatch(project)):
+            raise ValueError("failure_receipt_identifier_invalid")
+        if (task_id.lower().startswith(("ghp_", "github_pat_", "sk-", "nvapi-"))
+                or event_id.lower().startswith(("ghp_", "github_pat_", "sk-", "nvapi-"))):
+            raise ValueError("failure_receipt_secret_identifier")
+        if reason_code not in {"worker_unavailable", "invalid_worker_result"}:
+            raise ValueError("failure_receipt_reason_invalid")
+        if type(attempt) is not int or not 1 <= attempt <= 10000:
+            raise ValueError("failure_receipt_attempt_invalid")
+        if not isinstance(created_at, str):
+            raise ValueError("failure_receipt_timestamp_invalid")
+        try:
+            dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            if dt.tzinfo is None or dt.utcoffset() is None:
+                raise ValueError("failure_receipt_timezone_required")
+            at = dt.astimezone(timezone.utc).isoformat()
+        except (TypeError, ValueError) as exc:
+            raise ValueError("failure_receipt_timestamp_invalid") from exc
+        value = (event_id, 1, task_id, project, reason_code, attempt, at)
+        try:
+            with self._db:
+                cursor = self._db.execute(
+                    """INSERT OR IGNORE INTO agency_failure_receipts
+                    (event_id,schema_version,task_id,project,reason_code,attempt,created_at)
+                    VALUES (?,?,?,?,?,?,?)""", value)
+                if cursor.rowcount:
+                    return True
+                existing = self._db.execute(
+                    """SELECT event_id,schema_version,task_id,project,reason_code,attempt,created_at
+                    FROM agency_failure_receipts WHERE event_id=?""",
+                    (event_id,),
+                ).fetchone()
+                if tuple(existing or ()) != value:
+                    raise MemoryStoreError("failure_receipt_conflicting_replay")
+                return False
+        except sqlite3.Error as exc:
+            raise MemoryStoreError("failure_receipt_storage_unavailable") from exc
+
+    def list_agency_failure_receipts(
+        self, *, task_id: str | None = None, limit: int = 100,
+    ) -> tuple[dict[str, object], ...]:
+        """Operational diagnostics only: never included in cognitive retrieval."""
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("failure_receipt_limit_invalid")
+        if task_id is not None and (not isinstance(task_id, str)
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", task_id)):
+            raise ValueError("failure_receipt_task_id_invalid")
+        where = " WHERE task_id=?" if task_id is not None else ""
+        args = (task_id, limit) if task_id is not None else (limit,)
+        try:
+            rows = self._db.execute(
+                """SELECT event_id,schema_version,task_id,project,reason_code,attempt,created_at
+                   FROM agency_failure_receipts""" + where + " ORDER BY created_at DESC,event_id LIMIT ?",
+                args,
+            ).fetchall()
+        except sqlite3.Error as exc:
+            raise MemoryStoreError("failure_receipt_read_unavailable") from exc
+        keys = ("event_id", "schema_version", "task_id", "project",
+                "reason_code", "attempt", "created_at")
+        return tuple(dict(zip(keys, row)) for row in rows)
+
+    def prune_agency_failure_receipts(
+        self, *, before_utc: str, max_delete: int = 1000,
+    ) -> int:
+        """Explicit bounded retention. No automatic deletion of audit evidence."""
+        if type(max_delete) is not int or not 1 <= max_delete <= 1000:
+            raise ValueError("failure_receipt_prune_limit_invalid")
+        if not isinstance(before_utc, str):
+            raise ValueError("failure_receipt_retention_date_invalid")
+        try:
+            instant = datetime.fromisoformat(before_utc.replace("Z", "+00:00"))
+            if instant.tzinfo is None or instant.utcoffset() is None:
+                raise ValueError("timezone_required")
+            cutoff = instant.astimezone(timezone.utc).isoformat()
+        except ValueError as exc:
+            raise ValueError("failure_receipt_retention_date_invalid") from exc
+        try:
+            with self._db:
+                deleted = self._db.execute(
+                    """DELETE FROM agency_failure_receipts WHERE event_id IN
+                       (SELECT event_id FROM agency_failure_receipts
+                        WHERE created_at < ? ORDER BY created_at,event_id LIMIT ?)""",
+                    (cutoff, max_delete),
+                )
+                return deleted.rowcount
+        except sqlite3.Error as exc:
+            raise MemoryStoreError("failure_receipt_prune_unavailable") from exc
 
     def save_attestation(self, attestation: MemoryAttestation) -> bool:
         """Persist a signed ingress attestation, keyed by its subject memory.

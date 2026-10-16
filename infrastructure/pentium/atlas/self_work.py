@@ -17,6 +17,7 @@ class SelfWorkState(str, Enum):
     ABANDONED = "ABANDONED"
     EXPIRED = "EXPIRED"
     BLOCKED = "BLOCKED"
+    RECOVERING = "RECOVERING"
 
 
 def _utc(value: str) -> datetime:
@@ -177,3 +178,45 @@ class SelfWorkRuntime:
 
     def abandon(self, *, now: str, reason: str) -> SelfWorkItem:
         return self._transition(SelfWorkState.ABANDONED, now=now, terminal=True, reason=reason)
+
+    def recover(self, *, now: str) -> SelfWorkItem:
+        """Transition from WORKING or RECOVERING to RECOVERING state for failed task recovery.
+
+        This allows a previously failed task to be marked for recovery/retry.
+        After recovering, the task can be transitioned back to WORKING for a retry
+        via begin_retry(), or re-recovered if still in RECOVERING state.
+        """
+        current = self._require_current()
+        if current.state not in {
+            SelfWorkState.WORKING,
+            SelfWorkState.RECOVERING,
+        }:
+            raise RuntimeError("self_work_not_working")
+        return self._transition(SelfWorkState.RECOVERING, now=now)
+
+    def begin_retry(self, *, now: str) -> SelfWorkItem:
+        """Transition from RECOVERING state back to WORKING for a retry.
+
+        Called after a task has been marked for recovery to restart the work.
+        """
+        current = self._require_current()
+        if current.state is not SelfWorkState.RECOVERING:
+            raise RuntimeError("self_work_not_recovering")
+        if _utc(now) > _utc(current.valid_until):
+            return self._transition(SelfWorkState.EXPIRED, now=now, terminal=True, reason="ttl_expired")
+        return self._transition(SelfWorkState.WORKING, now=now)
+
+    def snapshot(self) -> dict[str, object]:
+        """Return a snapshot of the runtime state for telemetry/observability."""
+        current = self._current
+        if current is None:
+            return {"state": None, "item_id": None}
+        return {
+            "state": current.state,
+            "item_id": current.item_id,
+            "objective": current.objective,
+            "area": current.area,
+            "operations_used": current.operations_used,
+            "inferences_used": current.inferences_used,
+            "valid_until": current.valid_until,
+        }
