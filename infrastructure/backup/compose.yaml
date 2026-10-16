@@ -1,16 +1,29 @@
+# Declarative, default-deny Restic packaging.
+# IMPORTANT: not deployed. Do not configure credentials or start services here.
 services:
   restic-backup:
-    image: restic/restic:0.17.3
+    image: devex/homelab-restic-backup:dr11
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: homelab-backup
     restart: "no"
+    read_only: true
+    user: "65534:65534"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m
     environment:
-      - RESTIC_REPOSITORY=${RESTIC_REPOSITORY:-/repo}
+      - RESTIC_REPOSITORY=${RESTIC_REPOSITORY:?Set an approved Restic repository}
       - RESTIC_PASSWORD_FILE=/run/secrets/restic_password
-      - HOMELAB_NODE=${HOMELAB_NODE:-pentium}
+      - HOMELAB_NODE=${HOMELAB_NODE:?Set node identity}
+      - HOMELAB_STATE_DIR=/state
     volumes:
-      - ${BACKUP_SOURCE_DIR:-/state}:/data:ro
-      - ${BACKUP_REPO_DIR:-/var/backups/homelab}:/repo
-      - ${RESTIC_PASSWORD_FILE:-./secrets/restic_password}:/run/secrets/restic_password:ro
+      - ${BACKUP_SOURCE_DIR:?Set an approved source path}:/data:ro
+      - ${BACKUP_REPO_DIR:?Set an approved local repo path}:/repo
+      - ${BACKUP_STATUS_DIR:?Set a writable status directory}:/state
+      - ${RESTIC_PASSWORD_FILE:?Set existing password-file path}:/run/secrets/restic_password:ro
     entrypoint: ["/bin/sh", "/scripts/restic-backup.sh"]
-    volumes_from: []
-    extra_hosts: []

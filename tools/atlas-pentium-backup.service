@@ -1,0 +1,11 @@
+[Unit]
+Description=Atlas Pentium encrypted Restic backup
+ConditionPathExists=%h/.local/share/atlas-backup/backup.sh
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash %h/.local/share/atlas-backup/backup.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStartSec=2h

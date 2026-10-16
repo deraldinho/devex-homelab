@@ -17,7 +17,9 @@ class BackupContractTests(unittest.TestCase):
         compose_path = BACKUP_DIR / "compose.yaml"
         self.assertTrue(compose_path.is_file(), "compose.yaml de backup deve existir")
         content = compose_path.read_text(encoding="utf-8")
-        self.assertIn("restic/restic", content)
+        dockerfile = (BACKUP_DIR / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("restic/restic:0.17.3@", dockerfile)
+        self.assertIn("build:", content)
         self.assertIn(":ro", content, "Fonte de dados deve ser montada como read-only")
         self.assertIn("RESTIC_PASSWORD_FILE", content)
 
@@ -43,7 +45,10 @@ class BackupContractTests(unittest.TestCase):
     def test_backup_script_includes_transactional_sqlite_hook(self):
         backup_content = (BACKUP_DIR / "restIC-backup.sh".lower()).read_text(encoding="utf-8")
         self.assertIn(".backup", backup_content, "Deve conter pré-hook de backup transacional SQLite")
-        self.assertIn("unlock", backup_content, "Deve tentar auto-unlock preventivo")
+        self.assertNotIn('"${RESTIC_BIN}" unlock', backup_content, "Nunca liberar locks automaticamente")
+        self.assertNotIn('"${RESTIC_BIN}" init', backup_content, "Nunca inicializar repo em caso de erro")
+        self.assertNotIn('|| cp -f', backup_content, "Nunca usar copia comum para SQLite inconsistente")
+        self.assertIn("sqlite_snapshot.py", backup_content)
         self.assertIn("backup_status.json", backup_content, "Deve emitir status para o heartbeat")
 
 

@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/bin/bash /opt/homelab/backup/restic-backup.sh
-EnvironmentFile=-/etc/homelab/backup.env
+EnvironmentFile=/etc/homelab/backup.env
 NoNewPrivileges=true
 PrivateTmp=true
 
