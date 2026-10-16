@@ -1,0 +1,38 @@
+# CP-SENTRY-P4 operator-installed SYSTEM unit; not installed/enabled automatically.
+# Requires dedicated atlas-sentry-health account + atlas-sentry-relay group.
+# The executor must be a different UID and only have socket-group access.
+[Unit]
+Description=Atlas Sentry Ed25519 receipt relay (local-only, peer credentials)
+After=local-fs.target
+ConditionPathExists=/etc/atlas-sentry/relay.env
+
+[Service]
+Type=simple
+User=atlas-sentry-health
+Group=atlas-sentry-health
+SupplementaryGroups=atlas-sentry-relay
+WorkingDirectory=/opt/DevEx-HomeLab
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/atlas-sentry/relay.env
+ExecStart=/usr/bin/python3 -m tools.atlas_sentry_v2_relay
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/run/atlas-sentry-relay /var/lib/atlas-sentry-health
+CapabilityBoundingSet=
+AmbientCapabilities=
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

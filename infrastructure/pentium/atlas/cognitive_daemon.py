@@ -423,7 +423,11 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR,inference_backe
         from .failure_memory import FailureMemory
         from .sentry_receipt_v2 import build_executor_receipt_sink
         receipt_memory = sentry_store
-        if receipt_memory is None:
+        if os.environ.get("ATLAS_SENTRY_V2_TRANSPORT") == "unix":
+            # P4 uses supervisor-signed read-only incident manifest.
+            # Never grant executor write access to the supervisor's SQLite.
+            receipt_memory = None
+        elif receipt_memory is None:
             executor_receipt_store = FailureMemory(state_dir/"failure-memory.sqlite3")
             receipt_memory = executor_receipt_store
         try:

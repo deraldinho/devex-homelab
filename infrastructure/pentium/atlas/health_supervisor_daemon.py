@@ -217,6 +217,14 @@ class HealthSupervisorOwner:
             try:
                 self.failure_memory.observe_snapshot(snapshot)
                 self.last_failure_memory_error = None
+                if self.recovery_receipt_sink is not None:
+                    try:
+                        # Signed projection of OPEN incidents for separate
+                        # executor principal; no writable SQLite access there.
+                        self.recovery_receipt_sink.publish_manifest(snapshot.generated_at)
+                        self.last_receipt_error = None
+                    except Exception as exc:
+                        self.last_receipt_error = type(exc).__name__
             except Exception as exc:
                 # Isolate the advisory store; preserve the core health report.
                 # Do not emit incident descriptions/credentials to process logs.

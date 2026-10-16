@@ -107,6 +107,12 @@ class Ed25519ReceiptSigner:
     def public_key(self):
         return self.__private_key.public_key()
 
+    def sign_blob(self, payload: bytes) -> bytes:
+        # Only the independent health publisher signs the bounded manifest.
+        if self.role != "health_probe" or type(payload) is not bytes or len(payload)>8192:
+            raise ReceiptV2Error("manifest_signing_forbidden")
+        return self.__private_key.sign(payload)
+
     def sign(self,*,incident_id,component,host,action_id,event_at,operation,status,
              authorized,evidence_ref):
         body={
@@ -320,6 +326,11 @@ class HealthReceiptSink:
             raise ValueError("health_signer_required")
         self.signer=signer;self.actions=action_spool;self.probes=probe_spool
         self.verifier=verifier;self.memory=memory
+        self.incident_publisher=None
+
+    def publish_manifest(self, at):
+        if self.incident_publisher is not None:
+            self.incident_publisher.publish(self.memory,at)
 
     def annotate(self,snapshot:SupervisorSnapshot):
         if not isinstance(snapshot,SupervisorSnapshot):
@@ -391,8 +402,12 @@ def load_public_key_from_file(path):
     path=Path(path)
     if not path.is_absolute() or path.is_symlink() or not path.is_file():
         raise ReceiptV2Error("public_key_file_not_trusted")
-    if path.stat().st_size > 8192:
+    metadata=path.stat()
+    if metadata.st_size > 8192:
         raise ReceiptV2Error("public_key_file_oversized")
+    if os.name=="posix" and (metadata.st_uid not in (0,os.geteuid())
+                            or metadata.st_mode & 0o022):
+        raise ReceiptV2Error("public_key_owner_or_mode_untrusted")
     try:
         key=load_pem_public_key(path.read_bytes())
     except (ValueError,TypeError) as exc:
@@ -407,16 +422,32 @@ def build_executor_receipt_sink(state_dir, memory, *, environ=None):
     env=os.environ if environ is None else environ
     if env.get("ATLAS_SENTRY_V2_EXECUTOR_ENABLED") != "1":
         return None
-    if memory is None:
-        raise ReceiptV2Error("sentry_memory_required")
     signer=load_signer_from_file(
         env["ATLAS_SENTRY_V2_EXECUTOR_PRIVATE_KEY_FILE"],
         role="executor",key_id=env["ATLAS_SENTRY_V2_EXECUTOR_KEY_ID"],
     )
-    return ExecutorReceiptSink(
-        signer,SignedReceiptSpool(Path(state_dir)/"sentry-v2-actions.jsonl"),
-        memory,
-    )
+    if env.get("ATLAS_SENTRY_V2_TRANSPORT") == "unix":
+        from .sentry_receipt_relay import UnixReceiptClient
+        from .sentry_incident_manifest import ReadOnlyIncidentManifest
+        # The executor must NOT open the supervisor's writable FailureMemory.
+        memory=ReadOnlyIncidentManifest(
+            Path(env["ATLAS_SENTRY_V2_INCIDENT_MANIFEST_FILE"]),
+            load_public_key_from_file(env["ATLAS_SENTRY_V2_HEALTH_PUBLIC_KEY_FILE"]),
+            key_id=env["ATLAS_SENTRY_V2_HEALTH_KEY_ID"],
+            owner_uid=int(env["ATLAS_SENTRY_V2_HEALTH_UID"]),
+            group_gid=int(env["ATLAS_SENTRY_V2_RELAY_GROUP_GID"]),
+        )
+        journal=UnixReceiptClient(
+            Path(env["ATLAS_SENTRY_V2_RELAY_SOCKET"]),
+            trusted_uid=int(env["ATLAS_SENTRY_V2_HEALTH_UID"]),
+            trusted_gid=int(env["ATLAS_SENTRY_V2_RELAY_GROUP_GID"]),
+        )
+    else:
+        if memory is None:
+            raise ReceiptV2Error("sentry_memory_required")
+        # P3 same-UID compatibility, not approved for cross-principal production.
+        journal=SignedReceiptSpool(Path(state_dir)/"sentry-v2-actions.jsonl")
+    return ExecutorReceiptSink(signer,journal,memory)
 
 
 def build_health_receipt_sink(state_dir, memory, *, environ=None):
@@ -430,16 +461,75 @@ def build_health_receipt_sink(state_dir, memory, *, environ=None):
         env["ATLAS_SENTRY_V2_HEALTH_PRIVATE_KEY_FILE"],
         role="health_probe",key_id=env["ATLAS_SENTRY_V2_HEALTH_KEY_ID"],
     )
-    action_public=load_public_key_from_file(
-        env["ATLAS_SENTRY_V2_EXECUTOR_PUBLIC_KEY_FILE"]
-    )
+    if env.get("ATLAS_SENTRY_V2_TRUST_KEYRING_FILE"):
+        roots=load_public_key_ring(env["ATLAS_SENTRY_V2_TRUST_KEYRING_FILE"])
+        expected=roots["health_probe"].get(signer.key_id)
+        if expected is None or expected.public_bytes(Encoding.Raw,PublicFormat.Raw) != (
+            signer.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+        ):
+            raise ReceiptV2Error("health_signer_not_in_trust_bundle")
+    else:
+        action_public=load_public_key_from_file(
+            env["ATLAS_SENTRY_V2_EXECUTOR_PUBLIC_KEY_FILE"]
+        )
+        roots={
+            "executor":{env["ATLAS_SENTRY_V2_EXECUTOR_KEY_ID"]:action_public},
+            "health_probe":{signer.key_id:signer.public_key()},
+        }
     verifier=Ed25519RecoveryVerifier(
-        {"executor":{env["ATLAS_SENTRY_V2_EXECUTOR_KEY_ID"]:action_public},
-         "health_probe":{signer.key_id:signer.public_key()}},
-        trusted_host="pentium",
+        roots,trusted_host="pentium",
     )
-    return HealthReceiptSink(
-        signer,SignedReceiptSpool(Path(state_dir)/"sentry-v2-actions.jsonl"),
-        SignedReceiptSpool(Path(state_dir)/"sentry-v2-probes.jsonl"),
-        verifier,memory,
-    )
+    if env.get("ATLAS_SENTRY_V2_TRANSPORT") == "unix":
+        from .sentry_receipt_relay import RotatingReceiptJournal
+        # Relay-owned action log must be read-only to the health principal.
+        action_journal=RotatingReceiptJournal(
+            Path(env["ATLAS_SENTRY_V2_RELAY_ACTION_JOURNAL"]))
+        probe_journal=RotatingReceiptJournal(
+            Path(env["ATLAS_SENTRY_V2_HEALTH_PROBE_JOURNAL"]))
+    else:
+        action_journal=SignedReceiptSpool(Path(state_dir)/"sentry-v2-actions.jsonl")
+        probe_journal=SignedReceiptSpool(Path(state_dir)/"sentry-v2-probes.jsonl")
+    sink=HealthReceiptSink(signer,action_journal,probe_journal,verifier,memory)
+    if env.get("ATLAS_SENTRY_V2_TRANSPORT") == "unix":
+        from .sentry_incident_manifest import SignedIncidentPublisher
+        sink.incident_publisher=SignedIncidentPublisher(
+            Path(env["ATLAS_SENTRY_V2_INCIDENT_MANIFEST_FILE"]),signer,
+            group_gid=int(env["ATLAS_SENTRY_V2_RELAY_GROUP_GID"]),
+        )
+    return sink
+
+
+def load_public_key_ring(path):
+    """Root/health-owned 0600 JSON trust bundle, max 3 keys per issuer.
+
+    Rotation: publish new+old public keys, restart relay and health, switch
+    signing key, then revoke old keys after all pending evidence expires.
+    Private key material is never accepted in this trust bundle.
+    """
+    path=Path(path)
+    if not path.is_absolute() or path.is_symlink() or not path.is_file():
+        raise ReceiptV2Error("trust_bundle_not_trusted")
+    s=path.stat()
+    if s.st_size>4096 or (os.name=="posix" and
+        (s.st_uid!=os.geteuid() or s.st_mode&0o077)):
+        raise ReceiptV2Error("trust_bundle_permissions_invalid")
+    try:
+        body=json.loads(path.read_text(encoding="utf-8"))
+    except (OSError,UnicodeError,ValueError) as exc:
+        raise ReceiptV2Error("trust_bundle_invalid_json") from exc
+    if (type(body) is not dict or set(body)!=
+        {"version","executor","health_probe"} or body["version"]!=1):
+        raise ReceiptV2Error("trust_bundle_schema_invalid")
+    roots={}
+    for role in ("executor","health_probe"):
+        ring=body[role]
+        if type(ring) is not dict or not 1<=len(ring)<=3:
+            raise ReceiptV2Error("trust_bundle_role_invalid")
+        roots[role]={}
+        for key_id,filename in ring.items():
+            if not _valid_id(key_id):
+                raise ReceiptV2Error("trust_bundle_key_id_invalid")
+            roots[role][key_id]=load_public_key_from_file(filename)
+    # Verify role uniqueness with the same policy used at ingestion.
+    Ed25519RecoveryVerifier(roots,trusted_host="pentium")
+    return roots
