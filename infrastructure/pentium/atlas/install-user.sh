@@ -117,6 +117,8 @@ for file in \
   capability_dispatch.py \
   workspace_health.py \
   workspace_certification.py \
+  operational_graph_llm_context.py \
+  web_research_policy.py \
   cognitive_daemon.py \
   behavior_selector.py \
   continuous_intent.py \
@@ -132,6 +134,7 @@ for file in \
   chat_inbox.py \
   config_discord.py \
   discord_gateway.py \
+  discord_notification_format.py \
   notification_policy.py \
   modelo_contexto_cognitivo.py \
   configuracao_cognitiva.py \
@@ -145,6 +148,8 @@ for file in \
   llm_gateway.py \
   prompt_cognitivo.py \
   reaction_loop_cognitivo.py \
+  conversational_fallback.py \
+  atlas_natural_narrator.py \
   reasoning_policy.py \
   capability_registry.py \
   policy_capabilities.py \
@@ -159,10 +164,14 @@ for file in \
   c5_physical_campaign.py \
   c5_observation_probe.py \
   memory_model.py \
+  memory_ingress.py \
+  memory_coherence_gate.py \
+  memory_action_gate.py \
   memory_store.py \
   memory_manager.py \
   memory_retriever.py \
   memory_graph.py \
+  memory_graph_v2_contracts.py \
   memory_project_adapter.py \
   memory_preference_tracker.py \
   config_memory.py \
@@ -196,6 +205,10 @@ for file in \
   discord_capability_executor.py \
   l2j_observation.py \
   git_capability_executor.py \
+  agency_specialists.py \
+  agency_specialist_selector.py \
+  agency_receipt_ledger.py \
+  agency_worker_cli.py \
   task_store.py \
   task_capability_executor.py \
   notification_policy.py \
@@ -219,7 +232,7 @@ for file in \
 done
 
 
-for config in config.json observation_config.json config_health_supervisor.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_affective_runtime.json config_observation_affective.json config_cognitiva.json config_hermes.json config_memory.json config_cache.json config_fast_router.json config_voice.json config_github.json config_discord.json; do
+for config in config.json observation_config.json config_health_supervisor.json config_afetiva.json config_percepcao.json config_foco_emocao.json config_affective_runtime.json config_observation_affective.json config_cognitiva.json config_hermes.json config_memory.json config_cache.json config_fast_router.json config_voice.json config_github.json config_discord.json config_agency_specialists.json; do
   install -m 0644 "${SOURCE_DIR}/${config}" "${TARGET_DIR}/${config}"
 done
 
@@ -320,6 +333,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/capability_dispatch.py" \
   "${TARGET_DIR}/workspace_health.py" \
   "${TARGET_DIR}/workspace_certification.py" \
+  "${TARGET_DIR}/operational_graph_llm_context.py" \
+  "${TARGET_DIR}/web_research_policy.py" \
   "${TARGET_DIR}/cognitive_daemon.py" \
   "${TARGET_DIR}/behavior_selector.py" \
   "${TARGET_DIR}/continuous_intent.py" \
@@ -335,6 +350,7 @@ python3 -m py_compile \
   "${TARGET_DIR}/chat_inbox.py" \
   "${TARGET_DIR}/config_discord.py" \
   "${TARGET_DIR}/discord_gateway.py" \
+  "${TARGET_DIR}/discord_notification_format.py" \
   "${TARGET_DIR}/discord_capability_executor.py" \
   "${TARGET_DIR}/notification_policy.py" \
   "${TARGET_DIR}/modelo_contexto_cognitivo.py" \
@@ -349,6 +365,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/llm_gateway.py" \
   "${TARGET_DIR}/prompt_cognitivo.py" \
   "${TARGET_DIR}/reaction_loop_cognitivo.py" \
+  "${TARGET_DIR}/conversational_fallback.py" \
+  "${TARGET_DIR}/atlas_natural_narrator.py" \
   "${TARGET_DIR}/reasoning_policy.py" \
   "${TARGET_DIR}/capability_registry.py" \
   "${TARGET_DIR}/policy_capabilities.py" \
@@ -363,10 +381,14 @@ python3 -m py_compile \
   "${TARGET_DIR}/c5_physical_campaign.py" \
   "${TARGET_DIR}/c5_observation_probe.py" \
   "${TARGET_DIR}/memory_model.py" \
+  "${TARGET_DIR}/memory_ingress.py" \
+  "${TARGET_DIR}/memory_coherence_gate.py" \
+  "${TARGET_DIR}/memory_action_gate.py" \
   "${TARGET_DIR}/memory_store.py" \
   "${TARGET_DIR}/memory_manager.py" \
   "${TARGET_DIR}/memory_retriever.py" \
   "${TARGET_DIR}/memory_graph.py" \
+  "${TARGET_DIR}/memory_graph_v2_contracts.py" \
   "${TARGET_DIR}/memory_project_adapter.py" \
   "${TARGET_DIR}/memory_preference_tracker.py" \
   "${TARGET_DIR}/proprioception/__init__.py" \
@@ -404,6 +426,10 @@ python3 -m py_compile \
   "${TARGET_DIR}/voice_daemon.py" \
   "${TARGET_DIR}/l2j_observation.py" \
   "${TARGET_DIR}/git_capability_executor.py" \
+  "${TARGET_DIR}/agency_specialists.py" \
+  "${TARGET_DIR}/agency_specialist_selector.py" \
+  "${TARGET_DIR}/agency_receipt_ledger.py" \
+  "${TARGET_DIR}/agency_worker_cli.py" \
   "${TARGET_DIR}/task_store.py" \
   "${TARGET_DIR}/task_capability_executor.py" \
   "${TARGET_DIR}/cli.py"
