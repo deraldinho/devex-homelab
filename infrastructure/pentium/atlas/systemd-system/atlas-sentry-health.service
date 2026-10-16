@@ -1,0 +1,41 @@
+# CP-SENTRY-P5 PREPARED ONLY, not enabled or installed automatically.
+# Dedicated principal must have read-only access to required probe sources.
+# Do not enable receipt signing until process/functional probes work from
+# THIS user (systemctl --user of deraldinho is NOT automatically accessible).
+[Unit]
+Description=Atlas independent health supervisor (P5 gated)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/atlas-sentry/health.env
+
+[Service]
+Type=simple
+User=atlas-sentry-health
+Group=atlas-sentry-health
+SupplementaryGroups=atlas-sentry-relay
+WorkingDirectory=/opt/DevEx-HomeLab/infrastructure/pentium
+Environment=HOME=/var/lib/atlas-sentry-health
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/atlas-sentry/health.env
+ExecStart=/usr/bin/python3 -m atlas.health_supervisor_daemon
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+StateDirectory=atlas-sentry-health
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/atlas-sentry-health
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
