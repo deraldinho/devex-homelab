@@ -5,6 +5,7 @@ import re
 from typing import Any
 
 from .memory_model import MemoryRecord
+from .memory_coherence_gate import memory_kind
 from .memory_store import MemoryStore
 
 
@@ -21,6 +22,7 @@ class MemoryRetriever:
         *,
         graph: Any | None = None,
         preference_tracker: Any | None = None,
+        ingress: Any | None = None,
         max_items: int = 6,
         max_bytes: int = 2048,
     ):
@@ -29,6 +31,7 @@ class MemoryRetriever:
         self._store = store
         self._graph = graph
         self._preference_tracker = preference_tracker
+        self._ingress = ingress
         self._max_items = max_items
         self._max_bytes = max_bytes
 
@@ -191,6 +194,21 @@ class MemoryRetriever:
                 "confidence": item.confidence,
                 "frequency": item.frequency,
             }
+            # Typed memories may describe instructions, but never grant
+            # authority: they remain untrusted context for the LLM.
+            attested = False
+            if self._ingress is not None:
+                attestation = self._store.get_attestation(item.memory_id)
+                if attestation is not None:
+                    verdict = self._ingress.verify(item, attestation)
+                    attested = True
+                    reduced["authority"] = "evidence_only"
+                    reduced["integrity"] = "attested" if verdict.allowed else "tampered"
+                    reduced["memory_kind"] = (verdict.kind if verdict.allowed
+                                              else memory_kind(item))
+            if not attested and any(tag.startswith("kind:") for tag in item.tags):
+                reduced["memory_kind"] = memory_kind(item)
+                reduced["authority"] = "evidence_only"
             if getattr(item, "message_id", None):
                 reduced["message_id"] = item.message_id
             if getattr(item, "reply_to_id", None):

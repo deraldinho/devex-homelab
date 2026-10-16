@@ -14,6 +14,8 @@ from .episodic_model import (
     SegmentStatus,
 )
 from .memory_model import MemoryLayer, MemoryRecord
+from .memory_coherence_gate import same_evidence_claim
+from .memory_ingress import IngressError, MemoryAttestation, OperatorInstruction
 
 
 class MemoryStoreError(RuntimeError):
@@ -78,6 +80,31 @@ class MemoryStore:
             self._ensure_v3_schema()
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_mem_layer_entity ON memories(layer, entity_id)")
         self._db.execute("CREATE INDEX IF NOT EXISTS idx_mem_dedupe ON memories(dedupe_key)")
+        # CP-MEM-P1: signed ingress attestations (additive, never cognitive
+        # MemoryRecord entries) and separately stored operator instructions.
+        self._db.execute("""
+            CREATE TABLE IF NOT EXISTS memory_attestations (
+                subject_id TEXT PRIMARY KEY,
+                schema_version INTEGER NOT NULL CHECK(schema_version=1),
+                ingress TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                content_sha256 TEXT NOT NULL,
+                issued_at TEXT NOT NULL,
+                nonce TEXT NOT NULL,
+                signature TEXT NOT NULL
+            )
+        """)
+        self._db.execute("""
+            CREATE TABLE IF NOT EXISTS operator_instructions (
+                instruction_id TEXT PRIMARY KEY,
+                schema_version INTEGER NOT NULL CHECK(schema_version=1),
+                operator_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                approved_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                signature TEXT NOT NULL
+            )
+        """)
         self._db.commit()
 
     def _migrate_v1_to_v2(self) -> None:
@@ -257,6 +284,7 @@ class MemoryStore:
 
     def delete(self, memory_id: str) -> bool:
         cursor = self._db.execute("DELETE FROM memories WHERE memory_id=?", (memory_id,))
+        self._db.execute("DELETE FROM memory_attestations WHERE subject_id=?", (memory_id,))
         self._db.commit()
         return cursor.rowcount > 0
 
@@ -267,6 +295,8 @@ class MemoryStore:
                 for memory_id in remove_ids:
                     if memory_id != keeper.memory_id:
                         self._db.execute("DELETE FROM memories WHERE memory_id=?", (memory_id,))
+                        self._db.execute(
+                            "DELETE FROM memory_attestations WHERE subject_id=?", (memory_id,))
         except sqlite3.Error as exc:
             raise MemoryStoreError(str(exc)) from exc
 
@@ -377,6 +407,20 @@ class MemoryStore:
         ).fetchone()
         return self._memory_row(row) if row else None
 
+    def find_matching_claim(self, record: MemoryRecord) -> MemoryRecord | None:
+        """Match actual source/content/type, never dedupe_key alone."""
+        if not record.dedupe_key:
+            return None
+        rows = self._db.execute(
+            "SELECT * FROM memories WHERE dedupe_key=? ORDER BY created_at,memory_id",
+            (record.dedupe_key,),
+        ).fetchall()
+        for row in rows:
+            existing = self._memory_row(row)
+            if same_evidence_claim(existing, record):
+                return existing
+        return None
+
     def persist_consolidated(self, segment_id: str, record: MemoryRecord,
                              provenance: MemoryProvenance) -> bool:
         try:
@@ -390,7 +434,7 @@ class MemoryStore:
                     return False
                 if row[0] != SegmentStatus.CLOSED.value:
                     raise MemoryStoreError("segmento nao esta CLOSED")
-                existing = self.find_by_dedupe_key(record.dedupe_key)
+                existing = self.find_matching_claim(record)
                 if existing is None:
                     self._write_memory(record)
                     memory_id = record.memory_id
@@ -398,11 +442,11 @@ class MemoryStore:
                     merged = replace(
                         existing,
                         frequency=existing.frequency + record.frequency,
-                        importance=max(existing.importance, record.importance),
-                        confidence=max(existing.confidence, record.confidence),
-                        criticality=max(existing.criticality, record.criticality),
-                        pinned=existing.pinned or record.pinned,
-                        protected=existing.protected or record.protected,
+                        importance=min(existing.importance, record.importance),
+                        confidence=min(existing.confidence, record.confidence),
+                        criticality=min(existing.criticality, record.criticality),
+                        pinned=existing.pinned,
+                        protected=existing.protected,
                     )
                     self._db.execute(
                         "UPDATE memories SET frequency=?,importance=?,confidence=?,criticality=?,pinned=?,protected=? WHERE memory_id=?",
@@ -489,6 +533,115 @@ class MemoryStore:
             if rec and rec not in results:
                 results.append(rec)
         return tuple(results)
+
+    def save_attestation(self, attestation: MemoryAttestation) -> bool:
+        """Persist a signed ingress attestation, keyed by its subject memory.
+
+        True means inserted. Exact replay is False; conflicting replay raises.
+        Signature verification belongs to the trusted ingress, not the store.
+        """
+        if not isinstance(attestation, MemoryAttestation):
+            raise MemoryStoreError("attestation_invalid")
+        value = (
+            attestation.subject_id, attestation.schema_version, attestation.ingress,
+            attestation.kind, attestation.content_sha256, attestation.issued_at,
+            attestation.nonce, attestation.signature,
+        )
+        try:
+            with self._db:
+                cursor = self._db.execute(
+                    """INSERT OR IGNORE INTO memory_attestations
+                    (subject_id,schema_version,ingress,kind,content_sha256,issued_at,nonce,signature)
+                    VALUES (?,?,?,?,?,?,?,?)""", value)
+                if cursor.rowcount:
+                    return True
+                existing = self._db.execute(
+                    """SELECT subject_id,schema_version,ingress,kind,content_sha256,issued_at,nonce,signature
+                    FROM memory_attestations WHERE subject_id=?""",
+                    (attestation.subject_id,),
+                ).fetchone()
+                if tuple(existing or ()) != value:
+                    raise MemoryStoreError("attestation_conflicting_replay")
+                return False
+        except sqlite3.Error as exc:
+            raise MemoryStoreError("attestation_store_unavailable") from exc
+
+    def get_attestation(self, memory_id: str) -> MemoryAttestation | None:
+        """Load a stored attestation. A corrupt row is treated as absent."""
+        if not isinstance(memory_id, str) or not memory_id:
+            return None
+        row = self._db.execute(
+            """SELECT schema_version,ingress,subject_id,kind,content_sha256,issued_at,nonce,signature
+            FROM memory_attestations WHERE subject_id=?""", (memory_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            return MemoryAttestation(
+                schema_version=row[0], ingress=row[1], subject_id=row[2], kind=row[3],
+                content_sha256=row[4], issued_at=row[5], nonce=row[6], signature=row[7],
+            )
+        except (IngressError, ValueError):
+            return None
+
+    def save_operator_instruction(self, instruction: OperatorInstruction) -> bool:
+        """Persist an operator-approved instruction in its own, non-cognitive table.
+
+        The caller (OperatorAuthority) is responsible for verifying the signed
+        approval before reaching this method. Exact replay is False; conflicting
+        replay raises.
+        """
+        if not isinstance(instruction, OperatorInstruction):
+            raise MemoryStoreError("operator_instruction_invalid")
+        value = (
+            instruction.instruction_id, instruction.schema_version, instruction.operator_id,
+            instruction.content, instruction.approved_at, instruction.created_at,
+            instruction.signature,
+        )
+        try:
+            with self._db:
+                cursor = self._db.execute(
+                    """INSERT OR IGNORE INTO operator_instructions
+                    (instruction_id,schema_version,operator_id,content,approved_at,created_at,signature)
+                    VALUES (?,?,?,?,?,?,?)""", value)
+                if cursor.rowcount:
+                    return True
+                existing = self._db.execute(
+                    """SELECT instruction_id,schema_version,operator_id,content,approved_at,created_at,signature
+                    FROM operator_instructions WHERE instruction_id=?""",
+                    (instruction.instruction_id,),
+                ).fetchone()
+                if tuple(existing or ()) != value:
+                    raise MemoryStoreError("operator_instruction_conflicting_replay")
+                return False
+        except sqlite3.Error as exc:
+            raise MemoryStoreError("operator_instruction_store_unavailable") from exc
+
+    def get_operator_instruction(self, instruction_id: str) -> OperatorInstruction | None:
+        if not isinstance(instruction_id, str) or not instruction_id:
+            return None
+        row = self._db.execute(
+            """SELECT schema_version,instruction_id,operator_id,content,approved_at,created_at,signature
+            FROM operator_instructions WHERE instruction_id=?""", (instruction_id,),
+        ).fetchone()
+        return self._instruction_row(row) if row else None
+
+    def list_operator_instructions(self, limit: int = 100) -> tuple[OperatorInstruction, ...]:
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("operator_instruction_limit_invalid")
+        rows = self._db.execute(
+            """SELECT schema_version,instruction_id,operator_id,content,approved_at,created_at,signature
+            FROM operator_instructions ORDER BY approved_at DESC,instruction_id LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        return tuple(self._instruction_row(row) for row in rows)
+
+    @staticmethod
+    def _instruction_row(row) -> OperatorInstruction:
+        return OperatorInstruction(
+            schema_version=row[0], instruction_id=row[1], operator_id=row[2],
+            content=row[3], approved_at=row[4], created_at=row[5], signature=row[6],
+        )
 
     def close(self) -> None:
         self._db.close()

@@ -6,6 +6,7 @@ from enum import Enum
 
 from .episodic_model import EpisodicSegment, MemoryProvenance
 from .memory_model import MemoryLayer, MemoryRecord
+from .memory_coherence_gate import review_promotion, same_evidence_claim
 from .memory_store import MemoryStore
 
 
@@ -53,9 +54,10 @@ class MemoryMaintenanceResult:
 
 
 class MemoryManager:
-    def __init__(self, store: MemoryStore, policy: MemoryPolicy):
+    def __init__(self, store: MemoryStore, policy: MemoryPolicy, *, ingress=None):
         self._store = store
         self._policy = policy
+        self._ingress = ingress
 
     def pressure_ratio(self) -> float:
         return max(
@@ -63,18 +65,20 @@ class MemoryManager:
             self._store.size_bytes() / self._policy.max_bytes,
         )
 
-    def remember(self, record: MemoryRecord, now: str) -> bool:
+    def remember(self, record: MemoryRecord, now: str, *, attestation=None) -> bool:
         if record.dedupe_key:
             for existing in self._store.list(limit=max(100, self._policy.max_records * 2)):
-                if existing.dedupe_key == record.dedupe_key:
+                if same_evidence_claim(existing, record):
                     merged = replace(
                         existing,
                         frequency=existing.frequency + record.frequency,
-                        importance=max(existing.importance, record.importance),
-                        confidence=max(existing.confidence, record.confidence),
-                        criticality=max(existing.criticality, record.criticality),
-                        pinned=existing.pinned or record.pinned,
-                        protected=existing.protected or record.protected,
+                        # Recurrence can raise frequency, never confidence or
+                        # protection, without an independent evidence verifier.
+                        importance=min(existing.importance, record.importance),
+                        confidence=min(existing.confidence, record.confidence),
+                        criticality=min(existing.criticality, record.criticality),
+                        pinned=existing.pinned,
+                        protected=existing.protected,
                     )
                     self._store.save(merged)
                     return True
@@ -82,13 +86,15 @@ class MemoryManager:
         if current is MemoryPressure.FULL and not (record.protected or record.pinned):
             return False
         self._store.save(record)
+        if attestation is not None:
+            self._store.save_attestation(attestation)
         return True
 
     def remember_consolidated(self, segment: EpisodicSegment, record: MemoryRecord,
                               provenance: MemoryProvenance, now: str) -> bool:
         if segment.segment_id != provenance.segment_id:
             raise ValueError("provenance nao corresponde ao segmento")
-        existing = self._store.find_by_dedupe_key(record.dedupe_key)
+        existing = self._store.find_matching_claim(record)
         current = self._policy.classify(self.pressure_ratio())
         if current is MemoryPressure.FULL and existing is None and not (record.protected or record.pinned):
             return False
@@ -136,12 +142,16 @@ class MemoryManager:
         return removed
 
     def _consolidate_duplicates(self) -> int:
-        groups: dict[str, list[MemoryRecord]] = {}
+        groups: dict[tuple, list[MemoryRecord]] = {}
         for item in self._store.list(limit=max(100, self._policy.max_records * 2)):
-            key = item.dedupe_key
-            if not key:
+            if not item.dedupe_key:
                 continue
-            groups.setdefault(key, []).append(item)
+            # A dedupe key is caller-supplied: never aggregate confidence
+            # between unrelated content, origins, tags or semantic layers.
+            identity = (item.dedupe_key, item.origin, item.content,
+                        item.entity_id, item.layer, item.tags,
+                        item.pinned, item.protected)
+            groups.setdefault(identity, []).append(item)
         consolidated = 0
         for items in groups.values():
             if len(items) < 2:
@@ -150,11 +160,13 @@ class MemoryManager:
             merged = replace(
                 keeper,
                 frequency=sum(item.frequency for item in items),
-                importance=max(item.importance for item in items),
-                confidence=max(item.confidence for item in items),
-                criticality=max(item.criticality for item in items),
-                pinned=any(item.pinned for item in items),
-                protected=any(item.protected for item in items),
+                # No participant may use a shared dedupe key to increase
+                # the group's authority, certainty or retention protection.
+                importance=min(item.importance for item in items),
+                confidence=min(item.confidence for item in items),
+                criticality=min(item.criticality for item in items),
+                pinned=keeper.pinned,
+                protected=keeper.protected,
             )
             self._store.consolidate(merged, tuple(item.memory_id for item in items[1:]))
             consolidated += len(items) - 1
@@ -163,7 +175,15 @@ class MemoryManager:
     def _promote_recurrent(self) -> tuple[str, ...]:
         promoted: list[str] = []
         for item in self._store.list(limit=max(100, self._policy.max_records * 2)):
-            if item.layer is MemoryLayer.EPISODIC and item.dedupe_key and item.frequency >= 3 and item.confidence >= 0.7:
+            if not (item.layer is MemoryLayer.EPISODIC and item.dedupe_key
+                    and item.frequency >= 3 and item.confidence >= 0.7):
+                continue
+            verdict = None
+            if self._ingress is not None:
+                attestation = self._store.get_attestation(item.memory_id)
+                if attestation is not None:
+                    verdict = self._ingress.verify(item, attestation)
+            if review_promotion(item, verdict=verdict).allowed:
                 self._store.save(replace(item, layer=MemoryLayer.SEMANTIC))
                 promoted.append(item.memory_id)
         return tuple(promoted)
