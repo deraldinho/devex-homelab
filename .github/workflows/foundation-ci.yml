@@ -291,6 +291,7 @@ jobs:
               "$atlas/memory_model.py" \
               "$atlas/memory_ingress.py" \
               "$atlas/memory_coherence_gate.py" \
+              "$atlas/memory_action_gate.py" \
               "$atlas/memory_store.py" \
               "$atlas/memory_manager.py" \
               "$atlas/memory_retriever.py" \
