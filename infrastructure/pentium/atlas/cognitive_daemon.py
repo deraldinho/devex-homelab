@@ -42,6 +42,7 @@ from .config_hermes import load_hermes_config
 from .configuracao_cognitiva import carregar_configuracao_cognitiva
 from .contexto_cognitivo import ContextoCognitivoBuilder
 from .cognitive_observation_projection import load_cognitive_observation_snapshot
+from .operational_graph_llm_context import graph_context_for_llm
 from .human_context import HumanContextProvider
 from .human_interaction import build_human_stimulus
 from .chat_inbox import ChatInbox
@@ -154,13 +155,14 @@ class CognitiveResultPublisher:
 
 
 class CognitiveDaemon:
-    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None,chat_inbox=None,notification_policy=None,behavior_selector=None,intent_machine=None,habituation_engine=None,intent_publisher=None,cognitive_router=None,self_work_runtime=None):
+    def __init__(self,snapshot_loader,context_provider,loop,publisher,*,reflection_interval_s:float=300.0,clock=time.monotonic,visual_state_sink=None,planner=None,action_policy=None,action_executor=None,action_store=None,event_sink=None,chat_inbox=None,notification_policy=None,behavior_selector=None,intent_machine=None,habituation_engine=None,intent_publisher=None,cognitive_router=None,self_work_runtime=None,graph_context_loader=None):
         if reflection_interval_s<=0: raise ValueError("reflection_interval_s must be > 0")
         self._snapshot_loader=snapshot_loader;self._context_provider=context_provider;self._loop=loop;self._publisher=publisher
         self._reflection_interval_s=float(reflection_interval_s);self._clock=clock;self._last_id=None;self._last_at=None;self._last_affective=None;self._visual_state_sink=visual_state_sink
         self._planner=planner;self._action_policy=action_policy;self._action_executor=action_executor;self._action_store=action_store;self._event_sink=event_sink;self._chat_inbox=chat_inbox;self._notification_policy=notification_policy
         self._behavior_selector=behavior_selector;self._intent_machine=intent_machine;self._habituation_engine=habituation_engine;self._intent_publisher=intent_publisher
         self._cognitive_router=cognitive_router;self._self_work_runtime=self_work_runtime
+        self._graph_context_loader=graph_context_loader
         self._dialogue_history = {}
     def _delta(self,current):
         keys=("valencia","ativacao","estresse","confianca","engajamento","curiosidade")
@@ -280,6 +282,14 @@ class CognitiveDaemon:
             self._publisher.publish_phase(snapshot,state="ANALISANDO",activity="avaliando_estimulo")
         try:
             context=dict(self._context_provider()); signals=self._signals(snapshot,reflection=reflection)
+            # Guarded historical metrics are observational context, never commands.
+            if self._graph_context_loader is not None:
+                try:
+                    graph_data=self._graph_context_loader()
+                    if graph_data:
+                        context['grafo_conhecimento']=tuple(graph_data)[:4]
+                except (OSError,ValueError,TypeError) as exc:
+                    self._emit_action_event('graph_context_unavailable',{'error':type(exc).__name__})
             if envelope is not None:
                 user_payload={"message_id":envelope.message_id,"stimulus_id":envelope.stimulus_id,"role":"user","message":envelope.message}
                 user_payload.update(chat_route or {})
@@ -496,7 +506,8 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR,inference_backe
     action_executor=ActionExecutorRegistry(visual_getter=lambda:read_visual_state(visual_state_path),visual_writer=visual_publisher.publicar,capability_sink=dispatcher,event_sink=action_events.publish)
     chat_inbox=ChatInbox(state_dir/"chat-inbox.json",max_items=32,max_message_chars=512);notification_policy=load_notification_policy(config_root)
     behavior_selector=BehaviorSelector();intent_machine=ContinuousIntentMachine(ttl_s=300.0,activation_threshold=.5);habituation_engine=HabituationEngine(max_entries=64,ttl_s=300.0);intent_publisher=ContinuousIntentPublisher(state_dir/"continuous-intent.json")
-    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox,notification_policy=notification_policy,behavior_selector=behavior_selector,intent_machine=intent_machine,habituation_engine=habituation_engine,intent_publisher=intent_publisher,cognitive_router=router,self_work_runtime=self_work)
+    daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox,notification_policy=notification_policy,behavior_selector=behavior_selector,intent_machine=intent_machine,habituation_engine=habituation_engine,intent_publisher=intent_publisher,cognitive_router=router,self_work_runtime=self_work,
+        graph_context_loader=lambda:graph_context_for_llm(state_dir/'operational-affective-graph.json'))
     health=WorkspaceEconomyPublisher(state_dir/"workspace-economy-health.json")
     deps={"broker":workspace_broker,"governor":governor,"router":router,"self_work":self_work,"expected_sha":expected_sha}
     return CognitiveRuntimeOwner(daemon,memory_store,health_publisher=health,health_dependencies=deps,closeables=tuple(

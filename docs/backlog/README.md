@@ -14,7 +14,7 @@ Este backlog reconstrói o trabalho já realizado no homelab e separa as próxim
 | #8 | `core-devex-homelab` | runner e CI do próprio HomeLab | Concluído |
 | #9 | `core-l2jtoren` | migração segura do runner L2jToren | Concluído |
 | #10 | Observability / Drift | desired × observed state (`drift_detector.py`) | Concluído |
-| #11 | Backup / DR | backup idempotente Restic + GitHub Releases vault | Concluído |
+| #11 | Backup / DR | backup idempotente Restic + GitHub Releases vault | Bloqueado — local apenas; API GitHub Issue privada retornou 404; restauração real não certificada |
 | #12 | Security | hardening, no-new-privileges e isolamento | Concluído |
 | #13 | Capacity | budgets cgroups e concorrência do Core | Concluído |
 | #14 | x99 Docker Simulation | topologia lógica `sim-core` + `sim-pentium` | Concluído |

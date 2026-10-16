@@ -11,9 +11,11 @@ A documentação é organizada por responsabilidade e funciona como parte da fon
 5. [Foundation CI Bootstrap](implementation/2026-09-02-foundation-ci-bootstrap.md) — gate transitório antes do runner físico.
 6. [UML — Deployment e entrega](uml/deployment.md) — deployment e sequência de promoção.
 7. [Políticas de governança](governance/policies.md) — branches, PRs, checkpoints, segurança e emergência.
-8. [As-built baseline](as-built/2026-09-02-baseline.md), [As-built de estabilização](as-built/2026-09-19-homelab-stabilization.md) e [As-built Atlas 3.0](as-built/2026-09-20-atlas-3-0-affective-consciousness-l2j.md) — estado físico comprovado nos equipamentos.
-9. [Runbook L2jToren](runbooks/l2jtoren-observability-operations.md) e [Runbook Discord/GitHub](runbooks/atlas-multisource-github-discord.md) — procedimentos operacionais.
-10. [Release Notes v0.2.0](releases/v0.2.0.md) — notas de versão estável.
+8. [Atlas Checkpoints](status/atlas-checkpoints.md) — canonical table CP-DR11/DR12/DR13, CP-H12, CP-AA0/1/2/3/4/5/6, AA7, health, voice, memory graph v2 and persistent goals planned
+
+9. [As-built baseline](as-built/2026-09-02-baseline.md), [As-built de estabilização](as-built/2026-09-19-homelab-stabilization.md) e [As-built Atlas 3.0](as-built/2026-09-20-atlas-3-0-affective-consciousness-l2j.md) — estado físico comprovado nos equipamentos.
+10. [Runbook L2jToren](runbooks/l2jtoren-observability-operations.md) e [Runbook Discord/GitHub](runbooks/atlas-multisource-github-discord.md) — procedimentos operacionais.
+11. [Release Notes v0.2.0](releases/v0.2.0.md) — notas de versão estável.
 
 ## Slice #14 — Simulação Docker da x99
 
