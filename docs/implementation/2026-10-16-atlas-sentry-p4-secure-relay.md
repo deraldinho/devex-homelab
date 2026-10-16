@@ -148,6 +148,10 @@ de serviço distintas em produção, que permanece PENDING.
 
 ### Verificação no x99
 
+- Canary reproduzível do x99, sem modificar serviços de produção:
+  `powershell -NoProfile -ExecutionPolicy Bypass -File tools/atlas_sentry_p4_linux_canary.ps1 -Cleanup`.
+  A opção Cleanup remove exclusivamente o diretório temporário criado
+  nessa invocação. O teste exige SSH BatchMode previamente autenticado.
 - Testes P4 focados: 28 testes, 3 skips de SO_PEERCRED/symlink
   no Windows; o canary Linux executa esses casos sem skips.
 - O relay publica somente contadores técnicos de recebimento/negação,
