@@ -112,6 +112,7 @@ class HealthSupervisorOwner:
         poll_interval_s: float,
         now=lambda: datetime.now(timezone.utc),
         sleeper=time.sleep,
+        failure_memory=None,
     ):
         self.supervisor = supervisor
         self.publisher = publisher
@@ -121,6 +122,9 @@ class HealthSupervisorOwner:
             raise ValueError("poll_interval_s must be > 0")
         self.now = now
         self.sleeper = sleeper
+        # Opt-in observer only. No model/tool dispatch or automatic learning.
+        self.failure_memory = failure_memory
+        self.last_failure_memory_error: str | None = None
 
     def _instant(self) -> datetime:
         value = self.now()
@@ -194,6 +198,14 @@ class HealthSupervisorOwner:
 
         snapshot = self.supervisor.evaluate(tuple(components), now.isoformat())
         self.publisher.publish(snapshot)
+        if self.failure_memory is not None:
+            try:
+                self.failure_memory.observe_snapshot(snapshot)
+                self.last_failure_memory_error = None
+            except Exception as exc:
+                # Isolate the advisory store; preserve the core health report.
+                # Do not emit incident descriptions/credentials to process logs.
+                self.last_failure_memory_error = type(exc).__name__
         return snapshot
 
 

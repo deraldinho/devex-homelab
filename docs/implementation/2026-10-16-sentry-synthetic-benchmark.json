@@ -1,0 +1,32 @@
+{
+  "arms": {
+    "all": {
+      "context_bytes": 166400,
+      "estimated_tokens_upper_4bytes": 41600,
+      "failures_with_advice": 60,
+      "false_exposures_healthy": 140,
+      "retrieval_latency_p95_ms": 0.0013
+    },
+    "conditional": {
+      "context_bytes": 14994,
+      "estimated_tokens_upper_4bytes": 3749,
+      "failures_with_advice": 60,
+      "false_exposures_healthy": 0,
+      "retrieval_latency_p95_ms": 0.3181
+    },
+    "none": {
+      "context_bytes": 0,
+      "estimated_tokens_upper_4bytes": 0,
+      "failures_with_advice": 0,
+      "false_exposures_healthy": 0,
+      "retrieval_latency_p95_ms": 0.0014
+    }
+  },
+  "benchmark": "atlas_sentry_isolated_synthetic",
+  "events": 200,
+  "fault_rate_requested": 0.3,
+  "faults_injected": 60,
+  "lessons_verified_seeded": 4,
+  "scope": "memory_context_exposure_only; no LLM inference or repairs",
+  "seed": 261016
+}
