@@ -46,6 +46,7 @@ from .human_context import HumanContextProvider
 from .human_interaction import build_human_stimulus
 from .chat_inbox import ChatInbox
 from .hermes_adapter import HermesAdapter
+from .sentry_inference_bridge import create_sentry_inference_backend
 from .llm_gateway import LLMGateway
 from .memory_retriever import MemoryRetriever
 from .memory_store import MemoryStore
@@ -408,6 +409,12 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR,inference_backe
     backend=HermesAdapter(hermes) if inference_backend_factory is None else inference_backend_factory(hermes)
     if not callable(getattr(backend, 'inferir', None)):
         raise TypeError('inference backend must implement inferir')
+    # Opt-in: only typed Hermes outcomes enter isolated FailureMemory.
+    # Disabled by default; never changes provider selection or authorization.
+    backend, sentry_store = create_sentry_inference_backend(
+        backend, state_dir/"failure-memory.sqlite3",
+        max_payload_bytes=cognitive.contexto.max_payload_bytes,
+    )
     gateway=LLMGateway(backend,max_payload_bytes=cognitive.contexto.max_payload_bytes,max_tokens_contexto=hermes.max_context_tokens,reasoning_policy=ReasoningPolicy(),token_recorder=lambda total:governor.record(total,category="llm"))
     memory_cfg=load_memory_config(config_root/"config_memory.json");memory_store=MemoryStore(state_dir/"memory.sqlite3");retriever=MemoryRetriever(memory_store,max_items=memory_cfg.retriever_max_items,max_bytes=memory_cfg.retriever_max_bytes)
     workspace_root=AGENT_ROOT/"atlas-workspace"
@@ -470,7 +477,10 @@ def build_owner(*,config_root:Path=ROOT,state_dir:Path=STATE_DIR,inference_backe
     daemon=CognitiveDaemon(lambda:load_cognitive_observation_snapshot(snapshot_path),provider,loop,observable,visual_state_sink=visual_sink,planner=action_planner,action_policy=action_policy,action_executor=action_executor,action_store=action_store,event_sink=action_events.publish,chat_inbox=chat_inbox,notification_policy=notification_policy,behavior_selector=behavior_selector,intent_machine=intent_machine,habituation_engine=habituation_engine,intent_publisher=intent_publisher,cognitive_router=router,self_work_runtime=self_work)
     health=WorkspaceEconomyPublisher(state_dir/"workspace-economy-health.json")
     deps={"broker":workspace_broker,"governor":governor,"router":router,"self_work":self_work,"expected_sha":expected_sha}
-    return CognitiveRuntimeOwner(daemon,memory_store,health_publisher=health,health_dependencies=deps,closeables=(workspace_index,workspace_cache))
+    return CognitiveRuntimeOwner(daemon,memory_store,health_publisher=health,health_dependencies=deps,closeables=tuple(
+        item for item in (workspace_index,workspace_cache,sentry_store)
+        if item is not None
+    ))
 
 def main()->int:
     owner=build_owner();stop=False

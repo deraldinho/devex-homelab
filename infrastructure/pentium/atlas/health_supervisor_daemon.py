@@ -126,6 +126,10 @@ class HealthSupervisorOwner:
         self.failure_memory = failure_memory
         self.last_failure_memory_error: str | None = None
 
+    def close(self) -> None:
+        if self.failure_memory is not None:
+            self.failure_memory.close()
+
     def _instant(self) -> datetime:
         value = self.now()
         if value.tzinfo is None or value.utcoffset() is None:
@@ -296,11 +300,19 @@ def build_owner(
         state_dir / "health-supervisor.json",
         state_dir / "health-events.jsonl",
     )
+    # Explicitly opt-in to a shared, SQLite WAL, read-only advisory observer.
+    # Without the trusted service environment variable, the existing health
+    # supervision remains unchanged and creates no extra database.
+    failure_memory = None
+    if os.environ.get("ATLAS_SENTRY_HEALTH_SHADOW") == "1":
+        from .failure_memory import FailureMemory
+        failure_memory = FailureMemory(state_dir / "failure-memory.sqlite3")
     return HealthSupervisorOwner(
         AtlasHealthSupervisor(),
         publisher,
         tuple(bundles),
         poll_interval_s=config["poll_interval_s"],
+        failure_memory=failure_memory,
     )
 
 
@@ -320,12 +332,15 @@ def main() -> int:
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGINT, request_stop)
     print("ATLAS_HEALTH_SUPERVISOR_READY", flush=True)
-    while not stop:
-        try:
-            owner.run_once()
-        except Exception as exc:
-            print(f"ATLAS_HEALTH_SUPERVISOR_DEGRADED type={type(exc).__name__}", flush=True)
-        owner.sleeper(owner.poll_interval_s)
+    try:
+        while not stop:
+            try:
+                owner.run_once()
+            except Exception as exc:
+                print(f"ATLAS_HEALTH_SUPERVISOR_DEGRADED type={type(exc).__name__}", flush=True)
+            owner.sleeper(owner.poll_interval_s)
+    finally:
+        owner.close()
     return 0
 
 
