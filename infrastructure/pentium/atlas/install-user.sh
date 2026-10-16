@@ -46,6 +46,8 @@ for file in \
   multi_host_executor.py \
   recovery_controller.py \
   health_supervisor_daemon.py \
+  failure_memory.py \
+  sentry_inference_bridge.py \
   reaction_engine.py \
   journal.py \
   stimulus_model.py \
@@ -262,6 +264,8 @@ python3 -m py_compile \
   "${TARGET_DIR}/multi_host_executor.py" \
   "${TARGET_DIR}/recovery_controller.py" \
   "${TARGET_DIR}/health_supervisor_daemon.py" \
+  "${TARGET_DIR}/failure_memory.py" \
+  "${TARGET_DIR}/sentry_inference_bridge.py" \
   "${TARGET_DIR}/reaction_engine.py" \
   "${TARGET_DIR}/journal.py" \
   "${TARGET_DIR}/stimulus_model.py" \
