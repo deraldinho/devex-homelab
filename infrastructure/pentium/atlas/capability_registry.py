@@ -76,6 +76,7 @@ def atlas_capability_registry() -> CapabilityRegistry:
         CapabilitySpec("git_get_status", "READ", ("project",), tipos_parametros=(("project", "str"),)),
         CapabilitySpec("git_recent_commits", "READ", ("project", "count"), tipos_parametros=(("project", "str"), ("count", "int"))),
         CapabilitySpec("task_status", "READ", ()),
+        CapabilitySpec("task_specialist_review", "READ", ("project", "objective", "specialist"), tipos_parametros=(("project", "str"), ("objective", "str"), ("specialist", "str"))),
         CapabilitySpec("task_create", "CONTROL", ("objective", "area"), tipos_parametros=(("objective", "str"), ("area", "str"))),
         CapabilitySpec("task_complete", "CONTROL", ("reason",), tipos_parametros=(("reason", "str"),)),
         CapabilitySpec("task_abandon", "CONTROL", ("reason",), tipos_parametros=(("reason", "str"),)),

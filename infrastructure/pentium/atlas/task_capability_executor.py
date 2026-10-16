@@ -11,12 +11,89 @@ def _utc_now() -> str:
 
 
 class TaskCapabilityExecutor:
-    def __init__(self, runtime: SelfWorkRuntime):
+    def __init__(self, runtime: SelfWorkRuntime, *, specialist_gateway=None,
+                 specialist_candidate_provider=None):
         self.runtime = runtime
+        self.specialist_gateway = specialist_gateway
+        # Injected trusted metadata source only. Never load candidates from
+        # capability params or infer a global / on-disk Hermes catalog.
+        self.specialist_candidate_provider = specialist_candidate_provider
 
     def __call__(self, capability: str, params: Optional[Dict[str, Any]] = None, plan: Any = None, action: Any = None) -> Dict[str, Any]:
         params = params or {}
         now = _utc_now()
+
+        if capability == "task_specialist_review":
+            if self.specialist_gateway is None:
+                return {"status": "ERROR", "error": "agency_disabled"}
+            if self.runtime.current is None:
+                return {"status": "ERROR", "error": "no_active_task"}
+            from .agency_specialists import AgencyRequest
+            requested_specialist = str(params.get("specialist") or "")
+            selected = (requested_specialist,)
+
+            # Explicit opt-in only. A trusted source provides bounded candidate
+            # metadata; this selector never grants capability permissions.
+            if requested_specialist == "auto":
+                current = self.runtime.current
+                if current.state != SelfWorkState.WORKING:
+                    return {"status": "ERROR", "error": "agency_task_not_working"}
+                config = getattr(self.specialist_gateway, "config", None)
+                if getattr(config, "enabled", None) is not True:
+                    return {"status": "ERROR", "error": "agency_disabled"}
+                project = params.get("project")
+                objective = params.get("objective")
+                if not isinstance(project, str) or not isinstance(objective, str):
+                    return {"status": "ERROR", "error": "agency_invalid_request"}
+                try:
+                    # Apply the canonical request size/type constraints before
+                    # consulting even a trusted external metadata provider.
+                    AgencyRequest(
+                        task_id=current.item_id, project=project,
+                        objective=objective, specialists=(),
+                    )
+                    expiry = datetime.fromisoformat(current.valid_until)
+                    if expiry.tzinfo is None or datetime.now(timezone.utc) > expiry:
+                        return {"status": "ERROR", "error": "agency_task_expired"}
+                except (ValueError, TypeError):
+                    return {"status": "ERROR", "error": "agency_invalid_request"}
+                if project not in getattr(config, "projects", ()):
+                    return {"status": "ERROR", "error": "agency_project_not_allowlisted"}
+                budget = getattr(config, "max_agents", None)
+                if type(budget) is not int or not 1 <= budget <= 2:
+                    return {"status": "ERROR", "error": "agency_disabled"}
+                if not callable(self.specialist_candidate_provider):
+                    return {"status": "ERROR", "error": "agency_selection_unavailable"}
+                try:
+                    from .agency_specialist_selector import select_specialists
+                    candidates = self.specialist_candidate_provider(project, objective)
+                    selected = select_specialists(
+                        project, objective, candidates, max_agents=budget,
+                    )
+                except Exception:
+                    # No provider errors or untrusted candidate content in results.
+                    return {"status": "ERROR", "error": "agency_selection_invalid"}
+                if not selected:
+                    return {"status": "ERROR", "error": "agency_no_specialists"}
+
+            try:
+                request = AgencyRequest(
+                    task_id=self.runtime.current.item_id,
+                    project=str(params.get("project") or ""),
+                    objective=str(params.get("objective") or ""),
+                    specialists=selected,
+                )
+            except ValueError:
+                return {"status": "ERROR", "error": "agency_invalid_request"}
+            report = self.specialist_gateway.execute(request)
+            return {
+                "status": report.status, "reason": report.reason,
+                "summary": report.summary, "agent_slugs": list(report.agent_slugs),
+                "evidence_refs": list(report.evidence_refs),
+                "proposed_changes": list(report.proposed_changes),
+                "tests_run": list(report.tests_run),
+                "limitations": list(report.limitations),
+            }
 
         if capability == "task_status":
             current = self.runtime.current
