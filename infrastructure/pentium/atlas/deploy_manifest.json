@@ -1,0 +1,26 @@
+{
+  "checkpoint": "CP-DEPLOY01",
+  "status": "READY_FOR_REVIEW",
+  "deploy_allowed": false,
+  "modules": {
+    "memory_ingress.py": "fa860add6cc23f4bea9f3bdc545a7a123657438ace86384da2ec09ac34cde69e",
+    "memory_coherence_gate.py": "6fdf30d9a42fc3ba8107b0cbd2f24ee40012c98adf65d3a3eef52c5a95a860ba",
+    "memory_action_gate.py": "a5fe1aa84b8fbc2bf73b289f4c055297663689d7ce87354e197348f8dc72b965",
+    "memory_graph_v2_contracts.py": "2219e4f44f440a3372e0861931b98449328f334d8da72fbc3f41dc0ac441d0b9",
+    "conversational_fallback.py": "83c8f2fc36be7a1e775b20f0bb07587ce8c61bb112332a7a9daf170007f690b1",
+    "atlas_natural_narrator.py": "ccbc4f43a0d246eaf36e946d056ceda3fa002a28605bc2da1b23be2550ac56c3",
+    "discord_notification_format.py": "851fb889b3dd735755329e7c753871b0205cba5adbdf870d2b87107fbbcf86da",
+    "operational_graph_llm_context.py": "4284f8433c337fa0da0a3ba1f451349a10a44e323cc5cff4e066c538d2ed8e17",
+    "web_research_policy.py": "5ca988e7d81f464a711ddef32f45fec7fa844abe899bc0592a51f879e0cbcf27",
+    "agency_specialists.py": "6ca317372001f25122b7520b976645dc532bcb7a870a860bb68b3edf67cfb7cd",
+    "agency_specialist_selector.py": "a2e7e6af2fa55a1915116c74a0a484f7f67d1a31d529ac518625cbc7c3df0eaa",
+    "agency_receipt_ledger.py": "f47a30b8daf7acfb8d870e1bced6552efbef999e148486056c7165c501973794",
+    "agency_worker_cli.py": "ceb4c15e9d640dc740338d4eac87278b046018b0eadf19279c7a17e6240c4c85",
+    "sentry_inference_bridge.py": "816aa16500977bdbb596a24a95cf8527e9be7425047cc043b2ebc9a4ebeace25",
+    "failure_memory.py": "455e1f87d3654fc4d04e95ff2d5e350ea73fdf39123e4bcaf9aff31b4201282e",
+    "health_repair_manager.py": "4725323c77e10b66b2b0b6b180259a558eff9cfab443b5b36f6588d78fe6925d",
+    "health_repair_integrator.py": "068bd89973b4b0d7551c37d977577fbb7772c5b32b06c7690430f3003d0623c7",
+    "health_repair_integration.py": "59dbe6317adb31f82160860819f70dc8ef19c2658bd447e5283e1b4f43253ef3"
+  },
+  "total_modules": 18
+}
